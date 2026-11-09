@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useBoard } from '../store/board';
 import type { Priority } from '../types';
 import { PRIORITIES } from '../types';
@@ -11,6 +11,15 @@ export interface TaskDefaults {
   dueDate?: string;
   /** null = cả ngày */
   startTime?: string | null;
+}
+
+/** Mốc giờ 24h cách nhau 15 phút: 00:00 ... 23:45 */
+const QUARTERS = Array.from({ length: 96 }, (_, i) => fromMinutes(i * 15));
+const LAST = '23:59';
+
+/** Thêm giá trị hiện tại vào danh sách nếu nó không nằm đúng mốc 15 phút (dữ liệu cũ) */
+function withValue(list: string[], v: string) {
+  return !v || list.includes(v) ? list : [...list, v].sort();
 }
 
 function nextHour() {
@@ -46,13 +55,23 @@ export function TaskModal({ taskId, defaultColumnId, defaults, onClose, onDelete
   const [timeError, setTimeError] = useState('');
   const changeStart = (v: string) => {
     // Dời giờ kết thúc theo, giữ nguyên thời lượng
-    if (v && startTime && endTime) {
-      const len = Math.max(toMinutes(endTime) - toMinutes(startTime), 15);
-      setEndTime(fromMinutes(toMinutes(v) + len));
-    }
+    const len = Math.max(toMinutes(endTime) - toMinutes(startTime), 15);
+    setEndTime(fromMinutes(Math.max(toMinutes(v) + len, toMinutes(v) + 1)));
     setStartTime(v);
     setTimeError('');
   };
+
+  // Giờ kết thúc chỉ cho chọn sau giờ bắt đầu, kèm thời lượng để dễ nhìn
+  const duration = (from: string, to: string) => {
+    const m = toMinutes(to) - toMinutes(from) + (to === LAST ? 1 : 0);
+    if (m < 60) return t('time.min', { n: m });
+    return t('time.hour', { n: new Intl.NumberFormat(t.locale, { maximumFractionDigits: 2 }).format(m / 60) });
+  };
+  const startOptions = useMemo(() => withValue(QUARTERS, startTime), [startTime]);
+  const endOptions = useMemo(
+    () => withValue([...QUARTERS.filter((x) => x > startTime), LAST], endTime).filter((x) => x > startTime),
+    [startTime, endTime],
+  );
   const [tags, setTags] = useState<string[]>(task?.tags ?? []);
   const [tagDraft, setTagDraft] = useState('');
   const [columnId, setColumnId] = useState(currentColumnId);
@@ -174,20 +193,22 @@ export function TaskModal({ taskId, defaultColumnId, defaults, onClose, onDelete
             </label>
           </div>
           <div className="time-row">
-            <input
+            <select
               id="task-start"
-              type="time"
-              step={900}
               aria-label={t('modal.start')}
               value={startTime}
               disabled={!dueDate || allDay}
               onChange={(e) => changeStart(e.target.value)}
-            />
+            >
+              {startOptions.map((x) => (
+                <option key={x} value={x}>
+                  {x}
+                </option>
+              ))}
+            </select>
             <span className="time-sep" aria-hidden="true">→</span>
-            <input
+            <select
               id="task-end"
-              type="time"
-              step={900}
               aria-label={t('modal.end')}
               value={endTime}
               disabled={!dueDate || allDay}
@@ -195,7 +216,13 @@ export function TaskModal({ taskId, defaultColumnId, defaults, onClose, onDelete
                 setEndTime(e.target.value);
                 setTimeError('');
               }}
-            />
+            >
+              {endOptions.map((x) => (
+                <option key={x} value={x}>
+                  {x} ({duration(startTime, x)})
+                </option>
+              ))}
+            </select>
           </div>
           {!dueDate && <small className="hint">{t('modal.timeNeedsDate')}</small>}
           {timeError && <small className="error">{timeError}</small>}

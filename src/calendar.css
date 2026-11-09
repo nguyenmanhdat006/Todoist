@@ -5,7 +5,8 @@
 .time-allday input { margin: 0; }
 .time-row { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; }
 .time-sep { color: var(--muted); }
-.field input:disabled { opacity: 0.5; cursor: not-allowed; }
+.field input:disabled, .field select:disabled { opacity: 0.5; cursor: not-allowed; }
+.time-row select { font-variant-numeric: tabular-nums; }
 .field input[type='date'], .field input[type='time'] { font-variant-numeric: tabular-nums; }
 
 /* ---------- lịch ---------- */
