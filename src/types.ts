@@ -13,6 +13,8 @@ export interface Task {
   endTime?: string | null;
   tags: string[];
   createdAt: string;
+  /** Lần sửa gần nhất (nội dung hoặc chuyển cột); dùng khi đồng bộ lên server sau này */
+  updatedAt?: string;
   completedAt: string | null;
   /** Hạn chót tại thời điểm app tự chuyển việc vào cột Quá hạn (để không kéo lại nếu người dùng tự chuyển ra) */
   autoOverdueFor?: string | null;

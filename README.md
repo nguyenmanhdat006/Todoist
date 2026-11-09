@@ -26,11 +26,12 @@ Import repo vào Vercel. Vercel tự nhận Vite: build command `npm run build`,
 - Hoàn tác khi xoá việc, xoá cột, nhập dữ liệu.
 - Giao diện sáng và tối.
 - Chuyển ngôn ngữ Tiếng Việt / English (nút VI | EN trên thanh trên cùng). Chuỗi giao diện nằm trong `src/i18n.ts`.
-- Xuất/nhập file JSON để sao lưu.
+- Xuất/nhập file JSON để sao lưu hoặc đưa lên database sau này. Khi nhập, app kiểm tra file và hiện tóm tắt trước khi thay dữ liệu. Định dạng file và gợi ý bảng PostgreSQL: [docs/export-format.md](docs/export-format.md).
 - Phím tắt: `N` thêm việc, `/` tìm kiếm.
 
 ## Cấu trúc
 
+- `src/data/exchange.ts`: tạo file xuất (schemaVersion 2) và kiểm tra/đọc file nhập (kể cả định dạng cũ).
 - `src/store/board.ts`: toàn bộ dữ liệu và thao tác (Zustand + persist, key localStorage `sakura-kanban`, giữ nguyên tên cũ để không mất dữ liệu). Muốn chuyển sang database (ví dụ Neon) thì chỉ cần thay phần này.
 - `src/components/Board.tsx`: logic kéo thả (dnd-kit).
 - `src/styles.css`: màu sắc và theme.

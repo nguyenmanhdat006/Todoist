@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import type { BoardData, BuiltinColumn, CalMode, Reminder, Column, Lang, Priority, SavedFilter, Task, ThemeMode, ViewMode } from '../types';
 import { BUILTIN_COLUMNS, PRESET_TAGS } from '../types';
 import { addDaysISO, todayISO, uid } from '../utils';
+import type { ImportData } from '../data/exchange';
 
 export interface TaskInput {
   title: string;
@@ -12,6 +13,12 @@ export interface TaskInput {
   startTime?: string | null;
   endTime?: string | null;
   tags?: string[];
+}
+
+/** Bản chụp để hoàn tác */
+export interface Snapshot extends BoardData {
+  filters?: SavedFilter[];
+  reminders?: Reminder[];
 }
 
 interface BoardState extends BoardData {
@@ -35,9 +42,10 @@ interface BoardState extends BoardData {
   deleteColumn: (id: string) => void;
   moveColumn: (from: number, to: number) => void;
 
-  snapshot: () => BoardData;
-  restore: (data: BoardData) => void;
-  importData: (raw: unknown) => boolean;
+  snapshot: () => Snapshot;
+  restore: (data: Snapshot) => void;
+  /** Thay toàn bộ cột/việc (và bộ lọc, lời nhắc nếu file có) bằng dữ liệu đã kiểm tra */
+  applyImport: (data: ImportData) => void;
   /** Tick hoàn thành: chuyển sang cột Hoàn thành, bỏ tick: về đầu cột mở đầu tiên */
   toggleDone: (taskId: string) => void;
   /** Chuyển việc quá hạn vào cột Quá hạn; việc đã hết quá hạn thì trả về cột cũ */
@@ -66,6 +74,7 @@ interface BoardState extends BoardData {
 export const REMIND_BEFORE_MS = 60 * 60_000;
 
 function makeTask(input: TaskInput): Task {
+  const now = new Date().toISOString();
   return {
     id: uid('t'),
     title: input.title.trim(),
@@ -75,7 +84,8 @@ function makeTask(input: TaskInput): Task {
     startTime: input.dueDate ? (input.startTime ?? null) : null,
     endTime: input.dueDate && input.startTime ? (input.endTime ?? null) : null,
     tags: input.tags ?? [],
-    createdAt: new Date().toISOString(),
+    createdAt: now,
+    updatedAt: now,
     completedAt: null,
   };
 }
@@ -250,43 +260,6 @@ export function demoData(lang: Lang = detectLang()): BoardData {
   };
 }
 
-/** Kiểm tra và làm sạch dữ liệu nhập từ file JSON */
-function sanitize(raw: unknown): BoardData | null {
-  if (!raw || typeof raw !== 'object') return null;
-  const r = raw as Partial<BoardData> & { state?: BoardData };
-  const src = r.state && Array.isArray(r.state.columns) ? r.state : r;
-  if (!Array.isArray(src.columns) || !src.tasks || typeof src.tasks !== 'object') return null;
-  const tasks: Record<string, Task> = {};
-  for (const [id, v] of Object.entries(src.tasks)) {
-    const x = v as Partial<Task>;
-    if (typeof x?.title !== 'string') continue;
-    tasks[id] = {
-      id,
-      title: x.title,
-      note: typeof x.note === 'string' ? x.note : '',
-      priority: x.priority === 'high' || x.priority === 'low' ? x.priority : 'normal',
-      dueDate: typeof x.dueDate === 'string' ? x.dueDate : null,
-      startTime: typeof x.startTime === 'string' && typeof x.dueDate === 'string' ? x.startTime : null,
-      endTime: typeof x.endTime === 'string' && typeof x.startTime === 'string' ? x.endTime : null,
-      tags: Array.isArray(x.tags) ? x.tags.filter((g): g is string => typeof g === 'string') : [],
-      createdAt: typeof x.createdAt === 'string' ? x.createdAt : new Date().toISOString(),
-      completedAt: typeof x.completedAt === 'string' ? x.completedAt : null,
-    };
-  }
-  const columns: Column[] = src.columns
-    .filter((c): c is Column => !!c && typeof c.id === 'string' && typeof c.title === 'string')
-    .map((c) => ({
-      id: c.id,
-      title: c.title,
-      color: typeof c.color === 'string' ? c.color : '#4f8ff7',
-      isDone: !!c.isDone,
-      taskIds: Array.isArray(c.taskIds) ? c.taskIds.filter((id) => id in tasks) : [],
-      ...(BUILTIN_COLUMNS.includes(c.builtin as BuiltinColumn) ? { builtin: c.builtin } : {}),
-    }));
-  if (columns.length === 0) return null;
-  return { columns, tasks };
-}
-
 export const useBoard = create<BoardState>()(
   persist(
     (set, get) => ({
@@ -315,7 +288,9 @@ export const useBoard = create<BoardState>()(
       },
 
       updateTask: (id, patch) =>
-        set((s) => (s.tasks[id] ? { tasks: { ...s.tasks, [id]: { ...s.tasks[id], ...patch } } } : s)),
+        set((s) =>
+          s.tasks[id] ? { tasks: { ...s.tasks, [id]: { ...s.tasks[id], ...patch, updatedAt: new Date().toISOString() } } } : s,
+        ),
 
       deleteTask: (id) =>
         set((s) => {
@@ -341,9 +316,13 @@ export const useBoard = create<BoardState>()(
             return { ...c, taskIds: [...without.slice(0, idx), taskId, ...without.slice(idx)] };
           });
           const completedAt = target.isDone ? (task.completedAt ?? new Date().toISOString()) : null;
+          const moved = !target.taskIds.includes(taskId);
           return {
             columns,
-            tasks: completedAt === task.completedAt ? s.tasks : { ...s.tasks, [taskId]: { ...task, completedAt } },
+            tasks:
+              completedAt === task.completedAt && !moved
+                ? s.tasks
+                : { ...s.tasks, [taskId]: { ...task, completedAt, ...(moved ? { updatedAt: new Date().toISOString() } : {}) } },
           };
         }),
 
@@ -361,13 +340,13 @@ export const useBoard = create<BoardState>()(
             const overdue = !!task.dueDate && task.dueDate < today;
             if (overdue && !col.isDone && col.id !== od.id && task.autoOverdueFor !== task.dueDate) {
               columns = placeTask(columns, task.id, od.id, Number.MAX_SAFE_INTEGER);
-              tasks = { ...tasks, [task.id]: { ...task, autoOverdueFor: task.dueDate, prevColumnId: col.id } };
+              tasks = { ...tasks, [task.id]: { ...task, autoOverdueFor: task.dueDate, prevColumnId: col.id, updatedAt: new Date().toISOString() } };
               changed = true;
             } else if (!overdue && col.id === od.id && task.autoOverdueFor) {
               const back =
                 columns.find((c) => c.id === task.prevColumnId && c.id !== od.id && !c.isDone) ?? firstOpenColumn(columns);
               if (back) columns = placeTask(columns, task.id, back.id, 0);
-              tasks = { ...tasks, [task.id]: { ...task, autoOverdueFor: null, prevColumnId: null } };
+              tasks = { ...tasks, [task.id]: { ...task, autoOverdueFor: null, prevColumnId: null, updatedAt: new Date().toISOString() } };
               changed = true;
             }
           }
@@ -426,19 +405,26 @@ export const useBoard = create<BoardState>()(
         }),
 
       snapshot: () => {
-        const { columns, tasks } = get();
-        return { columns, tasks };
+        const { columns, tasks, filters, reminders } = get();
+        return { columns, tasks, filters, reminders };
       },
-      restore: (data) => set({ columns: data.columns, tasks: data.tasks }),
+      restore: (data) =>
+        set({
+          columns: data.columns,
+          tasks: data.tasks,
+          ...(data.filters ? { filters: data.filters } : {}),
+          ...(data.reminders ? { reminders: data.reminders } : {}),
+        }),
 
-      importData: (raw) => {
-        const data = sanitize(raw);
-        if (!data) return false;
-        const lang = get().lang;
-        const { tasks, columns } = localizeDefaults({ tasks: data.tasks, columns: ensureBuiltins(data.columns, lang), filters: [] }, lang);
-        set({ tasks, columns });
-        return true;
-      },
+      applyImport: (data) =>
+        set((s) => {
+          const lang = s.lang;
+          const localized = localizeDefaults(
+            { tasks: data.tasks, columns: ensureBuiltins(data.columns, lang), filters: data.filters ?? s.filters },
+            lang,
+          );
+          return { ...localized, reminders: data.reminders ?? s.reminders };
+        }),
 
       clearAll: () => set(emptyBoard(get().lang)),
       loadDemo: () => set(demoData(get().lang)),

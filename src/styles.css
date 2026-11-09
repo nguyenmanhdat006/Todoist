@@ -478,6 +478,19 @@ button.stat-tile:disabled { cursor: default; }
 .menu-sep { height: 1px; background: var(--line); margin: 6px 0; }
 .confirm { padding: 10px; border-radius: 8px; background: color-mix(in srgb, var(--danger) 10%, transparent); display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
 .confirm-actions { display: flex; gap: 6px; justify-content: flex-end; }
+.import-check {
+  margin: 4px 0; padding: 10px 12px; border-radius: 9px; display: flex; flex-direction: column; gap: 6px; font-size: 13px;
+  border: 1px solid color-mix(in srgb, var(--blue) 35%, var(--line)); background: color-mix(in srgb, var(--blue) 7%, var(--surface));
+}
+.import-check.is-error { border-color: color-mix(in srgb, var(--danger) 40%, var(--line)); background: color-mix(in srgb, var(--danger) 8%, var(--surface)); }
+.import-title { font-weight: 600; color: var(--fg); }
+.import-file { font-family: var(--f-mono); font-size: 12px; color: var(--fg-2); word-break: break-all; }
+.import-meta { font-size: 12px; color: var(--muted); }
+.import-counts { font-weight: 600; color: var(--fg); font-variant-numeric: tabular-nums; }
+.import-warn { display: flex; flex-direction: column; gap: 4px; padding: 8px; border-radius: 7px; font-size: 12px; color: var(--warn); background: color-mix(in srgb, var(--warn) 9%, transparent); }
+.import-check ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--fg-2); word-break: break-word; }
+.import-check.is-error ul { color: var(--danger); }
+.import-note { margin: 0; font-size: 12px; color: var(--fg-2); }
 .shortcuts { margin: 0; padding: 0 8px; display: flex; flex-direction: column; gap: 8px; }
 .shortcuts div { display: flex; align-items: center; gap: 10px; }
 .shortcuts dt { width: 96px; flex: none; }
