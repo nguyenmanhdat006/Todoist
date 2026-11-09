@@ -185,11 +185,11 @@ export default function App() {
             <h1>{t('page.title')}</h1>
           </div>
           <div className="stat-tiles" aria-label={t('stats.label')}>
-            <div className="stat-tile">
+            <div className="stat-tile tone-open">
               <span className="stat-label">{t('stats.open')}</span>
               <span className="stat-value">{stats.open}</span>
             </div>
-            <div className="stat-tile">
+            <div className="stat-tile tone-done">
               <span className="stat-label">{t('stats.done')}</span>
               <span className="stat-value">
                 {stats.done}
@@ -201,7 +201,7 @@ export default function App() {
             </div>
             <button
               type="button"
-              className={'stat-tile' + (stats.overdue > 0 ? ' is-alert' : '')}
+              className={'stat-tile tone-overdue' + (stats.overdue > 0 ? ' is-alert' : ' is-zero')}
               disabled={stats.overdue === 0}
               onClick={() => {
                 const f = filters.find((x) => x.due === 'overdue');
