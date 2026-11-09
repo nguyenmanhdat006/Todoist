@@ -64,6 +64,7 @@ export interface ExportTask {
   autoOverdueFor: string | null;
   prevColumnId: string | null;
   progress: number;
+  assignees: string[];
 }
 
 export interface ExportFile {
@@ -124,6 +125,7 @@ export function buildExport(s: ExportSource, now = new Date()): ExportFile {
         autoOverdueFor: x.autoOverdueFor ?? null,
         prevColumnId: x.prevColumnId ?? null,
         progress: clampProgress(x.progress),
+        assignees: [...(x.assignees ?? [])],
       });
     });
   }
@@ -213,6 +215,13 @@ const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 const COLOR_RE = /^#[0-9a-fA-F]{6}$/;
 const PRIORITIES: Priority[] = ['high', 'normal', 'low'];
 const DUE_RULES: DueRule[] = ['any', 'overdue', 'today', 'week', 'none'];
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** Danh sách id người dùng hợp lệ, không trùng, tối đa 20 */
+function readIds(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  return [...new Set(v.filter((x): x is string => typeof x === 'string' && UUID_RE.test(x)).map((x) => x.toLowerCase()))].slice(0, 20);
+}
 
 /** Tiến độ hợp lệ: số nguyên 0–100, sai thì về 0 */
 export function clampProgress(v: unknown): number {
@@ -322,6 +331,7 @@ function readTask(raw: unknown, path: string, warn: (key: TKey, vars?: Issue['va
     autoOverdueFor: autoOverdueFor && validDate(autoOverdueFor) ? autoOverdueFor : null,
     prevColumnId: prevColumnId || null,
     progress: clampProgress(raw.progress),
+    assignees: readIds(raw.assignees),
   };
 }
 

@@ -35,6 +35,8 @@ interface Meta {
   name: string;
   revision: number;
   dirty: boolean;
+  /** Bảng đang mở: null = bảng cá nhân, hoặc id dự án */
+  project: string | null;
 }
 
 interface SessionState {
@@ -45,6 +47,10 @@ interface SessionState {
   bootError: string | null;
   choice: Choice | null;
   notice: Notice | null;
+  /** Bảng đang mở (null = cá nhân) */
+  project: string | null;
+  /** Đang chuyển bảng */
+  switching: boolean;
 }
 
 export const useSession = create<SessionState>(() => ({
@@ -54,6 +60,8 @@ export const useSession = create<SessionState>(() => ({
   bootError: null,
   choice: null,
   notice: null,
+  project: null,
+  switching: false,
 }));
 
 const set = useSession.setState;
@@ -71,11 +79,12 @@ function readMeta(): Meta {
         name: String(m.name ?? ''),
         revision: Number(m.revision) || 0,
         dirty: m.dirty === true,
+        project: typeof m.project === 'string' ? m.project : null,
       };
   } catch {
     /* localStorage bị chặn */
   }
-  return { userId: null, email: '', name: '', revision: 0, dirty: false };
+  return { userId: null, email: '', name: '', revision: 0, dirty: false, project: null };
 }
 
 let meta = readMeta();
@@ -141,7 +150,7 @@ export async function push(): Promise<void> {
   set({ sync: 'saving' });
   try {
     const st = useBoard.getState();
-    const { revision } = await api.putBoard(meta.revision, buildExport(st));
+    const { revision } = await api.putBoard(meta.revision, buildExport(st), meta.project);
     saveMeta({ revision, dirty: localVersion !== started });
     set({ sync: meta.dirty ? 'pending' : 'saved' });
     if (meta.dirty) schedule(0);
@@ -171,7 +180,7 @@ async function handlePushError(e: unknown) {
 async function resolveConflict() {
   const local: Snapshot = useBoard.getState().snapshot();
   try {
-    const { revision, file } = await api.getBoard();
+    const { revision, file } = await api.getBoard(meta.project);
     if (file) applyFile(file);
     saveMeta({ revision, dirty: false });
     set({ sync: 'saved' });
@@ -214,8 +223,8 @@ async function enter(user: ApiUser) {
   const sameUser = meta.userId === user.id;
   // Dữ liệu đang có trên máy chưa từng gắn với tài khoản nào (dùng app trước khi có đăng nhập)
   const unsyncedLocal = !meta.userId && taskCount() > 0;
-  saveMeta({ userId: user.id, email: user.email, name: user.name, ...(sameUser ? {} : { revision: 0, dirty: false }) });
-  set({ user, bootError: null });
+  saveMeta({ userId: user.id, email: user.email, name: user.name, ...(sameUser ? {} : { revision: 0, dirty: false, project: null }) });
+  set({ user, bootError: null, project: meta.project });
 
   if (sameUser && meta.dirty) {
     // Còn thay đổi chưa gửi từ lần trước (mất mạng / tắt máy): gửi trước
@@ -223,7 +232,18 @@ async function enter(user: ApiUser) {
     await push();
     return;
   }
-  const { revision, file } = await api.getBoard();
+  let board: { revision: number; file: ExportFile | null };
+  try {
+    board = await api.getBoard(meta.project);
+  } catch (e) {
+    // Dự án đã bị xoá hoặc mình không còn là thành viên: quay về bảng cá nhân
+    if (!(e instanceof ApiError && e.status === 404 && meta.project)) throw e;
+    saveMeta({ project: null, revision: 0, dirty: false });
+    set({ project: null });
+    resetLocal();
+    board = await api.getBoard(null);
+  }
+  const { revision, file } = board;
   if (unsyncedLocal) {
     set({
       status: 'choose',
@@ -328,8 +348,8 @@ export async function logout(confirmLoss: () => boolean): Promise<boolean> {
     /* vẫn đăng xuất ở máy */
   }
   resetLocal();
-  saveMeta({ userId: null, email: '', name: '', revision: 0, dirty: false });
-  set({ status: 'anon', user: null, sync: 'saved', choice: null });
+  saveMeta({ userId: null, email: '', name: '', revision: 0, dirty: false, project: null });
+  set({ status: 'anon', user: null, sync: 'saved', choice: null, project: null });
   return true;
 }
 
@@ -337,3 +357,55 @@ export const syncNow = () => {
   if (!meta.dirty) saveMeta({ dirty: true });
   return push();
 };
+
+/* ---------- chuyển bảng (cá nhân / dự án) ---------- */
+
+/**
+ * Mở bảng khác: gửi nốt thay đổi của bảng hiện tại, rồi tải bảng mới từ máy chủ.
+ * Trả false nếu không chuyển được (mất mạng mà còn thay đổi chưa lưu và người dùng huỷ).
+ */
+export async function switchBoard(project: string | null, confirmLoss: () => boolean): Promise<boolean> {
+  if (project === meta.project) return true;
+  clearTimeout(timer);
+  if (meta.dirty) await push();
+  if (meta.dirty && !confirmLoss()) return false;
+  set({ switching: true });
+  try {
+    const { revision, file } = await api.getBoard(project);
+    saveMeta({ project, revision, dirty: false });
+    resetLocal();
+    if (file) applyFile(file);
+    set({ project, sync: file ? 'saved' : 'pending' });
+    if (!file) {
+      // Bảng mới (dự án vừa tạo): lưu các cột mặc định lên máy chủ
+      saveMeta({ dirty: true });
+      await push();
+    }
+    return true;
+  } catch (e) {
+    await handlePushError(e);
+    return false;
+  } finally {
+    set({ switching: false });
+  }
+}
+
+/** Bảng dự án có thể bị người khác sửa: định kỳ tải bản mới nếu máy này không có thay đổi chưa lưu */
+async function pull() {
+  const s = useSession.getState();
+  if (s.status !== 'ready' || s.switching || pushing || meta.dirty) return;
+  try {
+    const { revision, file } = await api.getBoard(meta.project);
+    if (revision > meta.revision && !meta.dirty && file) {
+      applyFile(file);
+      saveMeta({ revision });
+    }
+  } catch {
+    /* thử lại lần sau */
+  }
+}
+
+if (typeof window !== 'undefined') {
+  setInterval(() => void pull(), 30_000);
+  window.addEventListener('focus', () => void pull());
+}

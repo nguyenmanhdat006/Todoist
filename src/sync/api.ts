@@ -7,6 +7,24 @@ export interface ApiUser {
   name: string;
 }
 
+export interface FriendLists {
+  friends: ApiUser[];
+  incoming: ApiUser[];
+  outgoing: ApiUser[];
+}
+
+export interface ProjectInfo {
+  id: string;
+  name: string;
+  ownerId: string;
+  role: 'host' | 'member';
+  memberCount?: number;
+}
+
+export interface Member extends ApiUser {
+  role: 'host' | 'member';
+}
+
 export class ApiError extends Error {
   constructor(
     /** 0 = không kết nối được máy chủ */
@@ -50,7 +68,23 @@ export const api = {
   register: (email: string, password: string, name: string) =>
     call<{ user: ApiUser }>('POST', '/api/auth/register', { email, password, name }),
   logout: () => call<{ ok: true }>('POST', '/api/auth/logout', {}),
-  getBoard: () => call<{ revision: number; file: ExportFile | null }>('GET', '/api/board'),
-  putBoard: (baseRevision: number, file: ExportFile) =>
-    call<{ revision: number; warnings: number }>('PUT', '/api/board', { baseRevision, file }),
+  getBoard: (project: string | null) =>
+    call<{ revision: number; file: ExportFile | null }>('GET', project ? `/api/board?project=${encodeURIComponent(project)}` : '/api/board'),
+  putBoard: (baseRevision: number, file: ExportFile, project: string | null) =>
+    call<{ revision: number; warnings: number }>('PUT', '/api/board', { baseRevision, file, ...(project ? { project } : {}) }),
+
+  // bạn bè
+  friends: () => call<FriendLists>('GET', '/api/friends'),
+  requestFriend: (email: string) => call<{ user: ApiUser; status: 'pending' | 'accepted' }>('POST', '/api/friends/request', { email }),
+  acceptFriend: (id: string) => call<FriendLists>('POST', `/api/friends/${id}/accept`),
+  removeFriend: (id: string) => call<FriendLists>('DELETE', `/api/friends/${id}`),
+
+  // dự án
+  projects: () => call<{ projects: ProjectInfo[] }>('GET', '/api/projects'),
+  createProject: (name: string) => call<{ project: ProjectInfo }>('POST', '/api/projects', { name }),
+  project: (id: string) => call<{ project: ProjectInfo; members: Member[] }>('GET', `/api/projects/${id}`),
+  renameProject: (id: string, name: string) => call<{ project: { id: string; name: string } }>('PATCH', `/api/projects/${id}`, { name }),
+  deleteProject: (id: string) => call<{ ok: true }>('DELETE', `/api/projects/${id}`),
+  addMember: (id: string, userId: string) => call<{ members: Member[] }>('POST', `/api/projects/${id}/members`, { userId }),
+  removeMember: (id: string, userId: string) => call<{ members: Member[] }>('DELETE', `/api/projects/${id}/members/${userId}`),
 };

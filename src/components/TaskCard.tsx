@@ -4,6 +4,9 @@ import type { CSSProperties } from 'react';
 import type { Task } from '../types';
 import { useT } from '../i18n';
 import { useBoard } from '../store/board';
+import { AvatarStack } from './Avatar';
+import { userDirectory, usePeople } from '../sync/people';
+import { useSession } from '../sync/session';
 import { canTrackProgress, cardColorOf, dueInfo, progressOf, taskStatus, timeRange, tagStyle } from '../utils';
 
 interface BodyProps {
@@ -22,6 +25,10 @@ export function TaskCardBody({ task, done, color, overlay }: BodyProps) {
   const pct = progressOf(task, col);
   const status = taskStatus(task, done);
   const tint = cardColorOf(task, col);
+  const me = useSession((s) => s.user);
+  const people = usePeople();
+  const dir = userDirectory(me, people);
+  const assigned = (task.assignees ?? []).map((id) => dir.get(id) ?? { id, name: '?', email: '?' });
   return (
     <div
       className={`card${tint ? ` is-tinted status-${status}` : ''}${done ? ' is-done' : ''}${overlay ? ' is-overlay' : ''}`}
@@ -60,12 +67,15 @@ export function TaskCardBody({ task, done, color, overlay }: BodyProps) {
           <span className="card-progress-value">{pct === 0 ? t('progress.notSet') : `${pct}%`}</span>
         </div>
       )}
-      {due && (
+      {(due || assigned.length > 0) && (
         <div className="card-foot">
-          <span className={`due due-${due.tone}`}>
-            {due.label}
-            {task.startTime && ` · ${timeRange(task)}`}
-          </span>
+          {assigned.length > 0 && <AvatarStack users={assigned} max={3} size={22} />}
+          {due && (
+            <span className={`due due-${due.tone}`}>
+              {due.label}
+              {task.startTime && ` · ${timeRange(task)}`}
+            </span>
+          )}
         </div>
       )}
     </div>

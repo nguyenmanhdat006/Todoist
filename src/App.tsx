@@ -11,6 +11,8 @@ import { SettingsMenu, Toast, type ToastData } from './components/Extras';
 import { HelpButton, LangSwitch, ProgressRing, ThemeSwitch } from './components/TopbarWidgets';
 import { NotificationBell } from './components/NotificationBell';
 import { AccountMenu } from './components/AccountMenu';
+import { FriendsButton, ProjectSwitcher } from './components/Social';
+import { refreshPeople, usePeople } from './sync/people';
 import { TitleClock } from './components/Clock';
 import { HeroAside } from './components/HeroAside';
 import { useSession } from './sync/session';
@@ -48,6 +50,15 @@ export default function App() {
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [notice]);
+
+  // Bạn bè, dự án, thành viên: tải khi mở app, khi đổi bảng và mỗi phút
+  const project = useSession((s) => s.project);
+  useEffect(() => {
+    void refreshPeople();
+    const id = setInterval(() => void refreshPeople(), 60_000);
+    return () => clearInterval(id);
+  }, [project]);
+  const projectName = usePeople((s) => s.projects.find((p) => p.id === project)?.name);
 
   // Theme
   useEffect(() => {
@@ -184,6 +195,7 @@ export default function App() {
               {t('app.name')}
             </span>
           </div>
+          <ProjectSwitcher />
           <nav className="nav" aria-label={t('nav.label')}>
             <button type="button" className={view === 'kanban' ? 'on' : ''} aria-current={view === 'kanban' ? 'page' : undefined} onClick={() => setView('kanban')}>
               {t('nav.board')}
@@ -199,6 +211,7 @@ export default function App() {
             <ProgressRing done={stats.done} total={stats.total} />
             <LangSwitch />
             <ThemeSwitch />
+            <FriendsButton />
             <NotificationBell onOpenTask={(id) => setModal({ taskId: id, columnId: '' })} onToast={showToast} />
             <SettingsMenu onToast={showToast} />
             <HelpButton />
@@ -209,7 +222,7 @@ export default function App() {
 
       <div className="toolbar">
         <div className="toolbar-top hero">
-          <TitleClock locale={t.locale} title={t('page.title')} clockLabel={t('clock.label')} />
+          <TitleClock locale={t.locale} title={projectName ?? t('page.title')} clockLabel={t('clock.label')} />
           <div className="stat-tiles" aria-label={t('stats.label')}>
             <div className="stat-tile tone-open">
               <span className="stat-label">{t('stats.open')}</span>

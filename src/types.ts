@@ -22,6 +22,8 @@ export interface Task {
   prevColumnId?: string | null;
   /** Tiến độ hoàn thành 0–100 (%). Việc trong cột Hoàn thành luôn tính là 100 */
   progress?: number;
+  /** Người liên quan (id người dùng) */
+  assignees?: string[];
 }
 
 /** Lời nhắc: tạo ra khi một việc có giờ còn ≤ 1 tiếng nữa là bắt đầu */

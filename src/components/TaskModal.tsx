@@ -5,6 +5,9 @@ import { PRIORITIES } from '../types';
 import { useT } from '../i18n';
 import { TagPicker, addTag } from './TagPicker';
 import { TimeSelect } from './TimeSelect';
+import { Avatar } from './Avatar';
+import { assignableUsers, usePeople } from '../sync/people';
+import { useSession } from '../sync/session';
 import { canTrackProgress, fromMinutes, toMinutes, todayISO } from '../utils';
 
 /** Giá trị điền sẵn khi tạo việc (ví dụ bấm vào một ô trên lịch) */
@@ -78,6 +81,7 @@ export function TaskModal({ taskId, defaultColumnId, defaults, onClose, onDelete
   const [columnId, setColumnId] = useState(currentColumnId);
   const [error, setError] = useState('');
   const [progress, setProgress] = useState(task?.progress ?? 0);
+  const [assignees, setAssignees] = useState<string[]>(task?.assignees ?? []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
@@ -104,6 +108,7 @@ export function TaskModal({ taskId, defaultColumnId, defaults, onClose, onDelete
       startTime: timed ? startTime : null,
       endTime: timed && endTime ? endTime : null,
       ...(canTrackProgress(columns.find((c) => c.id === columnId)) ? { progress } : {}),
+      assignees,
       // Lấy luôn nhãn đang gõ dở chưa nhấn Enter
       tags: addTag(tags, tagDraft, tags),
     };
@@ -245,6 +250,8 @@ export function TaskModal({ taskId, defaultColumnId, defaults, onClose, onDelete
           </div>
         </div>
 
+        <AssigneePicker value={assignees} onChange={setAssignees} />
+
         <div className="field">
           <label htmlFor="task-tags">
             <span>{t('modal.tags')}</span>
@@ -306,6 +313,48 @@ function ProgressField({ column, value, onChange }: { column: Column | undefined
         </div>
       </div>
       {!editable && <small className="hint">{column?.isDone ? t('progress.doneHint') : t('progress.todoHint')}</small>}
+    </div>
+  );
+}
+
+/** Chọn người liên quan: thành viên dự án, hoặc mình + bạn bè ở bảng cá nhân */
+function AssigneePicker({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
+  const t = useT();
+  const me = useSession((s) => s.user);
+  const project = useSession((s) => s.project);
+  const people = usePeople();
+  const options = assignableUsers(me, project, people);
+  // Giữ cả người đã gắn trước đây dù giờ không còn trong danh sách (để có thể bỏ ra)
+  const known = new Map(options.map((u) => [u.id, u]));
+  const extra = value.filter((id) => !known.has(id));
+  const toggle = (id: string) => onChange(value.includes(id) ? value.filter((x) => x !== id) : [...value, id]);
+  return (
+    <div className="field">
+      <span>{t('modal.assignees')}</span>
+      {options.length === 0 && extra.length === 0 ? (
+        <small className="hint">{t('modal.assigneesNone')}</small>
+      ) : (
+        <div className="assignee-list" role="group" aria-label={t('modal.assignees')}>
+          {options.map((u) => (
+            <button
+              key={u.id}
+              type="button"
+              className={`assignee${value.includes(u.id) ? ' on' : ''}`}
+              aria-pressed={value.includes(u.id)}
+              onClick={() => toggle(u.id)}
+            >
+              <Avatar user={u} size={22} />
+              <span>{u.id === me?.id ? `${u.name || u.email} (${t('modal.you')})` : u.name || u.email}</span>
+            </button>
+          ))}
+          {extra.map((id) => (
+            <button key={id} type="button" className="assignee on is-unknown" aria-pressed onClick={() => toggle(id)}>
+              <span>?</span>
+            </button>
+          ))}
+        </div>
+      )}
+      {options.length > 0 && <small className="hint">{project ? t('modal.assigneesHintProject') : t('modal.assigneesHintPersonal')}</small>}
     </div>
   );
 }

@@ -18,6 +18,21 @@ import {
 } from './_lib/auth.js';
 import { readBoard, writeBoard } from './_lib/board.js';
 import { db } from './_lib/db.js';
+import {
+  acceptFriend,
+  addMember,
+  boardAccess,
+  createProject,
+  deleteProject,
+  getProject,
+  listFriends,
+  listProjects,
+  removeFriend,
+  removeMember,
+  renameProject,
+  requestFriend,
+  requireUuid,
+} from './_lib/social.js';
 import { HttpError, clientIp, route } from './_lib/http.js';
 
 const app = express();
@@ -40,7 +55,9 @@ app.use((req, res, next) => {
 // Chặn gửi form từ trang khác (CSRF): request thay đổi dữ liệu phải là JSON và cùng nguồn
 app.use((req, _res, next) => {
   if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') return next();
-  if (!req.is('application/json')) return next(new HttpError(415, 'json_required'));
+  // Có body thì phải là JSON (form HTML từ trang khác không gửi được JSON nếu không qua CORS)
+  const hasBody = Number(req.headers['content-length'] ?? 0) > 0 || !!req.headers['transfer-encoding'];
+  if (hasBody && !req.is('application/json')) return next(new HttpError(415, 'json_required'));
   const origin = req.headers.origin;
   if (origin) {
     let host = '';
@@ -88,7 +105,7 @@ app.post(
       await logAttempt(email, ip, false);
       throw new HttpError(409, 'email_taken');
     }
-    await db().query('insert into boards (user_id) values ($1) on conflict do nothing', [rows[0].id]);
+    await db().query('insert into boards (board_id) values ($1) on conflict do nothing', [rows[0].id]);
     await startSession(req, res, rows[0].id);
     res.status(201).json({ user: publicUser(rows[0]) });
   }),
@@ -132,11 +149,13 @@ app.get(
 
 /* ---------- dữ liệu ---------- */
 
+// ?project=<id> để mở bảng của dự án; không có thì là bảng cá nhân
 app.get(
   '/api/board',
   requireUser,
   route(async (req, res) => {
-    res.json(await readBoard(req.user!.id));
+    const { boardId } = await boardAccess(req.user!.id, req.query.project);
+    res.json(await readBoard(boardId));
   }),
 );
 
@@ -144,9 +163,109 @@ app.put(
   '/api/board',
   requireUser,
   route(async (req, res) => {
-    const body = (req.body ?? {}) as { baseRevision?: unknown; file?: unknown };
+    const body = (req.body ?? {}) as { baseRevision?: unknown; file?: unknown; project?: unknown };
     if (typeof body.baseRevision !== 'number' || !Number.isInteger(body.baseRevision)) throw new HttpError(400, 'bad_revision');
-    res.json(await writeBoard(req.user!.id, body.baseRevision, body.file));
+    const { boardId, allowed } = await boardAccess(req.user!.id, body.project);
+    res.json(await writeBoard(boardId, body.baseRevision, body.file, allowed));
+  }),
+);
+
+/* ---------- bạn bè ---------- */
+
+app.get(
+  '/api/friends',
+  requireUser,
+  route(async (req, res) => {
+    res.json(await listFriends(req.user!.id));
+  }),
+);
+
+app.post(
+  '/api/friends/request',
+  requireUser,
+  route(async (req, res) => {
+    const out = await requestFriend(req.user!.id, (req.body as { email?: unknown })?.email);
+    res.status(201).json(out);
+  }),
+);
+
+app.post(
+  '/api/friends/:id/accept',
+  requireUser,
+  route(async (req, res) => {
+    await acceptFriend(req.user!.id, requireUuid(req.params.id));
+    res.json(await listFriends(req.user!.id));
+  }),
+);
+
+// Từ chối / huỷ lời mời / huỷ kết bạn
+app.delete(
+  '/api/friends/:id',
+  requireUser,
+  route(async (req, res) => {
+    await removeFriend(req.user!.id, requireUuid(req.params.id));
+    res.json(await listFriends(req.user!.id));
+  }),
+);
+
+/* ---------- dự án ---------- */
+
+app.get(
+  '/api/projects',
+  requireUser,
+  route(async (req, res) => {
+    res.json({ projects: await listProjects(req.user!.id) });
+  }),
+);
+
+app.post(
+  '/api/projects',
+  requireUser,
+  route(async (req, res) => {
+    res.status(201).json({ project: await createProject(req.user!.id, (req.body as { name?: unknown })?.name) });
+  }),
+);
+
+app.get(
+  '/api/projects/:id',
+  requireUser,
+  route(async (req, res) => {
+    res.json(await getProject(req.user!.id, requireUuid(req.params.id)));
+  }),
+);
+
+app.patch(
+  '/api/projects/:id',
+  requireUser,
+  route(async (req, res) => {
+    res.json({ project: await renameProject(req.user!.id, requireUuid(req.params.id), (req.body as { name?: unknown })?.name) });
+  }),
+);
+
+app.delete(
+  '/api/projects/:id',
+  requireUser,
+  route(async (req, res) => {
+    await deleteProject(req.user!.id, requireUuid(req.params.id));
+    res.json({ ok: true });
+  }),
+);
+
+app.post(
+  '/api/projects/:id/members',
+  requireUser,
+  route(async (req, res) => {
+    const memberId = requireUuid((req.body as { userId?: unknown })?.userId);
+    res.json({ members: await addMember(req.user!.id, requireUuid(req.params.id), memberId) });
+  }),
+);
+
+// Host bỏ thành viên, hoặc thành viên tự rời (userId = chính mình)
+app.delete(
+  '/api/projects/:id/members/:userId',
+  requireUser,
+  route(async (req, res) => {
+    res.json({ members: await removeMember(req.user!.id, requireUuid(req.params.id), requireUuid(req.params.userId)) });
   }),
 );
 

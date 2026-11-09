@@ -1,0 +1,76 @@
+/* ---------- avatar ---------- */
+.avatar {
+  flex: none; display: inline-grid; place-items: center; font-weight: 700; line-height: 1; letter-spacing: 0;
+  color: #fff; background: var(--av, #475569); box-shadow: 0 0 0 2px var(--surface); user-select: none;
+}
+.avatar-stack { display: inline-flex; align-items: center; }
+.avatar-stack .avatar + .avatar { margin-left: -5px; }
+.avatar-more { background: var(--surface-2); color: var(--fg-2); }
+.card-foot { justify-content: space-between; }
+.card-foot .avatar-stack + .due { margin-left: auto; }
+.card-foot:has(.avatar-stack:only-child) { justify-content: flex-start; }
+
+/* ---------- chọn bảng / dự án ---------- */
+.project-switch { flex: none; }
+.project-btn {
+  height: 34px; max-width: 240px; display: inline-flex; align-items: center; gap: 7px; padding: 0 10px;
+  border: 1px solid var(--line-strong); background: var(--surface); color: var(--fg); font-weight: 600; font-size: 13.5px;
+}
+.project-btn:hover:not(:disabled) { background: var(--surface-2); }
+.project-btn:disabled { opacity: 0.6; cursor: progress; }
+.project-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.project-caret { flex: none; color: var(--muted); }
+.popover.project-menu { left: 0; top: 42px; width: 280px; display: flex; flex-direction: column; gap: 2px; padding: 8px; }
+.project-menu .menu-item { display: flex; align-items: center; gap: 8px; }
+.project-menu .menu-item.is-current { color: var(--blue); font-weight: 700; background: color-mix(in srgb, var(--blue) 10%, transparent); }
+.project-item-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.project-count { font-family: var(--f-mono); font-size: 11px; color: var(--muted); }
+.role-badge {
+  flex: none; margin-left: 6px; padding: 1px 6px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.02em;
+  color: var(--fg-2); background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+.role-badge.is-host { color: #fff; background: var(--orange); box-shadow: none; }
+
+/* ---------- bạn bè ---------- */
+.friends .icon-btn { position: relative; }
+.popover.social-menu { right: 0; top: 44px; width: 360px; max-height: 70vh; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 10px; }
+.social-add { display: flex; flex-direction: column; gap: 6px; }
+.social-add-row { display: flex; gap: 6px; }
+.social-add-row input, .social-add-row select {
+  flex: 1; min-width: 0; height: 32px; padding: 0 10px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--fg);
+}
+.social-msg { margin: 0; font-size: 12.5px; color: var(--danger); }
+.social-msg.is-ok { color: var(--green); }
+.social-empty { margin: 4px 8px; font-size: 12.5px; color: var(--muted); }
+.people { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.person { display: flex; align-items: center; gap: 10px; padding: 7px 6px; border-bottom: 1px solid var(--line); }
+.person:last-child { border-bottom: 0; }
+.person-id { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; font-size: 12.5px; }
+.person-id strong { display: flex; align-items: center; font-size: 13.5px; color: var(--fg); }
+.person-id span { color: var(--fg-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.person-actions { display: flex; gap: 4px; flex: none; }
+.person-x { width: 26px; height: 26px; padding: 0; border: 1px solid var(--line-strong); background: var(--surface); color: var(--fg-2); font-size: 15px; }
+.person-x:hover { color: var(--danger); border-color: var(--danger); }
+
+/* ---------- hộp thoại dự án ---------- */
+.project-dialog { max-width: 520px; }
+.project-form { display: flex; flex-direction: column; gap: 14px; }
+.project-dialog .people { border: 1px solid var(--line); padding: 0 8px; max-height: 260px; overflow-y: auto; }
+
+/* ---------- chọn người liên quan trong form ---------- */
+.assignee-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.assignee {
+  display: inline-flex; align-items: center; gap: 7px; height: 32px; padding: 0 10px 0 5px;
+  border: 1px solid var(--line-strong); background: var(--surface); color: var(--fg-2); font-size: 13px;
+}
+.assignee:hover { background: var(--surface-2); }
+.assignee.on { color: var(--blue); font-weight: 600; border-color: var(--blue); background: color-mix(in srgb, var(--blue) 10%, var(--surface)); }
+.assignee.is-unknown { padding: 0 10px; }
+
+@media (max-width: 760px) {
+  .project-btn { max-width: 140px; padding: 0 8px; }
+  .popover.social-menu, .popover.project-menu { position: fixed; left: 12px; right: 12px; top: 58px; width: auto; }
+}
+@media (max-width: 480px) {
+  .project-btn .role-badge { display: none; }
+}

@@ -594,7 +594,7 @@ button.stat-tile:disabled { cursor: default; }
   overflow-x: auto; background: var(--surface); border: 1px solid color-mix(in srgb, var(--line-strong) 55%, var(--line));
   box-shadow: var(--shadow);
 }
-.lt { width: 100%; min-width: 1180px; border-collapse: collapse; table-layout: fixed; font-size: 13.5px; }
+.lt { width: 100%; min-width: 1290px; border-collapse: collapse; table-layout: fixed; font-size: 13.5px; }
 .lt th, .lt td { height: 40px; padding: 0 10px; text-align: center; vertical-align: middle; border-bottom: 1px solid var(--line); }
 .lt th.is-left, .lt td.is-left { text-align: left; }
 .lt thead th {
@@ -763,3 +763,18 @@ button.stat-tile:disabled { cursor: default; }
 /* tuỳ chọn màu thẻ trong menu cột */
 .swatch.is-status { background: conic-gradient(#22a35a 0 25%, #f5b301 0 50%, #ef4444 0 75%, #2563eb 0); }
 .swatch.is-none { background: linear-gradient(135deg, var(--surface) 45%, var(--danger) 45% 55%, var(--surface) 55%); }
+
+/* ---------- phối màu mặc định nhẹ hơn (pastel) ---------- */
+/* Tiêu đề cột: nền trung tính, chỉ giữ vạch màu mảnh phía trên */
+.col-head { background: var(--surface); box-shadow: inset 0 3px 0 var(--col); }
+.col-head::before { display: none; }
+.col-title { font-weight: 700; }
+.col-body { background: color-mix(in srgb, var(--panel) 70%, var(--bg)); }
+/* Thẻ tô màu: nền pastel, viền cùng tông, không còn sọc đậm bên trái */
+.card.is-tinted {
+  background: color-mix(in srgb, var(--st) 13%, var(--surface));
+  border-color: color-mix(in srgb, var(--st) 42%, var(--surface));
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--st) 18%, transparent);
+}
+.card.is-tinted::before { display: none; }
+.card.is-tinted:hover { border-color: color-mix(in srgb, var(--st) 70%, var(--surface)); }

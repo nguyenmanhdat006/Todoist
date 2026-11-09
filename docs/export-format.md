@@ -62,6 +62,7 @@ Dữ liệu được tổ chức thành các danh sách phẳng giống các b�
 | `autoOverdueFor` | `YYYY-MM-DD` \| null | nội bộ: hạn chót lúc app tự chuyển việc vào cột Quá hạn |
 | `prevColumnId` | string \| null | nội bộ: cột trước khi bị chuyển vào Quá hạn |
 | `progress` | integer 0–100 | tiến độ hoàn thành (%); thiếu thì coi là 0 |
+| `assignees` | string[] (uuid) | người liên quan (id người dùng); khi lưu lên server chỉ giữ thành viên dự án / bạn bè |
 
 Thời điểm bắt đầu tuyệt đối = `dueDate` + `startTime` theo `timezone`. Ví dụ trong PostgreSQL:
 `(due_date + start_time) AT TIME ZONE 'Asia/Ho_Chi_Minh'`.

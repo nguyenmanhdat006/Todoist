@@ -4,6 +4,9 @@
  */
 import { useMemo, useState, type CSSProperties } from 'react';
 import { useBoard } from '../store/board';
+import { AvatarStack } from './Avatar';
+import { userDirectory, usePeople } from '../sync/people';
+import { useSession } from '../sync/session';
 import type { Column, Priority, Task } from '../types';
 import { PRIORITIES } from '../types';
 import { useT, type T } from '../i18n';
@@ -39,6 +42,9 @@ export function ListView({ matches, onOpenTask }: Props) {
   const columns = useBoard((s) => s.columns);
   const tasks = useBoard((s) => s.tasks);
   const { toggleDone, moveTask, updateTask } = useBoard.getState();
+  const me = useSession((s) => s.user);
+  const people = usePeople();
+  const dir = userDirectory(me, people);
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: 'order', dir: 1 });
 
   const rows = useMemo(() => {
@@ -89,6 +95,7 @@ export function ListView({ matches, onOpenTask }: Props) {
             <col style={{ width: 150 }} />
             <col style={{ width: 120 }} />
             <col style={{ width: 190 }} />
+            <col style={{ width: 110 }} />
             <col style={{ width: 130 }} />
             <col style={{ width: 170 }} />
             <col style={{ width: 140 }} />
@@ -101,6 +108,7 @@ export function ListView({ matches, onOpenTask }: Props) {
               {head('stage', t('list.stage'))}
               {head('priority', t('list.priority'))}
               <th>{t('list.tags')}</th>
+              <th>{t('list.assignees')}</th>
               {head('created', t('list.created'))}
               {head('due', t('list.due'))}
               {head('finished', t('list.finished'))}
@@ -110,7 +118,7 @@ export function ListView({ matches, onOpenTask }: Props) {
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={9} className="lt-empty">
+                <td colSpan={10} className="lt-empty">
                   {t('list.empty')}
                 </td>
               </tr>
@@ -172,6 +180,9 @@ export function ListView({ matches, onOpenTask }: Props) {
                           {g}
                         </span>
                       ))}
+                    </td>
+                    <td>
+                      <AvatarStack users={(task.assignees ?? []).map((id) => dir.get(id) ?? { id, name: '?', email: '?' })} max={3} size={22} />
                     </td>
                     <td className="lt-date">{fmtDate(task.createdAt, t)}</td>
                     <td className={`lt-date${due ? ` due-${due.tone}` : ''}`}>

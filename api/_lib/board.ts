@@ -27,14 +27,14 @@ function validTimezone(tz: unknown): string {
   }
 }
 
-export async function readBoard(userId: string): Promise<BoardResponse> {
+export async function readBoard(boardId: string): Promise<BoardResponse> {
   const q = db();
   const [board, cols, tasks, filters, reminders] = await Promise.all([
-    q.query('select revision, timezone, updated_at from boards where user_id = $1', [userId]),
-    q.query('select * from board_columns where user_id = $1 order by position', [userId]),
-    q.query('select * from tasks where user_id = $1 order by column_id, position', [userId]),
-    q.query('select * from saved_filters where user_id = $1 order by position', [userId]),
-    q.query('select * from reminders where user_id = $1 order by created_at desc', [userId]),
+    q.query('select revision, timezone, updated_at from boards where board_id = $1', [boardId]),
+    q.query('select * from board_columns where board_id = $1 order by position', [boardId]),
+    q.query('select * from tasks where board_id = $1 order by column_id, position', [boardId]),
+    q.query('select * from saved_filters where board_id = $1 order by position', [boardId]),
+    q.query('select * from reminders where board_id = $1 order by created_at desc', [boardId]),
   ]);
   const b = board.rows[0];
   const revision: number = b?.revision ?? 0;
@@ -74,6 +74,7 @@ export async function readBoard(userId: string): Promise<BoardResponse> {
       autoOverdueFor: t.auto_overdue_for,
       prevColumnId: t.prev_column_id,
       progress: t.progress ?? 0,
+      assignees: t.assignees ?? [],
     })),
     filters: filters.rows.map((f) => ({
       id: f.id,
@@ -100,7 +101,11 @@ export async function readBoard(userId: string): Promise<BoardResponse> {
  * Thay toàn bộ dữ liệu của người dùng bằng `raw` (file xuất JSON).
  * baseRevision phải bằng revision hiện tại trên server, nếu không trả 409 để client tải bản mới.
  */
-export async function writeBoard(userId: string, baseRevision: number, raw: unknown) {
+/**
+ * allowedAssignees: id người được phép gắn vào việc (thành viên dự án, hoặc bạn bè + chính mình ở bảng cá nhân).
+ * Id lạ bị bỏ đi để không gắn được người ngoài.
+ */
+export async function writeBoard(boardId: string, baseRevision: number, raw: unknown, allowedAssignees: Set<string>) {
   const parsed = parseImport(raw);
   if (!parsed.ok) throw new HttpError(400, 'invalid_board', { issues: parsed.errors });
   const { columns, tasks, filters = [], reminders = [] } = parsed.data;
@@ -135,6 +140,7 @@ export async function writeBoard(userId: string, baseRevision: number, raw: unkn
         auto_overdue_for: t.autoOverdueFor ?? null,
         prev_column_id: t.prevColumnId ?? null,
         progress: t.progress ?? 0,
+        assignees: (t.assignees ?? []).filter((id) => allowedAssignees.has(id)),
       };
     }),
   );
@@ -158,52 +164,52 @@ export async function writeBoard(userId: string, baseRevision: number, raw: unkn
   }));
 
   return tx(async (c: pg.PoolClient) => {
-    await c.query('insert into boards (user_id) values ($1) on conflict (user_id) do nothing', [userId]);
-    const { rows } = await c.query<{ revision: number }>('select revision from boards where user_id = $1 for update', [userId]);
+    await c.query('insert into boards (board_id) values ($1) on conflict (board_id) do nothing', [boardId]);
+    const { rows } = await c.query<{ revision: number }>('select revision from boards where board_id = $1 for update', [boardId]);
     const current = rows[0].revision;
     if (current !== baseRevision) throw new HttpError(409, 'conflict', { revision: current });
 
-    await c.query('delete from reminders where user_id = $1', [userId]);
-    await c.query('delete from saved_filters where user_id = $1', [userId]);
-    await c.query('delete from tasks where user_id = $1', [userId]);
-    await c.query('delete from board_columns where user_id = $1', [userId]);
+    await c.query('delete from reminders where board_id = $1', [boardId]);
+    await c.query('delete from saved_filters where board_id = $1', [boardId]);
+    await c.query('delete from tasks where board_id = $1', [boardId]);
+    await c.query('delete from board_columns where board_id = $1', [boardId]);
 
     await c.query(
-      `insert into board_columns (user_id, id, title, color, is_done, builtin, position, card_color)
+      `insert into board_columns (board_id, id, title, color, is_done, builtin, position, card_color)
        select $1, x.id, x.title, x.color, x.is_done, x.builtin, x.position, x.card_color
        from jsonb_to_recordset($2::jsonb) as x(id text, title text, color text, is_done boolean, builtin text, position int, card_color text)`,
-      [userId, JSON.stringify(colRows)],
+      [boardId, JSON.stringify(colRows)],
     );
     if (taskRows.length)
       await c.query(
-        `insert into tasks (user_id, id, column_id, position, title, note, priority, due_date, start_time, end_time, tags,
-                            created_at, updated_at, completed_at, auto_overdue_for, prev_column_id, progress)
+        `insert into tasks (board_id, id, column_id, position, title, note, priority, due_date, start_time, end_time, tags,
+                            created_at, updated_at, completed_at, auto_overdue_for, prev_column_id, progress, assignees)
          select $1, x.id, x.column_id, x.position, x.title, x.note, x.priority, x.due_date, x.start_time, x.end_time, x.tags,
-                x.created_at, x.updated_at, x.completed_at, x.auto_overdue_for, x.prev_column_id, x.progress
+                x.created_at, x.updated_at, x.completed_at, x.auto_overdue_for, x.prev_column_id, x.progress, x.assignees
          from jsonb_to_recordset($2::jsonb) as x(id text, column_id text, position int, title text, note text, priority text,
               due_date date, start_time time, end_time time, tags text[], created_at timestamptz, updated_at timestamptz,
-              completed_at timestamptz, auto_overdue_for date, prev_column_id text, progress smallint)`,
-        [userId, JSON.stringify(taskRows)],
+              completed_at timestamptz, auto_overdue_for date, prev_column_id text, progress smallint, assignees uuid[])`,
+        [boardId, JSON.stringify(taskRows)],
       );
     if (filterRows.length)
       await c.query(
-        `insert into saved_filters (user_id, id, name, label_key, priorities, tags, column_ids, due, hide_done, position)
+        `insert into saved_filters (board_id, id, name, label_key, priorities, tags, column_ids, due, hide_done, position)
          select $1, x.id, x.name, x.label_key, x.priorities, x.tags, x.column_ids, x.due, x.hide_done, x.position
          from jsonb_to_recordset($2::jsonb) as x(id text, name text, label_key text, priorities text[], tags text[],
               column_ids text[], due text, hide_done boolean, position int)`,
-        [userId, JSON.stringify(filterRows)],
+        [boardId, JSON.stringify(filterRows)],
       );
     if (reminderRows.length)
       await c.query(
-        `insert into reminders (user_id, id, task_id, at_local, created_at, read)
+        `insert into reminders (board_id, id, task_id, at_local, created_at, read)
          select $1, x.id, x.task_id, x.at_local, x.created_at, x.read
          from jsonb_to_recordset($2::jsonb) as x(id text, task_id text, at_local timestamp, created_at timestamptz, read boolean)`,
-        [userId, JSON.stringify(reminderRows)],
+        [boardId, JSON.stringify(reminderRows)],
       );
 
     const next = await c.query<{ revision: number }>(
-      'update boards set revision = revision + 1, timezone = $2, updated_at = now() where user_id = $1 returning revision',
-      [userId, timezone],
+      'update boards set revision = revision + 1, timezone = $2, updated_at = now() where board_id = $1 returning revision',
+      [boardId, timezone],
     );
     return { revision: next.rows[0].revision, warnings: parsed.warnings.length };
   });
