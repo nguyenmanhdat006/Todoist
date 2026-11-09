@@ -268,7 +268,7 @@ button.stat-tile { cursor: pointer; }
 button.stat-tile:disabled { cursor: default; }
 .stat-tile.is-alert:hover { background: color-mix(in srgb, var(--danger) 18%, var(--surface)); }
 .stat-tile.is-zero { opacity: 0.75; }
-.toolbar-top .create { margin-left: auto; }
+.filterbar .create { margin-left: auto; }
 
 .filterbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .search { position: relative; width: 340px; max-width: 100%; }
