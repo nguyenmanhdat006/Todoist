@@ -3,6 +3,7 @@ import { useBoard } from '../store/board';
 import type { Priority } from '../types';
 import { PRIORITIES } from '../types';
 import { useT } from '../i18n';
+import { TagPicker, addTag } from './TagPicker';
 
 interface Props {
   taskId: string | null;
@@ -21,7 +22,8 @@ export function TaskModal({ taskId, defaultColumnId, onClose, onDelete }: Props)
   const [note, setNote] = useState(task?.note ?? '');
   const [priority, setPriority] = useState<Priority>(task?.priority ?? 'normal');
   const [dueDate, setDueDate] = useState(task?.dueDate ?? '');
-  const [tags, setTags] = useState(task?.tags.join(', ') ?? '');
+  const [tags, setTags] = useState<string[]>(task?.tags ?? []);
+  const [tagDraft, setTagDraft] = useState('');
   const [columnId, setColumnId] = useState(currentColumnId);
   const [error, setError] = useState('');
 
@@ -42,7 +44,8 @@ export function TaskModal({ taskId, defaultColumnId, onClose, onDelete }: Props)
       note: note.trim(),
       priority,
       dueDate: dueDate || null,
-      tags: [...new Set(tags.split(',').map((x) => x.trim()).filter(Boolean))],
+      // Lấy luôn nhãn đang gõ dở chưa nhấn Enter
+      tags: addTag(tags, tagDraft, tags),
     };
     if (task) {
       s.updateTask(task.id, data);
@@ -133,10 +136,12 @@ export function TaskModal({ taskId, defaultColumnId, onClose, onDelete }: Props)
           </div>
         </div>
 
-        <label className="field">
-          <span>{t('modal.tags')}</span>
-          <input id="task-tags" value={tags} onChange={(e) => setTags(e.target.value)} placeholder={t('modal.tagsPh')} />
-        </label>
+        <div className="field">
+          <label htmlFor="task-tags">
+            <span>{t('modal.tags')}</span>
+          </label>
+          <TagPicker value={tags} onChange={setTags} draft={tagDraft} onDraftChange={setTagDraft} />
+        </div>
 
         <footer className="modal-foot">
           {task && (

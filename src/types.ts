@@ -19,7 +19,12 @@ export interface Column {
   /** Thẻ nằm trong cột này được coi là đã hoàn thành */
   isDone: boolean;
   taskIds: string[];
+  /** Cột mặc định: luôn tồn tại, không xoá được */
+  builtin?: BuiltinColumn;
 }
+
+export type BuiltinColumn = 'todo' | 'doing' | 'review' | 'done';
+export const BUILTIN_COLUMNS: BuiltinColumn[] = ['todo', 'doing', 'review', 'done'];
 
 export interface BoardData {
   columns: Column[];
@@ -28,7 +33,21 @@ export interface BoardData {
 
 export type ThemeMode = 'system' | 'light' | 'dark';
 export type ViewMode = 'kanban' | 'list';
-export type PriorityFilter = 'all' | Priority | 'overdue';
+/** Điều kiện hạn chót của bộ lọc */
+export type DueRule = 'any' | 'overdue' | 'today' | 'week' | 'none';
+
+/** Bộ lọc do người dùng tạo. Điều kiện để trống = không giới hạn. */
+export interface SavedFilter {
+  id: string;
+  /** Tên do người dùng đặt; null = dùng tên mặc định theo ngôn ngữ (labelKey) */
+  name: string | null;
+  labelKey?: 'prio.high' | 'filter.overdue';
+  priorities: Priority[];
+  tags: string[];
+  columnIds: string[];
+  due: DueRule;
+  hideDone: boolean;
+}
 
 export type Lang = 'vi' | 'en';
 

@@ -1,4 +1,5 @@
 import type { T } from './i18n';
+import type { SavedFilter, Task } from './types';
 
 export const uid = (prefix: string) =>
   `${prefix}_${Math.random().toString(36).slice(2, 8)}${Date.now().toString(36).slice(-4)}`;
@@ -69,4 +70,25 @@ export function readableText(hex: string) {
   const lin = (c: number) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
   const L = 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
   return L > 0.4 ? '#2b2023' : '#ffffff';
+}
+
+/** Việc có khớp bộ lọc đã lưu không */
+export function matchesFilter(task: Task, f: SavedFilter, done: boolean, columnId: string | undefined) {
+  if (f.hideDone && done) return false;
+  if (f.priorities.length && !f.priorities.includes(task.priority)) return false;
+  if (f.tags.length && !task.tags.some((g) => f.tags.includes(g))) return false;
+  if (f.columnIds.length && (!columnId || !f.columnIds.includes(columnId))) return false;
+  const today = todayISO();
+  switch (f.due) {
+    case 'overdue':
+      return isOverdue(task.dueDate, done);
+    case 'today':
+      return task.dueDate === today;
+    case 'week':
+      return !!task.dueDate && task.dueDate >= today && task.dueDate <= addDaysISO(7);
+    case 'none':
+      return !task.dueDate;
+    default:
+      return true;
+  }
 }

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { BoardData, Column, Lang, Priority, Task, ThemeMode, ViewMode } from '../types';
+import type { BoardData, BuiltinColumn, Column, Lang, Priority, SavedFilter, Task, ThemeMode, ViewMode } from '../types';
+import { BUILTIN_COLUMNS } from '../types';
 import { addDaysISO, uid } from '../utils';
 
 export interface TaskInput {
@@ -15,6 +16,7 @@ interface BoardState extends BoardData {
   theme: ThemeMode;
   view: ViewMode;
   lang: Lang;
+  filters: SavedFilter[];
 
   addTask: (columnId: string, input: TaskInput, index?: number) => string;
   updateTask: (id: string, patch: Partial<Omit<Task, 'id'>>) => void;
@@ -38,6 +40,11 @@ interface BoardState extends BoardData {
   setTheme: (t: ThemeMode) => void;
   setView: (v: ViewMode) => void;
   setLang: (l: Lang) => void;
+
+  addFilter: (f: Omit<SavedFilter, 'id'>) => string;
+  updateFilter: (id: string, patch: Partial<Omit<SavedFilter, 'id'>>) => void;
+  deleteFilter: (id: string) => void;
+  setFilters: (filters: SavedFilter[]) => void;
 }
 
 function makeTask(input: TaskInput): Task {
@@ -87,6 +94,92 @@ const DEMO = {
   },
 } as const;
 
+/** Bảng dịch chữ mặc định (cột, nhãn, việc mẫu) của mọi ngôn ngữ khác sang `to` */
+function defaultTextTranslator(to: Lang) {
+  const map = new Map<string, string>();
+  const B = DEMO[to];
+  for (const from of Object.keys(DEMO) as Lang[]) {
+    if (from === to) continue;
+    const A = DEMO[from];
+    A.tasks.forEach(([title, note], i) => {
+      map.set(title, B.tasks[i][0]);
+      if (note) map.set(note, B.tasks[i][1]);
+    });
+    (Object.keys(A.tags) as (keyof typeof A.tags)[]).forEach((k) => map.set(A.tags[k], B.tags[k]));
+    A.columns.forEach((c, i) => map.set(c, B.columns[i]));
+  }
+  return (text: string) => map.get(text) ?? text;
+}
+
+/**
+ * Đưa tên cột, nhãn, việc mẫu còn giữ chữ mặc định về ngôn ngữ `lang`.
+ * Chữ người dùng tự đặt không nằm trong bảng dịch nên giữ nguyên.
+ */
+function localizeDefaults(
+  s: Pick<BoardState, 'tasks' | 'columns' | 'filters'>,
+  lang: Lang,
+): Pick<BoardState, 'tasks' | 'columns' | 'filters'> {
+  const tr = defaultTextTranslator(lang);
+  const tasks: Record<string, Task> = {};
+  for (const [id, x] of Object.entries(s.tasks)) {
+    tasks[id] = { ...x, title: tr(x.title), note: tr(x.note), tags: [...new Set(x.tags.map(tr))] };
+  }
+  return {
+    tasks,
+    columns: s.columns.map((c) => ({ ...c, title: tr(c.title) })),
+    filters: s.filters.map((f) => ({ ...f, name: f.name === null ? null : tr(f.name), tags: [...new Set(f.tags.map(tr))] })),
+  };
+}
+
+const BUILTIN_COLORS: Record<BuiltinColumn, string> = {
+  todo: '#4f8ff7',
+  doing: '#fb923c',
+  review: '#a78bfa',
+  done: '#4ade80',
+};
+
+function builtinColumn(key: BuiltinColumn, lang: Lang): Column {
+  const i = BUILTIN_COLUMNS.indexOf(key);
+  return { id: uid('c'), title: DEMO[lang].columns[i], color: BUILTIN_COLORS[key], isDone: key === 'done', taskIds: [], builtin: key };
+}
+
+/** Nhận diện cột mặc định trong dữ liệu cũ qua tên (ở bất kỳ ngôn ngữ nào) */
+function builtinFromTitle(title: string): BuiltinColumn | undefined {
+  for (const l of Object.keys(DEMO) as Lang[]) {
+    const i = (DEMO[l].columns as readonly string[]).indexOf(title);
+    if (i !== -1) return BUILTIN_COLUMNS[i];
+  }
+  return undefined;
+}
+
+/** Bảo đảm 4 cột mặc định luôn có mặt; thiếu cột nào thì thêm lại (rỗng) đúng thứ tự */
+export function ensureBuiltins(columns: Column[], lang: Lang): Column[] {
+  const taken = new Set(columns.map((c) => c.builtin).filter(Boolean));
+  let cols = columns.map((c) => {
+    if (c.builtin) return c;
+    const k = builtinFromTitle(c.title);
+    if (!k || taken.has(k)) return c;
+    taken.add(k);
+    return { ...c, builtin: k };
+  });
+  BUILTIN_COLUMNS.forEach((key, order) => {
+    if (cols.some((c) => c.builtin === key)) return;
+    // chèn ngay sau cột mặc định đứng trước nó (nếu có), ngược lại đặt lên đầu
+    let at = 0;
+    for (let j = order - 1; j >= 0; j--) {
+      const idx = cols.findIndex((c) => c.builtin === BUILTIN_COLUMNS[j]);
+      if (idx !== -1) {
+        at = idx + 1;
+        break;
+      }
+    }
+    if (key === 'done' && at === 0) at = cols.length;
+    cols = [...cols.slice(0, at), builtinColumn(key, lang), ...cols.slice(at)];
+  });
+  // Cột "Hoàn thành" mặc định luôn là cột hoàn thành
+  return cols.map((c) => (c.builtin === 'done' && !c.isDone ? { ...c, isDone: true } : c));
+}
+
 export function demoData(lang: Lang = detectLang()): BoardData {
   const L = DEMO[lang];
   const t = (i: number, extra: Omit<TaskInput, 'title' | 'note'> = {}, done = false): Task => ({
@@ -107,10 +200,10 @@ export function demoData(lang: Lang = detectLang()): BoardData {
   return {
     tasks: Object.fromEntries(tasks.map((x) => [x.id, x])),
     columns: [
-      { id: uid('c'), title: L.columns[0], color: '#4f8ff7', isDone: false, taskIds: ids.slice(0, 3) },
-      { id: uid('c'), title: L.columns[1], color: '#fb923c', isDone: false, taskIds: ids.slice(3, 5) },
-      { id: uid('c'), title: L.columns[2], color: '#a78bfa', isDone: false, taskIds: ids.slice(5, 6) },
-      { id: uid('c'), title: L.columns[3], color: '#4ade80', isDone: true, taskIds: ids.slice(6) },
+      { ...builtinColumn('todo', lang), taskIds: ids.slice(0, 3) },
+      { ...builtinColumn('doing', lang), taskIds: ids.slice(3, 5) },
+      { ...builtinColumn('review', lang), taskIds: ids.slice(5, 6) },
+      { ...builtinColumn('done', lang), taskIds: ids.slice(6) },
     ],
   };
 }
@@ -144,6 +237,7 @@ function sanitize(raw: unknown): BoardData | null {
       color: typeof c.color === 'string' ? c.color : '#4f8ff7',
       isDone: !!c.isDone,
       taskIds: Array.isArray(c.taskIds) ? c.taskIds.filter((id) => id in tasks) : [],
+      ...(BUILTIN_COLUMNS.includes(c.builtin as BuiltinColumn) ? { builtin: c.builtin } : {}),
     }));
   if (columns.length === 0) return null;
   return { columns, tasks };
@@ -156,6 +250,7 @@ export const useBoard = create<BoardState>()(
       theme: 'dark',
       view: 'kanban',
       lang: detectLang(),
+      filters: defaultFilters(),
 
       addTask: (columnId, input, index = 0) => {
         const task = makeTask(input);
@@ -237,7 +332,7 @@ export const useBoard = create<BoardState>()(
         set((s) => {
           if (s.columns.length <= 1) return s;
           const col = s.columns.find((c) => c.id === id);
-          if (!col) return s;
+          if (!col || col.builtin) return s;
           const tasks = { ...s.tasks };
           col.taskIds.forEach((tid) => delete tasks[tid]);
           return { tasks, columns: s.columns.filter((c) => c.id !== id) };
@@ -260,7 +355,9 @@ export const useBoard = create<BoardState>()(
       importData: (raw) => {
         const data = sanitize(raw);
         if (!data) return false;
-        set(data);
+        const lang = get().lang;
+        const { tasks, columns } = localizeDefaults({ tasks: data.tasks, columns: ensureBuiltins(data.columns, lang), filters: [] }, lang);
+        set({ tasks, columns });
         return true;
       },
 
@@ -269,16 +366,39 @@ export const useBoard = create<BoardState>()(
 
       setTheme: (theme) => set({ theme }),
       setView: (view) => set({ view }),
-      setLang: (lang) => set({ lang }),
+      setLang: (lang) => set((s) => (s.lang === lang ? s : { lang, ...localizeDefaults(s, lang) })),
+
+      addFilter: (f) => {
+        const id = uid('f');
+        set((s) => ({ filters: [...s.filters, { ...f, id }] }));
+        return id;
+      },
+      updateFilter: (id, patch) =>
+        set((s) => ({ filters: s.filters.map((f) => (f.id === id ? { ...f, ...patch } : f)) })),
+      deleteFilter: (id) => set((s) => ({ filters: s.filters.filter((f) => f.id !== id) })),
+      setFilters: (filters) => set({ filters }),
     }),
     {
       name: 'sakura-kanban',
       version: 1,
       storage: createJSONStorage(() => localStorage),
-      partialize: (s) => ({ columns: s.columns, tasks: s.tasks, theme: s.theme, view: s.view, lang: s.lang }),
+      // Khi mở app: dịch dữ liệu mặc định theo ngôn ngữ đã lưu (sửa dữ liệu cũ lưu trước khi có tính năng này)
+      merge: (persisted, current) => {
+        const merged = { ...current, ...(persisted as Partial<BoardState>) };
+        merged.columns = ensureBuiltins(merged.columns, merged.lang);
+        return { ...merged, ...localizeDefaults(merged, merged.lang) };
+      },
+      partialize: (s) => ({ columns: s.columns, tasks: s.tasks, theme: s.theme, view: s.view, lang: s.lang, filters: s.filters }),
     },
   ),
 );
+
+export function defaultFilters(): SavedFilter[] {
+  return [
+    { id: 'f_urgent', name: null, labelKey: 'prio.high', priorities: ['high'], tags: [], columnIds: [], due: 'any', hideDone: true },
+    { id: 'f_overdue', name: null, labelKey: 'filter.overdue', priorities: [], tags: [], columnIds: [], due: 'overdue', hideDone: true },
+  ];
+}
 
 export function emptyBoard(lang: Lang = detectLang()): BoardData {
   const d = demoData(lang);

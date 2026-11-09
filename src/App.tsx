@@ -1,19 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useBoard } from './store/board';
-import type { PriorityFilter, Task } from './types';
-import { useT, type TKey } from './i18n';
-import { fold, isOverdue } from './utils';
+import type { SavedFilter, Task } from './types';
+import { useT } from './i18n';
+import { fold, isOverdue, matchesFilter } from './utils';
 import { Board } from './components/Board';
 import { ListView } from './components/ListView';
 import { TaskModal } from './components/TaskModal';
 import { SettingsMenu, Toast, type ToastData } from './components/Extras';
 import { HelpButton, LangSwitch, ProgressRing, ThemeSwitch } from './components/TopbarWidgets';
-
-const FILTERS: { id: PriorityFilter; label: TKey }[] = [
-  { id: 'all', label: 'filter.all' },
-  { id: 'high', label: 'prio.high' },
-  { id: 'overdue', label: 'filter.overdue' },
-];
+import { FilterEditor, filterName } from './components/FilterEditor';
 
 export default function App() {
   const columns = useBoard((s) => s.columns);
@@ -21,10 +16,14 @@ export default function App() {
   const theme = useBoard((s) => s.theme);
   const view = useBoard((s) => s.view);
   const setView = useBoard((s) => s.setView);
+  const filters = useBoard((s) => s.filters);
   const t = useT();
 
   const [query, setQuery] = useState('');
-  const [filter, setFilter] = useState<PriorityFilter>('all');
+  /** 'all' hoặc id của bộ lọc đã lưu */
+  const [filter, setFilter] = useState<string>('all');
+  /** undefined = đóng, null = tạo mới, SavedFilter = đang sửa */
+  const [editing, setEditing] = useState<SavedFilter | null | undefined>(undefined);
   const [modal, setModal] = useState<{ taskId: string | null; columnId: string } | null>(null);
   const [toast, setToast] = useState<ToastData | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -46,15 +45,37 @@ export default function App() {
 
   const doneIds = useMemo(() => new Set(columns.filter((c) => c.isDone).flatMap((c) => c.taskIds)), [columns]);
 
+  const columnOfTask = useMemo(() => {
+    const m = new Map<string, string>();
+    columns.forEach((c) => c.taskIds.forEach((id) => m.set(id, c.id)));
+    return m;
+  }, [columns]);
+
+  const activeFilter = filters.find((f) => f.id === filter);
+  // Bộ lọc đang chọn bị xoá thì quay về "Tất cả"
+  useEffect(() => {
+    if (filter !== 'all' && !activeFilter) setFilter('all');
+  }, [filter, activeFilter]);
+
+  const inFilter = useCallback(
+    (task: Task, f: SavedFilter | undefined) =>
+      !f || matchesFilter(task, f, doneIds.has(task.id), columnOfTask.get(task.id)),
+    [doneIds, columnOfTask],
+  );
+
   const matches = useMemo(() => {
     const q = fold(query.trim());
-    return (t: Task) => {
-      if (filter === 'overdue' && !isOverdue(t.dueDate, doneIds.has(t.id))) return false;
-      if (filter !== 'all' && filter !== 'overdue' && t.priority !== filter) return false;
+    return (task: Task) => {
+      if (!inFilter(task, activeFilter)) return false;
       if (!q) return true;
-      return fold(`${t.title} ${t.note} ${t.tags.join(' ')}`).includes(q);
+      return fold(`${task.title} ${task.note} ${task.tags.join(' ')}`).includes(q);
     };
-  }, [query, filter, doneIds]);
+  }, [query, activeFilter, inFilter]);
+
+  const filterCounts = useMemo(() => {
+    const all = Object.values(tasks);
+    return new Map(filters.map((f) => [f.id, all.filter((x) => inFilter(x, f)).length]));
+  }, [tasks, filters, inFilter]);
 
   const stats = useMemo(() => {
     const all = Object.values(tasks);
@@ -63,7 +84,6 @@ export default function App() {
       done: all.filter((t) => doneIds.has(t.id)).length,
       open: all.filter((t) => !doneIds.has(t.id)).length,
       overdue: all.filter((t) => isOverdue(t.dueDate, doneIds.has(t.id))).length,
-      high: all.filter((t) => t.priority === 'high' && !doneIds.has(t.id)).length,
     };
   }, [tasks, doneIds]);
 
@@ -81,7 +101,7 @@ export default function App() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement;
-      if (modal || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (modal || editing !== undefined || e.ctrlKey || e.metaKey || e.altKey) return;
       if (el.closest('input, textarea, select, [contenteditable="true"]')) return;
       if (e.key === 'n' || e.key === 'N') {
         e.preventDefault();
@@ -93,7 +113,7 @@ export default function App() {
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [modal, openCreate]);
+  }, [modal, editing, openCreate]);
 
   const deleteTask = (id: string) => {
     const s = useBoard.getState();
@@ -102,6 +122,18 @@ export default function App() {
     s.deleteTask(id);
     setModal(null);
     showToast({ message: t('toast.taskDeleted', { title }), onUndo: () => useBoard.getState().restore(prev) });
+  };
+
+  const deleteFilter = (id: string) => {
+    const s = useBoard.getState();
+    const prev = s.filters;
+    const f = prev.find((x) => x.id === id);
+    s.deleteFilter(id);
+    setEditing(undefined);
+    showToast({
+      message: t('toast.filterDeleted', { name: f ? filterName(f, t) : '' }),
+      onUndo: () => useBoard.getState().setFilters(prev),
+    });
   };
 
   const deleteColumn = (id: string) => {
@@ -160,7 +192,14 @@ export default function App() {
               <b>{stats.done}</b> {t('stats.done')}
             </span>
             {stats.overdue > 0 && (
-              <button type="button" className="stat-overdue" onClick={() => setFilter('overdue')}>
+              <button
+                type="button"
+                className="stat-overdue"
+                onClick={() => {
+                  const f = filters.find((x) => x.due === 'overdue');
+                  if (f) setFilter(f.id);
+                }}
+              >
                 <b>{stats.overdue}</b> {t('stats.overdue')}
               </button>
             )}
@@ -192,8 +231,17 @@ export default function App() {
             <kbd className="search-kbd">/</kbd>
           </div>
           <div className="seg-filter" role="group" aria-label={t('filter.label')}>
-            {FILTERS.map((f) => {
-              const n = f.id === 'high' ? stats.high : f.id === 'overdue' ? stats.overdue : stats.total;
+            <button
+              type="button"
+              className={filter === 'all' ? 'on' : ''}
+              aria-pressed={filter === 'all'}
+              onClick={() => setFilter('all')}
+            >
+              {t('filter.all')}
+              <span className="seg-count">{stats.total}</span>
+            </button>
+            {filters.map((f) => {
+              const n = filterCounts.get(f.id) ?? 0;
               return (
                 <button
                   key={f.id}
@@ -201,13 +249,34 @@ export default function App() {
                   className={filter === f.id ? 'on' : ''}
                   aria-pressed={filter === f.id}
                   onClick={() => setFilter(f.id)}
+                  onDoubleClick={() => setEditing(f)}
+                  title={t('filter.edit')}
                 >
-                  {t(f.label)}
-                  <span className={'seg-count' + (f.id === 'overdue' && n > 0 ? ' is-alert' : '')}>{n}</span>
+                  {filterName(f, t)}
+                  <span className={'seg-count' + (f.due === 'overdue' && n > 0 ? ' is-alert' : '')}>{n}</span>
                 </button>
               );
             })}
+            <button
+              type="button"
+              className="seg-add"
+              aria-label={t('filter.add')}
+              title={t('filter.add')}
+              onClick={() => setEditing(null)}
+            >
+              <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+                <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+              </svg>
+            </button>
           </div>
+          {activeFilter && (
+            <button type="button" className="filter-edit" onClick={() => setEditing(activeFilter)}>
+              <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round">
+                <path d="M10.5 2.5l3 3L6 13H3v-3z" />
+              </svg>
+              {t('filter.edit')}
+            </button>
+          )}
           {(query || filter !== 'all') && (
             <button
               type="button"
@@ -242,6 +311,18 @@ export default function App() {
           defaultColumnId={modal.columnId}
           onClose={closeModal}
           onDelete={deleteTask}
+        />
+      )}
+      {editing !== undefined && (
+        <FilterEditor
+          key={editing?.id ?? 'new'}
+          filter={editing}
+          onClose={() => setEditing(undefined)}
+          onSaved={(id) => {
+            setEditing(undefined);
+            setFilter(id);
+          }}
+          onDelete={deleteFilter}
         />
       )}
       <Toast toast={toast} onClose={closeToast} />

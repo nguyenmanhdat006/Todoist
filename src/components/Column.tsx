@@ -115,15 +115,19 @@ function ColumnMenu({ column, onClose, onDelete }: { column: Column; onClose: ()
           ))}
         </div>
       </div>
-      <label className="check">
-        <input
-          type="checkbox"
-          checked={column.isDone}
-          onChange={(e) => updateColumn(column.id, { isDone: e.target.checked })}
-        />
-        <span>{t('col.isDone')}</span>
-      </label>
-      {canDelete && (
+      {column.builtin ? (
+        <p className="hint">{t('col.builtin')}</p>
+      ) : (
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={column.isDone}
+            onChange={(e) => updateColumn(column.id, { isDone: e.target.checked })}
+          />
+          <span>{t('col.isDone')}</span>
+        </label>
+      )}
+      {canDelete && !column.builtin && (
         <button type="button" className="btn danger-ghost" onClick={onDelete}>
           {column.taskIds.length > 0 ? t('col.deleteWith', { n: column.taskIds.length }) : t('col.delete')}
         </button>
