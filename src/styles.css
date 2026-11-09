@@ -30,7 +30,8 @@
   --f-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Code', Consolas, monospace;
   --col-w: 264px;
   /* Khung trang dùng chung cho mọi chế độ xem: thanh trên, tiêu đề, Bảng, Danh sách */
-  --page-w: 1440px;
+  /* Nội dung giãn theo màn hình, chỉ giới hạn ở màn rất rộng (2K, 4K) */
+  --page-w: 2200px;
   --page-max: calc(var(--page-w) + 40px);
   color-scheme: light;
 }
