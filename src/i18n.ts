@@ -3,6 +3,7 @@ import { useBoard } from './store/board';
 import type { Lang } from './types';
 
 const vi = {
+  'app.name': 'Quản lý công việc',
   'nav.label': 'Kiểu xem',
   'nav.board': 'Bảng',
   'nav.list': 'Danh sách',
@@ -170,6 +171,7 @@ const vi = {
 export type TKey = keyof typeof vi;
 
 const en: Record<TKey, string> = {
+  'app.name': 'Task management',
   'nav.label': 'View',
   'nav.board': 'Board',
   'nav.list': 'List',

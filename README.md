@@ -1,4 +1,4 @@
-# Kanban Todo
+# Quản lý công việc (Task management)
 
 Ứng dụng quản lý công việc cá nhân dạng Kanban. Chỉ có frontend, dữ liệu lưu trong `localStorage` của trình duyệt.
 

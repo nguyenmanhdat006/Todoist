@@ -42,6 +42,7 @@ export default function App() {
 
   useEffect(() => {
     document.documentElement.lang = t.lang;
+    document.title = t('app.name');
   }, [t.lang]);
 
   // Tự chuyển việc quá hạn vào cột Quá hạn: khi mở app, khi dữ liệu đổi, và mỗi phút (để bắt sang ngày mới)
@@ -168,7 +169,7 @@ export default function App() {
               </svg>
             </span>
             <span className="brand-name">
-              Kanban<span className="brand-sub">/todo</span>
+              {t('app.name')}
             </span>
           </div>
           <nav className="nav" aria-label={t('nav.label')}>
