@@ -12,6 +12,7 @@ import { HelpButton, LangSwitch, ProgressRing, ThemeSwitch } from './components/
 import { NotificationBell } from './components/NotificationBell';
 import { AccountMenu } from './components/AccountMenu';
 import { TitleClock } from './components/Clock';
+import { LeftRail, RightRail } from './components/SideRails';
 import { useSession } from './sync/session';
 import { FilterEditor, filterName } from './components/FilterEditor';
 
@@ -114,6 +115,8 @@ export default function App() {
   }, [tasks, doneIds]);
 
 
+  const openTask = useCallback((id: string) => setModal({ taskId: id, columnId: '' }), []);
+
   const openCreate = useCallback((defaults?: TaskDefaults) => {
     const cols = useBoard.getState().columns;
     const first = firstOpenColumn(cols) ?? cols[0];
@@ -206,6 +209,9 @@ export default function App() {
         </div>
       </header>
 
+      <div className="workspace">
+        <LeftRail onOpenTask={openTask} />
+        <div className="workspace-center">
       <div className="toolbar">
         <div className="toolbar-top hero">
           <TitleClock locale={t.locale} title={t('page.title')} clockLabel={t('clock.label')} />
@@ -342,6 +348,9 @@ export default function App() {
           <ListView matches={matches} filtering={!!query.trim() || filter !== 'all'} onOpenTask={(id) => setModal({ taskId: id, columnId: '' })} />
         )}
       </main>
+        </div>
+        <RightRail onOpenTask={openTask} />
+      </div>
 
       {modal && (
         <TaskModal

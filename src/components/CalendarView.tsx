@@ -1,10 +1,11 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent, type ReactElement } from 'react';
 import { useBoard } from '../store/board';
+import { useUi } from '../store/ui';
 import '../calendar.css';
 import type { CalMode, Column, Task } from '../types';
 import { tagColor } from '../types';
 import { useT, type T } from '../i18n';
-import { fromMinutes, knownTags, parseISO, timeRange, toISODate, toMinutes, todayISO } from '../utils';
+import { fromMinutes, knownTags, parseISO, timeRange, toISODate, toMinutes } from '../utils';
 
 interface Props {
   matches: (t: Task) => boolean;
@@ -133,7 +134,8 @@ export function CalendarView({ matches, onOpenTask, onCreateAt }: Props) {
   const toggleTag = (g: string) => setHidden(hidden.has(g) ? hiddenList.filter((x) => x !== g) : [...hiddenList, g]);
   const onlyTag = (g: string) => setHidden(tagKeys.filter((x) => x !== g));
   const toggleAll = () => setHidden(shownCount === tagKeys.length ? tagKeys : []);
-  const [anchor, setAnchor] = useState(todayISO);
+  const anchor = useUi((s) => s.calAnchor);
+  const setAnchor = useUi((s) => s.setCalAnchor);
   const [now, setNow] = useState(() => new Date());
   const scrollRef = useRef<HTMLDivElement>(null);
 
