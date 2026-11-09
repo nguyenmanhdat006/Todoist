@@ -17,7 +17,8 @@ Import repo vào Vercel. Vercel tự nhận Vite: build command `npm run build`,
 ## Tính năng
 
 - Kanban kéo thả: kéo thẻ giữa các cột, đổi thứ tự trong cột, kéo tiêu đề cột để đổi chỗ cột (chuột, cảm ứng, bàn phím Space).
-- Thêm, sửa, xoá cột; đổi màu cột; đặt cột "Hoàn thành".
+- 5 cột mặc định luôn có: Quá hạn, Cần làm, Đang làm, Chờ xem lại, Hoàn thành. Việc quá hạn tự chuyển vào cột Quá hạn, đổi hạn sang ngày sau thì tự trả về cột cũ.
+- Thêm, sửa, xoá cột riêng; đổi màu cột.
 - Tick ô vuông trên thẻ để chuyển việc sang cột Hoàn thành.
 - Công việc: tiêu đề, ghi chú, ưu tiên (Gấp / Bình thường / Thấp), hạn chót, nhãn màu.
 - Tìm kiếm không cần gõ dấu, lọc việc gấp và quá hạn.

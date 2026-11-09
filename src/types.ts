@@ -10,6 +10,10 @@ export interface Task {
   tags: string[];
   createdAt: string;
   completedAt: string | null;
+  /** Hạn chót tại thời điểm app tự chuyển việc vào cột Quá hạn (để không kéo lại nếu người dùng tự chuyển ra) */
+  autoOverdueFor?: string | null;
+  /** Cột trước khi bị chuyển vào cột Quá hạn, để trả về khi đổi hạn */
+  prevColumnId?: string | null;
 }
 
 export interface Column {
@@ -23,8 +27,8 @@ export interface Column {
   builtin?: BuiltinColumn;
 }
 
-export type BuiltinColumn = 'todo' | 'doing' | 'review' | 'done';
-export const BUILTIN_COLUMNS: BuiltinColumn[] = ['todo', 'doing', 'review', 'done'];
+export type BuiltinColumn = 'overdue' | 'todo' | 'doing' | 'review' | 'done';
+export const BUILTIN_COLUMNS: BuiltinColumn[] = ['overdue', 'todo', 'doing', 'review', 'done'];
 
 export interface BoardData {
   columns: Column[];

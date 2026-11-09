@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import type { BoardData, BuiltinColumn, Column, Lang, Priority, SavedFilter, Task, ThemeMode, ViewMode } from '../types';
 import { BUILTIN_COLUMNS } from '../types';
-import { addDaysISO, uid } from '../utils';
+import { addDaysISO, todayISO, uid } from '../utils';
 
 export interface TaskInput {
   title: string;
@@ -34,6 +34,8 @@ interface BoardState extends BoardData {
   importData: (raw: unknown) => boolean;
   /** Tick hoàn thành: chuyển sang cột Hoàn thành, bỏ tick: về đầu cột mở đầu tiên */
   toggleDone: (taskId: string) => void;
+  /** Chuyển việc quá hạn vào cột Quá hạn; việc đã hết quá hạn thì trả về cột cũ */
+  syncOverdue: () => void;
   clearAll: () => void;
   loadDemo: () => void;
 
@@ -77,7 +79,7 @@ const DEMO = {
       ['Thanh toán tiền điện', ''],
     ],
     tags: { work: 'Công việc', personal: 'Cá nhân', study: 'Học tập' },
-    columns: ['Cần làm', 'Đang làm', 'Chờ xem lại', 'Hoàn thành'],
+    columns: ['Quá hạn', 'Cần làm', 'Đang làm', 'Chờ xem lại', 'Hoàn thành'],
   },
   en: {
     tasks: [
@@ -90,7 +92,7 @@ const DEMO = {
       ['Pay the electricity bill', ''],
     ],
     tags: { work: 'Work', personal: 'Personal', study: 'Study' },
-    columns: ['To do', 'In progress', 'In review', 'Done'],
+    columns: ['Overdue', 'To do', 'In progress', 'In review', 'Done'],
   },
 } as const;
 
@@ -132,6 +134,7 @@ function localizeDefaults(
 }
 
 const BUILTIN_COLORS: Record<BuiltinColumn, string> = {
+  overdue: '#f87171',
   todo: '#4f8ff7',
   doing: '#fb923c',
   review: '#a78bfa',
@@ -180,6 +183,25 @@ export function ensureBuiltins(columns: Column[], lang: Lang): Column[] {
   return cols.map((c) => (c.builtin === 'done' && !c.isDone ? { ...c, isDone: true } : c));
 }
 
+/** Cột mở đầu tiên để đưa việc về (ưu tiên "Cần làm", bỏ qua "Quá hạn") */
+export function firstOpenColumn(columns: Column[]) {
+  return (
+    columns.find((c) => c.builtin === 'todo') ??
+    columns.find((c) => !c.isDone && c.builtin !== 'overdue') ??
+    columns.find((c) => !c.isDone)
+  );
+}
+
+/** Đặt thẻ vào cột `toId` tại vị trí `index` (hàm thuần, không đụng store) */
+function placeTask(columns: Column[], taskId: string, toId: string, index: number): Column[] {
+  return columns.map((c) => {
+    const without = c.taskIds.filter((x) => x !== taskId);
+    if (c.id !== toId) return without.length === c.taskIds.length ? c : { ...c, taskIds: without };
+    const i = Math.max(0, Math.min(index, without.length));
+    return { ...c, taskIds: [...without.slice(0, i), taskId, ...without.slice(i)] };
+  });
+}
+
 export function demoData(lang: Lang = detectLang()): BoardData {
   const L = DEMO[lang];
   const t = (i: number, extra: Omit<TaskInput, 'title' | 'note'> = {}, done = false): Task => ({
@@ -200,6 +222,7 @@ export function demoData(lang: Lang = detectLang()): BoardData {
   return {
     tasks: Object.fromEntries(tasks.map((x) => [x.id, x])),
     columns: [
+      builtinColumn('overdue', lang),
       { ...builtinColumn('todo', lang), taskIds: ids.slice(0, 3) },
       { ...builtinColumn('doing', lang), taskIds: ids.slice(3, 5) },
       { ...builtinColumn('review', lang), taskIds: ids.slice(5, 6) },
@@ -300,13 +323,45 @@ export const useBoard = create<BoardState>()(
           };
         }),
 
+      syncOverdue: () =>
+        set((s) => {
+          const od = s.columns.find((c) => c.builtin === 'overdue');
+          if (!od) return s;
+          const today = todayISO();
+          let columns = s.columns;
+          let tasks = s.tasks;
+          let changed = false;
+          for (const task of Object.values(s.tasks)) {
+            const col = columns.find((c) => c.taskIds.includes(task.id));
+            if (!col) continue;
+            const overdue = !!task.dueDate && task.dueDate < today;
+            if (overdue && !col.isDone && col.id !== od.id && task.autoOverdueFor !== task.dueDate) {
+              columns = placeTask(columns, task.id, od.id, Number.MAX_SAFE_INTEGER);
+              tasks = { ...tasks, [task.id]: { ...task, autoOverdueFor: task.dueDate, prevColumnId: col.id } };
+              changed = true;
+            } else if (!overdue && col.id === od.id && task.autoOverdueFor) {
+              const back =
+                columns.find((c) => c.id === task.prevColumnId && c.id !== od.id && !c.isDone) ?? firstOpenColumn(columns);
+              if (back) columns = placeTask(columns, task.id, back.id, 0);
+              tasks = { ...tasks, [task.id]: { ...task, autoOverdueFor: null, prevColumnId: null } };
+              changed = true;
+            }
+          }
+          return changed ? { columns, tasks } : s;
+        }),
+
       toggleDone: (taskId) => {
         const { columns, moveTask } = get();
         const current = columns.find((c) => c.taskIds.includes(taskId));
         if (!current) return;
-        const target = current.isDone ? columns.find((c) => !c.isDone) : columns.find((c) => c.isDone);
+        const target = current.isDone ? firstOpenColumn(columns) : columns.find((c) => c.isDone);
         if (!target) return;
         moveTask(taskId, target.id, current.isDone ? 0 : target.taskIds.length);
+        // Bỏ tick một việc vẫn quá hạn: cho phép tự chuyển lại vào cột Quá hạn
+        if (current.isDone) {
+          get().updateTask(taskId, { autoOverdueFor: null, prevColumnId: null });
+          get().syncOverdue();
+        }
       },
 
       addColumn: (title, color) =>

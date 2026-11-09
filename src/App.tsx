@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useBoard } from './store/board';
+import { firstOpenColumn, useBoard } from './store/board';
 import type { SavedFilter, Task } from './types';
 import { useT } from './i18n';
 import { fold, isOverdue, matchesFilter } from './utils';
@@ -42,6 +42,15 @@ export default function App() {
   useEffect(() => {
     document.documentElement.lang = t.lang;
   }, [t.lang]);
+
+  // Tự chuyển việc quá hạn vào cột Quá hạn: khi mở app, khi dữ liệu đổi, và mỗi phút (để bắt sang ngày mới)
+  useEffect(() => {
+    useBoard.getState().syncOverdue();
+  }, [tasks]);
+  useEffect(() => {
+    const id = setInterval(() => useBoard.getState().syncOverdue(), 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   const doneIds = useMemo(() => new Set(columns.filter((c) => c.isDone).flatMap((c) => c.taskIds)), [columns]);
 
@@ -93,7 +102,8 @@ export default function App() {
   );
 
   const openCreate = useCallback(() => {
-    const first = useBoard.getState().columns.find((c) => !c.isDone) ?? useBoard.getState().columns[0];
+    const cols = useBoard.getState().columns;
+    const first = firstOpenColumn(cols) ?? cols[0];
     if (first) setModal({ taskId: null, columnId: first.id });
   }, []);
 
