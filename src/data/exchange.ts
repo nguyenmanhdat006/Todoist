@@ -61,6 +61,7 @@ export interface ExportTask {
   completedAt: string | null;
   autoOverdueFor: string | null;
   prevColumnId: string | null;
+  progress: number;
 }
 
 export interface ExportFile {
@@ -120,6 +121,7 @@ export function buildExport(s: ExportSource, now = new Date()): ExportFile {
         completedAt: x.completedAt,
         autoOverdueFor: x.autoOverdueFor ?? null,
         prevColumnId: x.prevColumnId ?? null,
+        progress: clampProgress(x.progress),
       });
     });
   }
@@ -208,6 +210,12 @@ const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 const COLOR_RE = /^#[0-9a-fA-F]{6}$/;
 const PRIORITIES: Priority[] = ['high', 'normal', 'low'];
 const DUE_RULES: DueRule[] = ['any', 'overdue', 'today', 'week', 'none'];
+
+/** Tiến độ hợp lệ: số nguyên 0–100, sai thì về 0 */
+export function clampProgress(v: unknown): number {
+  const n = typeof v === 'number' && Number.isFinite(v) ? Math.round(v) : 0;
+  return Math.min(100, Math.max(0, n));
+}
 
 function validDate(v: string) {
   if (!DATE_RE.test(v)) return false;
@@ -310,6 +318,7 @@ function readTask(raw: unknown, path: string, warn: (key: TKey, vars?: Issue['va
     completedAt,
     autoOverdueFor: autoOverdueFor && validDate(autoOverdueFor) ? autoOverdueFor : null,
     prevColumnId: prevColumnId || null,
+    progress: clampProgress(raw.progress),
   };
 }
 

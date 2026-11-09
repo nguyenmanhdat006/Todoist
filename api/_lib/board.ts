@@ -72,6 +72,7 @@ export async function readBoard(userId: string): Promise<BoardResponse> {
       completedAt: iso(t.completed_at),
       autoOverdueFor: t.auto_overdue_for,
       prevColumnId: t.prev_column_id,
+      progress: t.progress ?? 0,
     })),
     filters: filters.rows.map((f) => ({
       id: f.id,
@@ -131,6 +132,7 @@ export async function writeBoard(userId: string, baseRevision: number, raw: unkn
         completed_at: t.completedAt,
         auto_overdue_for: t.autoOverdueFor ?? null,
         prev_column_id: t.prevColumnId ?? null,
+        progress: t.progress ?? 0,
       };
     }),
   );
@@ -173,12 +175,12 @@ export async function writeBoard(userId: string, baseRevision: number, raw: unkn
     if (taskRows.length)
       await c.query(
         `insert into tasks (user_id, id, column_id, position, title, note, priority, due_date, start_time, end_time, tags,
-                            created_at, updated_at, completed_at, auto_overdue_for, prev_column_id)
+                            created_at, updated_at, completed_at, auto_overdue_for, prev_column_id, progress)
          select $1, x.id, x.column_id, x.position, x.title, x.note, x.priority, x.due_date, x.start_time, x.end_time, x.tags,
-                x.created_at, x.updated_at, x.completed_at, x.auto_overdue_for, x.prev_column_id
+                x.created_at, x.updated_at, x.completed_at, x.auto_overdue_for, x.prev_column_id, x.progress
          from jsonb_to_recordset($2::jsonb) as x(id text, column_id text, position int, title text, note text, priority text,
               due_date date, start_time time, end_time time, tags text[], created_at timestamptz, updated_at timestamptz,
-              completed_at timestamptz, auto_overdue_for date, prev_column_id text)`,
+              completed_at timestamptz, auto_overdue_for date, prev_column_id text, progress smallint)`,
         [userId, JSON.stringify(taskRows)],
       );
     if (filterRows.length)

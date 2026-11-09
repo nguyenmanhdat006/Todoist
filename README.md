@@ -50,7 +50,8 @@ request ghi dữ liệu phải là JSON và cùng nguồn; khoá tạm sau 8 l�
 - Tick ô vuông trên thẻ để chuyển việc sang cột Hoàn thành.
 - Công việc: tiêu đề, ghi chú, ưu tiên (Gấp / Bình thường / Thấp), hạn chót, nhãn màu.
 - Tìm kiếm không cần gõ dấu, lọc việc gấp và quá hạn.
-- Xem dạng Danh sách, tick để chuyển việc sang cột Hoàn thành.
+- Tiến độ (%) cho mọi việc đã bắt đầu (ngoài cột Cần làm); việc ở cột Hoàn thành luôn 100%. Thẻ chưa cập nhật tiến độ có nhắc.
+- Danh sách dạng bảng tính: sắp xếp theo cột, đổi giai đoạn/ưu tiên và kéo tiến độ ngay trên bảng.
 - Hoàn tác khi xoá việc, xoá cột, nhập dữ liệu.
 - Giao diện sáng và tối.
 - Chuyển ngôn ngữ Tiếng Việt / English (nút VI | EN trên thanh trên cùng). Chuỗi giao diện nằm trong `src/i18n.ts`.

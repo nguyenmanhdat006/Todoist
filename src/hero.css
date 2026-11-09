@@ -1,6 +1,6 @@
 /* ---------- phần bên phải thanh đầu trang ---------- */
 .hero-aside {
-  flex: 1 1 520px; min-width: 0; align-self: stretch; display: grid; align-items: center;
+  flex: 1 1 680px; min-width: 0; align-self: stretch; display: grid; align-items: center;
   grid-template-columns: minmax(0, 1fr) minmax(240px, 320px);
   grid-template-areas: 'greet next';
   gap: 12px 22px; padding-left: 28px; border-left: 1px solid var(--line);
@@ -28,6 +28,7 @@
 }
 .hero-banner-content { position: relative; display: flex; align-items: flex-end; gap: 14px; height: 100%; padding-top: 6px; }
 .hero-banner-text {
+  min-width: 0; white-space: nowrap;
   margin: 0 0 22px; display: flex; flex-direction: column; gap: 2px;
   font-size: 20px; font-weight: 800; line-height: 1.2; letter-spacing: -0.01em;
   color: color-mix(in srgb, var(--ban) 85%, var(--fg));
@@ -92,7 +93,7 @@ button.hero-next:hover { background: color-mix(in srgb, var(--tag) 18%, var(--su
 
 
 /* Không đủ chỗ trên một hàng: xuống hàng riêng, ngăn bằng vạch ngang thay cho vạch dọc */
-@media (max-width: 1320px) {
+@media (max-width: 1720px) {
   .hero-aside { flex-basis: 100%; padding-left: 0; padding-top: 14px; border-left: 0; border-top: 1px solid var(--line); }
 }
 /* Điện thoại: lời chào ở trên, thẻ Tiếp theo ở dưới */

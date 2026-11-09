@@ -87,6 +87,7 @@ function makeTask(input: TaskInput): Task {
     createdAt: now,
     updatedAt: now,
     completedAt: null,
+    progress: 0,
   };
 }
 
@@ -322,7 +323,15 @@ export const useBoard = create<BoardState>()(
             tasks:
               completedAt === task.completedAt && !moved
                 ? s.tasks
-                : { ...s.tasks, [taskId]: { ...task, completedAt, ...(moved ? { updatedAt: new Date().toISOString() } : {}) } },
+                : {
+                    ...s.tasks,
+                    [taskId]: {
+                      ...task,
+                      completedAt,
+                      ...(target.isDone ? { progress: 100 } : {}),
+                      ...(moved ? { updatedAt: new Date().toISOString() } : {}),
+                    },
+                  },
           };
         }),
 

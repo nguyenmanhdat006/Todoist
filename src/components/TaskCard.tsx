@@ -4,7 +4,7 @@ import type { CSSProperties } from 'react';
 import type { Task } from '../types';
 import { useT } from '../i18n';
 import { useBoard } from '../store/board';
-import { dueInfo, timeRange, tagStyle } from '../utils';
+import { canTrackProgress, dueInfo, progressOf, timeRange, tagStyle } from '../utils';
 
 interface BodyProps {
   task: Task;
@@ -17,6 +17,9 @@ export function TaskCardBody({ task, done, color, overlay }: BodyProps) {
   const t = useT();
   const toggleDone = useBoard((s) => s.toggleDone);
   const due = dueInfo(task.dueDate, done, t);
+  const col = useBoard((s) => s.columns.find((c) => c.taskIds.includes(task.id)));
+  const tracked = canTrackProgress(col);
+  const pct = progressOf(task, col);
   return (
     <div
       className={`card${done ? ' is-done' : ''}${overlay ? ' is-overlay' : ''}`}
@@ -45,6 +48,14 @@ export function TaskCardBody({ task, done, color, overlay }: BodyProps) {
               {tag}
             </span>
           ))}
+        </div>
+      )}
+      {tracked && (
+        <div className={`card-progress${pct === 0 ? ' is-empty' : ''}`} title={t('progress.label')}>
+          <span className="card-progress-bar" aria-hidden="true">
+            <i style={{ width: `${pct}%` }} />
+          </span>
+          <span className="card-progress-value">{pct === 0 ? t('progress.notSet') : `${pct}%`}</span>
         </div>
       )}
       {due && (

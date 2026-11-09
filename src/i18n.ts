@@ -5,6 +5,10 @@ import type { Lang } from './types';
 const vi = {
   'app.name': 'Quản lý công việc',
   'clock.label': 'Bây giờ là',
+  'progress.label': 'Tiến độ',
+  'progress.notSet': 'Chưa cập nhật tiến độ',
+  'progress.todoHint': 'Chuyển việc sang cột khác (ví dụ Đang làm) để cập nhật tiến độ.',
+  'progress.doneHint': 'Việc đã hoàn thành luôn là 100%.',
   'hero.morning': 'Chào buổi sáng',
   'hero.noon': 'Chào buổi trưa',
   'hero.afternoon': 'Chào buổi chiều',
@@ -263,6 +267,10 @@ const vi = {
   'list.priority': 'Ưu tiên',
   'list.due': 'Hạn chót',
   'list.tags': 'Nhãn',
+  'list.stage': 'Giai đoạn',
+  'list.created': 'Ngày tạo',
+  'list.finished': 'Hoàn thành',
+  'list.progress': 'Tiến độ',
   'list.noDoneCol': 'Chưa có cột nào được đặt là cột Hoàn thành',
 
   'color.blue': 'Xanh dương',
@@ -280,6 +288,10 @@ export type TKey = keyof typeof vi;
 const en: Record<TKey, string> = {
   'app.name': 'Task management',
   'clock.label': 'Current time',
+  'progress.label': 'Progress',
+  'progress.notSet': 'Progress not updated',
+  'progress.todoHint': 'Move the task out of To do (for example to In progress) to track progress.',
+  'progress.doneHint': 'Completed tasks are always 100%.',
   'hero.morning': 'Good morning',
   'hero.noon': 'Good afternoon',
   'hero.afternoon': 'Good afternoon',
@@ -538,6 +550,10 @@ const en: Record<TKey, string> = {
   'list.priority': 'Priority',
   'list.due': 'Due',
   'list.tags': 'Tags',
+  'list.stage': 'Stage',
+  'list.created': 'Created',
+  'list.finished': 'Finished',
+  'list.progress': 'Progress',
   'list.noDoneCol': 'No column is set as the Done column',
 
   'color.blue': 'Blue',

@@ -1,5 +1,5 @@
 import type { T } from './i18n';
-import type { Lang, SavedFilter, Task } from './types';
+import type { Column, Lang, SavedFilter, Task } from './types';
 import { presetTagNames, tagColor } from './types';
 import type { CSSProperties } from 'react';
 
@@ -110,6 +110,18 @@ export function readableText(hex: string) {
 export function tagStyle(tag: string): CSSProperties {
   const c = tagColor(tag);
   return { '--tag': c, '--tag-fg': readableText(c) } as CSSProperties;
+}
+
+/** Cột cho phép cập nhật tiến độ: mọi cột trừ "Cần làm" (chưa bắt đầu) và cột Hoàn thành (luôn 100%) */
+export function canTrackProgress(col: Column | undefined) {
+  return !!col && !col.isDone && col.builtin !== 'todo';
+}
+
+/** Tiến độ hiển thị: Hoàn thành = 100, Cần làm = 0, còn lại theo giá trị đã nhập */
+export function progressOf(task: Task, col: Column | undefined) {
+  if (col?.isDone) return 100;
+  if (!canTrackProgress(col)) return 0;
+  return Math.min(100, Math.max(0, Math.round(task.progress ?? 0)));
 }
 
 /** Việc có khớp bộ lọc đã lưu không */

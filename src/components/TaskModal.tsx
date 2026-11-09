@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useBoard } from '../store/board';
-import type { Priority } from '../types';
+import type { Column, Priority } from '../types';
 import { PRIORITIES } from '../types';
 import { useT } from '../i18n';
 import { TagPicker, addTag } from './TagPicker';
 import { TimeSelect } from './TimeSelect';
-import { fromMinutes, toMinutes, todayISO } from '../utils';
+import { canTrackProgress, fromMinutes, toMinutes, todayISO } from '../utils';
 
 /** Giá trị điền sẵn khi tạo việc (ví dụ bấm vào một ô trên lịch) */
 export interface TaskDefaults {
@@ -77,6 +77,7 @@ export function TaskModal({ taskId, defaultColumnId, defaults, onClose, onDelete
   const [tagDraft, setTagDraft] = useState('');
   const [columnId, setColumnId] = useState(currentColumnId);
   const [error, setError] = useState('');
+  const [progress, setProgress] = useState(task?.progress ?? 0);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
@@ -102,6 +103,7 @@ export function TaskModal({ taskId, defaultColumnId, defaults, onClose, onDelete
       dueDate: dueDate || null,
       startTime: timed ? startTime : null,
       endTime: timed && endTime ? endTime : null,
+      ...(canTrackProgress(columns.find((c) => c.id === columnId)) ? { progress } : {}),
       // Lấy luôn nhãn đang gõ dở chưa nhấn Enter
       tags: addTag(tags, tagDraft, tags),
     };
@@ -219,6 +221,12 @@ export function TaskModal({ taskId, defaultColumnId, defaults, onClose, onDelete
           {timeError && <small className="error">{timeError}</small>}
         </div>
 
+        <ProgressField
+          column={columns.find((c) => c.id === columnId)}
+          value={progress}
+          onChange={setProgress}
+        />
+
         <div className="field">
           <span>{t('modal.priority')}</span>
           <div className="seg" role="radiogroup" aria-label={t('modal.priority')}>
@@ -259,6 +267,45 @@ export function TaskModal({ taskId, defaultColumnId, defaults, onClose, onDelete
           </button>
         </footer>
       </form>
+    </div>
+  );
+}
+
+const STEPS = [0, 25, 50, 75, 100];
+
+/** Tiến độ: chỉnh được khi việc không nằm ở cột Cần làm / Hoàn thành */
+function ProgressField({ column, value, onChange }: { column: Column | undefined; value: number; onChange: (v: number) => void }) {
+  const t = useT();
+  const editable = canTrackProgress(column);
+  const shown = column?.isDone ? 100 : editable ? value : 0;
+  return (
+    <div className="field">
+      <div className="time-head">
+        <span>{t('progress.label')}</span>
+        <span className="progress-num">{shown}%</span>
+      </div>
+      <div className={`progress-field${editable ? '' : ' is-locked'}`}>
+        <input
+          id="task-progress"
+          type="range"
+          min={0}
+          max={100}
+          step={5}
+          value={shown}
+          disabled={!editable}
+          aria-label={t('progress.label')}
+          style={{ '--p': `${shown}%` } as CSSProperties}
+          onChange={(e) => onChange(Number(e.target.value))}
+        />
+        <div className="progress-steps">
+          {STEPS.map((v) => (
+            <button key={v} type="button" disabled={!editable} className={shown === v ? 'on' : ''} onClick={() => onChange(v)}>
+              {v}%
+            </button>
+          ))}
+        </div>
+      </div>
+      {!editable && <small className="hint">{column?.isDone ? t('progress.doneHint') : t('progress.todoHint')}</small>}
     </div>
   );
 }

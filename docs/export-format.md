@@ -60,6 +60,7 @@ Dữ liệu được tổ chức thành các danh sách phẳng giống các b�
 | `completedAt` | ISO 8601 UTC \| null | có giá trị khi việc nằm trong cột `isDone` |
 | `autoOverdueFor` | `YYYY-MM-DD` \| null | nội bộ: hạn chót lúc app tự chuyển việc vào cột Quá hạn |
 | `prevColumnId` | string \| null | nội bộ: cột trước khi bị chuyển vào Quá hạn |
+| `progress` | integer 0–100 | tiến độ hoàn thành (%); thiếu thì coi là 0 |
 
 Thời điểm bắt đầu tuyệt đối = `dueDate` + `startTime` theo `timezone`. Ví dụ trong PostgreSQL:
 `(due_date + start_time) AT TIME ZONE 'Asia/Ho_Chi_Minh'`.
