@@ -115,9 +115,7 @@ function ColumnMenu({ column, onClose, onDelete }: { column: Column; onClose: ()
           ))}
         </div>
       </div>
-      {column.builtin ? (
-        <p className="hint">{t('col.builtin')}</p>
-      ) : (
+      {!column.builtin && (
         <label className="check">
           <input
             type="checkbox"
