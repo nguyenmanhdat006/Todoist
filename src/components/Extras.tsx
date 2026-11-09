@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useBoard } from '../store/board';
 import { todayISO } from '../utils';
+import { useT } from '../i18n';
 
 export interface ToastData {
   id: number;
@@ -9,6 +10,7 @@ export interface ToastData {
 }
 
 export function Toast({ toast, onClose }: { toast: ToastData | null; onClose: () => void }) {
+  const t = useT();
   useEffect(() => {
     if (!toast) return;
     const t = setTimeout(onClose, 5000);
@@ -27,7 +29,7 @@ export function Toast({ toast, onClose }: { toast: ToastData | null; onClose: ()
             onClose();
           }}
         >
-          Hoàn tác
+          {t('toast.undo')}
         </button>
       )}
     </div>
@@ -37,6 +39,7 @@ export function Toast({ toast, onClose }: { toast: ToastData | null; onClose: ()
 export function SettingsMenu({ onToast }: { onToast: (t: Omit<ToastData, 'id'>) => void }) {
   const [open, setOpen] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
+  const t = useT();
   const ref = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -79,11 +82,11 @@ export function SettingsMenu({ onToast }: { onToast: (t: Omit<ToastData, 'id'>) 
       const ok = s.importData(JSON.parse(await file.text()));
       onToast(
         ok
-          ? { message: `Đã nhập dữ liệu từ ${file.name}.`, onUndo: () => useBoard.getState().restore(prev) }
-          : { message: 'File không đúng định dạng của app.' },
+          ? { message: t('toast.imported', { name: file.name }), onUndo: () => useBoard.getState().restore(prev) }
+          : { message: t('toast.badFormat') },
       );
     } catch {
-      onToast({ message: 'Không đọc được file. Hãy chọn file .json đã xuất từ app.' });
+      onToast({ message: t('toast.unreadable') });
     }
     setOpen(false);
   };
@@ -93,8 +96,8 @@ export function SettingsMenu({ onToast }: { onToast: (t: Omit<ToastData, 'id'>) 
       <button
         type="button"
         className="icon-btn"
-        aria-label="Dữ liệu và sao lưu"
-        title="Dữ liệu và sao lưu"
+        aria-label={t('data.button')}
+        title={t('data.button')}
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
       >
@@ -105,12 +108,12 @@ export function SettingsMenu({ onToast }: { onToast: (t: Omit<ToastData, 'id'>) 
       </button>
       {open && (
         <div className="popover settings-menu">
-          <div className="menu-label">Dữ liệu (lưu trong trình duyệt này)</div>
+          <div className="menu-label">{t('data.heading')}</div>
           <button type="button" className="menu-item" onClick={exportJson}>
-            Xuất file JSON để sao lưu
+            {t('data.export')}
           </button>
           <button type="button" className="menu-item" onClick={() => fileRef.current?.click()}>
-            Nhập từ file JSON
+            {t('data.import')}
           </button>
           <input
             ref={fileRef}
@@ -130,18 +133,18 @@ export function SettingsMenu({ onToast }: { onToast: (t: Omit<ToastData, 'id'>) 
             onClick={() => {
               const prev = useBoard.getState().snapshot();
               useBoard.getState().loadDemo();
-              onToast({ message: 'Đã nạp dữ liệu mẫu.', onUndo: () => useBoard.getState().restore(prev) });
+              onToast({ message: t('toast.demo'), onUndo: () => useBoard.getState().restore(prev) });
               setOpen(false);
             }}
           >
-            Nạp dữ liệu mẫu
+            {t('data.demo')}
           </button>
           {confirmClear ? (
             <div className="confirm">
-              <span>Xoá hết mọi việc? Các cột vẫn được giữ.</span>
+              <span>{t('data.clearConfirm')}</span>
               <div className="confirm-actions">
                 <button type="button" className="btn ghost sm" onClick={() => setConfirmClear(false)}>
-                  Không
+                  {t('data.clearNo')}
                 </button>
                 <button
                   type="button"
@@ -149,17 +152,17 @@ export function SettingsMenu({ onToast }: { onToast: (t: Omit<ToastData, 'id'>) 
                   onClick={() => {
                     const prev = useBoard.getState().snapshot();
                     useBoard.getState().clearAll();
-                    onToast({ message: 'Đã xoá toàn bộ công việc.', onUndo: () => useBoard.getState().restore(prev) });
+                    onToast({ message: t('toast.cleared'), onUndo: () => useBoard.getState().restore(prev) });
                     setOpen(false);
                   }}
                 >
-                  Xoá hết
+                  {t('data.clearYes')}
                 </button>
               </div>
             </div>
           ) : (
             <button type="button" className="menu-item danger" onClick={() => setConfirmClear(true)}>
-              Xoá toàn bộ công việc…
+              {t('data.clear')}
             </button>
           )}
         </div>

@@ -1,18 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useBoard } from './store/board';
 import type { PriorityFilter, Task } from './types';
-import { PRIORITY } from './types';
+import { useT, type TKey } from './i18n';
 import { fold, isOverdue } from './utils';
 import { Board } from './components/Board';
 import { ListView } from './components/ListView';
 import { TaskModal } from './components/TaskModal';
 import { SettingsMenu, Toast, type ToastData } from './components/Extras';
-import { HelpButton, ProgressRing, ThemeSwitch } from './components/TopbarWidgets';
+import { HelpButton, LangSwitch, ProgressRing, ThemeSwitch } from './components/TopbarWidgets';
 
-const FILTERS: { id: PriorityFilter; label: string }[] = [
-  { id: 'all', label: 'Tất cả' },
-  { id: 'high', label: PRIORITY.high.label },
-  { id: 'overdue', label: 'Quá hạn' },
+const FILTERS: { id: PriorityFilter; label: TKey }[] = [
+  { id: 'all', label: 'filter.all' },
+  { id: 'high', label: 'prio.high' },
+  { id: 'overdue', label: 'filter.overdue' },
 ];
 
 export default function App() {
@@ -21,6 +21,7 @@ export default function App() {
   const theme = useBoard((s) => s.theme);
   const view = useBoard((s) => s.view);
   const setView = useBoard((s) => s.setView);
+  const t = useT();
 
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<PriorityFilter>('all');
@@ -38,6 +39,10 @@ export default function App() {
     if (theme === 'system') root.removeAttribute('data-theme');
     else root.setAttribute('data-theme', theme);
   }, [theme]);
+
+  useEffect(() => {
+    document.documentElement.lang = t.lang;
+  }, [t.lang]);
 
   const doneIds = useMemo(() => new Set(columns.filter((c) => c.isDone).flatMap((c) => c.taskIds)), [columns]);
 
@@ -63,8 +68,8 @@ export default function App() {
   }, [tasks, doneIds]);
 
   const todayLabel = useMemo(
-    () => new Intl.DateTimeFormat('vi-VN', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date()),
-    [],
+    () => new Intl.DateTimeFormat(t.locale, { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date()),
+    [t],
   );
 
   const openCreate = useCallback(() => {
@@ -96,7 +101,7 @@ export default function App() {
     const title = s.tasks[id]?.title ?? '';
     s.deleteTask(id);
     setModal(null);
-    showToast({ message: `Đã xoá “${title}”.`, onUndo: () => useBoard.getState().restore(prev) });
+    showToast({ message: t('toast.taskDeleted', { title }), onUndo: () => useBoard.getState().restore(prev) });
   };
 
   const deleteColumn = (id: string) => {
@@ -104,7 +109,7 @@ export default function App() {
     const prev = s.snapshot();
     const col = s.columns.find((c) => c.id === id);
     s.deleteColumn(id);
-    showToast({ message: `Đã xoá cột “${col?.title ?? ''}”.`, onUndo: () => useBoard.getState().restore(prev) });
+    showToast({ message: t('toast.columnDeleted', { title: col?.title ?? '' }), onUndo: () => useBoard.getState().restore(prev) });
   };
 
   return (
@@ -123,16 +128,17 @@ export default function App() {
               Kanban<span className="brand-sub">/todo</span>
             </span>
           </div>
-          <nav className="nav" aria-label="Kiểu xem">
+          <nav className="nav" aria-label={t('nav.label')}>
             <button type="button" className={view === 'kanban' ? 'on' : ''} aria-current={view === 'kanban' ? 'page' : undefined} onClick={() => setView('kanban')}>
-              Bảng
+              {t('nav.board')}
             </button>
             <button type="button" className={view === 'list' ? 'on' : ''} aria-current={view === 'list' ? 'page' : undefined} onClick={() => setView('list')}>
-              Danh sách
+              {t('nav.list')}
             </button>
           </nav>
           <div className="topbar-right">
             <ProgressRing done={stats.done} total={stats.total} />
+            <LangSwitch />
             <ThemeSwitch />
             <SettingsMenu onToast={showToast} />
             <HelpButton />
@@ -144,18 +150,18 @@ export default function App() {
         <div className="toolbar-top">
           <div className="toolbar-title">
             <span className="eyebrow">{todayLabel}</span>
-            <h1>Công việc</h1>
+            <h1>{t('page.title')}</h1>
           </div>
-          <div className="toolbar-stats" aria-label="Thống kê">
+          <div className="toolbar-stats" aria-label={t('stats.label')}>
             <span>
-              <b>{stats.open}</b> đang mở
+              <b>{stats.open}</b> {t('stats.open')}
             </span>
             <span>
-              <b>{stats.done}</b> đã xong
+              <b>{stats.done}</b> {t('stats.done')}
             </span>
             {stats.overdue > 0 && (
               <button type="button" className="stat-overdue" onClick={() => setFilter('overdue')}>
-                <b>{stats.overdue}</b> quá hạn
+                <b>{stats.overdue}</b> {t('stats.overdue')}
               </button>
             )}
           </div>
@@ -163,7 +169,7 @@ export default function App() {
             <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
               <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
             </svg>
-            Tạo việc
+            {t('create')}
             <kbd className="btn-kbd">N</kbd>
           </button>
         </div>
@@ -178,14 +184,14 @@ export default function App() {
               ref={searchRef}
               id="search"
               type="search"
-              placeholder="Tìm việc, ghi chú, nhãn…"
+              placeholder={t('search.placeholder')}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => e.key === 'Escape' && (setQuery(''), e.currentTarget.blur())}
             />
             <kbd className="search-kbd">/</kbd>
           </div>
-          <div className="seg-filter" role="group" aria-label="Bộ lọc">
+          <div className="seg-filter" role="group" aria-label={t('filter.label')}>
             {FILTERS.map((f) => {
               const n = f.id === 'high' ? stats.high : f.id === 'overdue' ? stats.overdue : stats.total;
               return (
@@ -196,7 +202,7 @@ export default function App() {
                   aria-pressed={filter === f.id}
                   onClick={() => setFilter(f.id)}
                 >
-                  {f.label}
+                  {t(f.label)}
                   <span className={'seg-count' + (f.id === 'overdue' && n > 0 ? ' is-alert' : '')}>{n}</span>
                 </button>
               );
@@ -211,7 +217,7 @@ export default function App() {
                 setFilter('all');
               }}
             >
-              Xoá bộ lọc
+              {t('filter.clear')}
             </button>
           )}
         </div>

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { BoardData, Column, Priority, Task, ThemeMode, ViewMode } from '../types';
+import type { BoardData, Column, Lang, Priority, Task, ThemeMode, ViewMode } from '../types';
 import { addDaysISO, uid } from '../utils';
 
 export interface TaskInput {
@@ -14,6 +14,7 @@ export interface TaskInput {
 interface BoardState extends BoardData {
   theme: ThemeMode;
   view: ViewMode;
+  lang: Lang;
 
   addTask: (columnId: string, input: TaskInput, index?: number) => string;
   updateTask: (id: string, patch: Partial<Omit<Task, 'id'>>) => void;
@@ -36,6 +37,7 @@ interface BoardState extends BoardData {
 
   setTheme: (t: ThemeMode) => void;
   setView: (v: ViewMode) => void;
+  setLang: (l: Lang) => void;
 }
 
 function makeTask(input: TaskInput): Task {
@@ -51,32 +53,64 @@ function makeTask(input: TaskInput): Task {
   };
 }
 
-export function demoData(): BoardData {
-  const t = (input: TaskInput, done = false): Task => ({
-    ...makeTask(input),
+/** Ngôn ngữ mặc định khi chưa chọn: tiếng Việt */
+export function detectLang(): Lang {
+  return 'vi';
+}
+
+const DEMO = {
+  vi: {
+    tasks: [
+      ['Kéo thẻ này sang cột khác thử xem', 'Đây là dữ liệu mẫu. Bấm vào thẻ để sửa, tick ô vuông để đánh dấu xong.'],
+      ['Nộp báo cáo tuần', ''],
+      ['Đặt lịch khám răng', ''],
+      ['Học 15 từ tiếng Nhật', 'Bài 12 – Minna no Nihongo'],
+      ['Làm slide thuyết trình', ''],
+      ['Sửa CV gửi HR', ''],
+      ['Thanh toán tiền điện', ''],
+    ],
+    tags: { work: 'Công việc', personal: 'Cá nhân', study: 'Học tập' },
+    columns: ['Cần làm', 'Đang làm', 'Chờ xem lại', 'Hoàn thành'],
+  },
+  en: {
+    tasks: [
+      ['Try dragging this card to another column', 'This is sample data. Click a card to edit it, tick the box to mark it done.'],
+      ['Send the weekly report', ''],
+      ['Book a dentist appointment', ''],
+      ['Learn 15 Japanese words', 'Lesson 12 – Minna no Nihongo'],
+      ['Finish the presentation slides', ''],
+      ['Update CV for HR', ''],
+      ['Pay the electricity bill', ''],
+    ],
+    tags: { work: 'Work', personal: 'Personal', study: 'Study' },
+    columns: ['To do', 'In progress', 'In review', 'Done'],
+  },
+} as const;
+
+export function demoData(lang: Lang = detectLang()): BoardData {
+  const L = DEMO[lang];
+  const t = (i: number, extra: Omit<TaskInput, 'title' | 'note'> = {}, done = false): Task => ({
+    ...makeTask({ title: L.tasks[i][0], note: L.tasks[i][1], ...extra }),
     completedAt: done ? new Date(Date.now() - 86_400_000).toISOString() : null,
   });
+  const { work, personal, study } = L.tags;
   const tasks = [
-    t({
-      title: 'Kéo thẻ này sang cột khác thử xem',
-      note: 'Đây là dữ liệu mẫu. Bấm vào thẻ để sửa, tick ô vuông để đánh dấu xong.',
-      priority: 'low',
-    }),
-    t({ title: 'Nộp báo cáo tuần', priority: 'high', dueDate: addDaysISO(0), tags: ['Công việc'] }),
-    t({ title: 'Đặt lịch khám răng', dueDate: addDaysISO(3), tags: ['Cá nhân'] }),
-    t({ title: 'Học 15 từ tiếng Nhật', note: 'Bài 12 – Minna no Nihongo', tags: ['Học tập'] }),
-    t({ title: 'Làm slide thuyết trình', priority: 'high', dueDate: addDaysISO(1), tags: ['Công việc'] }),
-    t({ title: 'Sửa CV gửi HR', dueDate: addDaysISO(-1), tags: ['Cá nhân'] }),
-    t({ title: 'Thanh toán tiền điện', priority: 'low', tags: ['Cá nhân'] }, true),
+    t(0, { priority: 'low' }),
+    t(1, { priority: 'high', dueDate: addDaysISO(0), tags: [work] }),
+    t(2, { dueDate: addDaysISO(3), tags: [personal] }),
+    t(3, { tags: [study] }),
+    t(4, { priority: 'high', dueDate: addDaysISO(1), tags: [work] }),
+    t(5, { dueDate: addDaysISO(-1), tags: [personal] }),
+    t(6, { priority: 'low', tags: [personal] }, true),
   ];
   const ids = tasks.map((x) => x.id);
   return {
     tasks: Object.fromEntries(tasks.map((x) => [x.id, x])),
     columns: [
-      { id: uid('c'), title: 'Cần làm', color: '#4f8ff7', isDone: false, taskIds: ids.slice(0, 3) },
-      { id: uid('c'), title: 'Đang làm', color: '#fb923c', isDone: false, taskIds: ids.slice(3, 5) },
-      { id: uid('c'), title: 'Chờ xem lại', color: '#a78bfa', isDone: false, taskIds: ids.slice(5, 6) },
-      { id: uid('c'), title: 'Hoàn thành', color: '#4ade80', isDone: true, taskIds: ids.slice(6) },
+      { id: uid('c'), title: L.columns[0], color: '#4f8ff7', isDone: false, taskIds: ids.slice(0, 3) },
+      { id: uid('c'), title: L.columns[1], color: '#fb923c', isDone: false, taskIds: ids.slice(3, 5) },
+      { id: uid('c'), title: L.columns[2], color: '#a78bfa', isDone: false, taskIds: ids.slice(5, 6) },
+      { id: uid('c'), title: L.columns[3], color: '#4ade80', isDone: true, taskIds: ids.slice(6) },
     ],
   };
 }
@@ -121,6 +155,7 @@ export const useBoard = create<BoardState>()(
       ...demoData(),
       theme: 'dark',
       view: 'kanban',
+      lang: detectLang(),
 
       addTask: (columnId, input, index = 0) => {
         const task = makeTask(input);
@@ -229,22 +264,23 @@ export const useBoard = create<BoardState>()(
         return true;
       },
 
-      clearAll: () => set(emptyBoard()),
-      loadDemo: () => set(demoData()),
+      clearAll: () => set(emptyBoard(get().lang)),
+      loadDemo: () => set(demoData(get().lang)),
 
       setTheme: (theme) => set({ theme }),
       setView: (view) => set({ view }),
+      setLang: (lang) => set({ lang }),
     }),
     {
       name: 'sakura-kanban',
       version: 1,
       storage: createJSONStorage(() => localStorage),
-      partialize: (s) => ({ columns: s.columns, tasks: s.tasks, theme: s.theme, view: s.view }),
+      partialize: (s) => ({ columns: s.columns, tasks: s.tasks, theme: s.theme, view: s.view, lang: s.lang }),
     },
   ),
 );
 
-export function emptyBoard(): BoardData {
-  const d = demoData();
+export function emptyBoard(lang: Lang = detectLang()): BoardData {
+  const d = demoData(lang);
   return { tasks: {}, columns: d.columns.map((c) => ({ ...c, taskIds: [] })) };
 }

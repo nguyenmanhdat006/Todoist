@@ -1,3 +1,5 @@
+import type { T } from './i18n';
+
 export const uid = (prefix: string) =>
   `${prefix}_${Math.random().toString(36).slice(2, 8)}${Date.now().toString(36).slice(-4)}`;
 
@@ -23,17 +25,17 @@ function parseISODate(s: string) {
 
 export type DueTone = 'overdue' | 'today' | 'soon' | 'normal' | 'done';
 
-export function dueInfo(due: string | null, done: boolean): { label: string; tone: DueTone } | null {
+export function dueInfo(due: string | null, done: boolean, t: T): { label: string; tone: DueTone } | null {
   if (!due) return null;
   const today = parseISODate(todayISO());
   const date = parseISODate(due);
   const diff = Math.round((date.getTime() - today.getTime()) / 86_400_000);
   let label: string;
-  if (diff === 0) label = 'Hôm nay';
-  else if (diff === 1) label = 'Ngày mai';
-  else if (diff === -1) label = 'Hôm qua';
+  if (diff === 0) label = t('due.today');
+  else if (diff === 1) label = t('due.tomorrow');
+  else if (diff === -1) label = t('due.yesterday');
   else
-    label = new Intl.DateTimeFormat('vi-VN', {
+    label = new Intl.DateTimeFormat(t.locale, {
       day: 'numeric',
       month: 'short',
       ...(date.getFullYear() !== today.getFullYear() ? { year: 'numeric' } : {}),

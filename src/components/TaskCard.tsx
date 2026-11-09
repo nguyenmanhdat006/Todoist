@@ -2,7 +2,8 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { CSSProperties } from 'react';
 import type { Task } from '../types';
-import { PRIORITY, tagColor } from '../types';
+import { tagColor } from '../types';
+import { useT } from '../i18n';
 import { useBoard } from '../store/board';
 import { dueInfo } from '../utils';
 
@@ -14,8 +15,9 @@ interface BodyProps {
 }
 
 export function TaskCardBody({ task, done, color, overlay }: BodyProps) {
+  const t = useT();
   const toggleDone = useBoard((s) => s.toggleDone);
-  const due = dueInfo(task.dueDate, done);
+  const due = dueInfo(task.dueDate, done, t);
   return (
     <div
       className={`card${done ? ' is-done' : ''}${overlay ? ' is-overlay' : ''}`}
@@ -27,7 +29,7 @@ export function TaskCardBody({ task, done, color, overlay }: BodyProps) {
           className="card-check"
           id={`check-${task.id}`}
           checked={done}
-          aria-label={done ? 'Bỏ đánh dấu hoàn thành' : 'Đánh dấu hoàn thành'}
+          aria-label={done ? t('card.uncheck') : t('card.check')}
           onPointerDown={(e) => e.stopPropagation()}
           onKeyDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
@@ -48,7 +50,7 @@ export function TaskCardBody({ task, done, color, overlay }: BodyProps) {
       {(due || task.priority !== 'normal') && (
         <div className="card-foot">
           {task.priority !== 'normal' && (
-            <span className={`prio prio-${task.priority}`}>{PRIORITY[task.priority].label}</span>
+            <span className={`prio prio-${task.priority}`}>{t(`prio.${task.priority}`)}</span>
           )}
           {task.priority !== 'normal' && due && <span className="sep">/</span>}
           {due && <span className={`due due-${due.tone}`}>{due.label}</span>}
@@ -67,6 +69,7 @@ interface Props {
 }
 
 export function SortableTaskCard({ task, columnId, done, color, onOpen }: Props) {
+  const t = useT();
   const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({
     id: task.id,
     data: { type: 'task', columnId },
@@ -78,7 +81,7 @@ export function SortableTaskCard({ task, columnId, done, color, onOpen }: Props)
       style={{ transform: CSS.Translate.toString(transform), transition }}
       {...attributes}
       {...listeners}
-      aria-roledescription="Thẻ công việc"
+      aria-roledescription={t('card.role')}
       aria-label={task.title}
       onClick={() => onOpen(task.id)}
       onKeyDown={(e) => {

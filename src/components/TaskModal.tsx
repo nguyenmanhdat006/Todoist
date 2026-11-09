@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useBoard } from '../store/board';
 import type { Priority } from '../types';
-import { PRIORITY } from '../types';
+import { PRIORITIES } from '../types';
+import { useT } from '../i18n';
 
 interface Props {
   taskId: string | null;
@@ -11,6 +12,7 @@ interface Props {
 }
 
 export function TaskModal({ taskId, defaultColumnId, onClose, onDelete }: Props) {
+  const t = useT();
   const columns = useBoard((s) => s.columns);
   const task = useBoard((s) => (taskId ? s.tasks[taskId] : undefined));
   const currentColumnId = columns.find((c) => taskId && c.taskIds.includes(taskId))?.id ?? defaultColumnId;
@@ -31,7 +33,7 @@ export function TaskModal({ taskId, defaultColumnId, onClose, onDelete }: Props)
 
   const save = () => {
     if (!title.trim()) {
-      setError('Hãy nhập tên công việc.');
+      setError(t('modal.titleError'));
       return;
     }
     const s = useBoard.getState();
@@ -40,7 +42,7 @@ export function TaskModal({ taskId, defaultColumnId, onClose, onDelete }: Props)
       note: note.trim(),
       priority,
       dueDate: dueDate || null,
-      tags: [...new Set(tags.split(',').map((t) => t.trim()).filter(Boolean))],
+      tags: [...new Set(tags.split(',').map((x) => x.trim()).filter(Boolean))],
     };
     if (task) {
       s.updateTask(task.id, data);
@@ -70,14 +72,14 @@ export function TaskModal({ taskId, defaultColumnId, onClose, onDelete }: Props)
         }}
       >
         <header className="modal-head">
-          <h2 id="task-modal-title">{task ? 'Sửa công việc' : 'Công việc mới'}</h2>
-          <button type="button" className="icon-btn" onClick={onClose} aria-label="Đóng">
+          <h2 id="task-modal-title">{task ? t('modal.edit') : t('modal.new')}</h2>
+          <button type="button" className="icon-btn" onClick={onClose} aria-label={t('modal.close')}>
             ✕
           </button>
         </header>
 
         <label className="field">
-          <span>Tên công việc</span>
+          <span>{t('modal.title')}</span>
           <input
             id="task-title"
             autoFocus
@@ -86,19 +88,19 @@ export function TaskModal({ taskId, defaultColumnId, onClose, onDelete }: Props)
               setTitle(e.target.value);
               setError('');
             }}
-            placeholder="Ví dụ: Nộp báo cáo tuần"
+            placeholder={t('modal.titlePh')}
           />
           {error && <small className="error">{error}</small>}
         </label>
 
         <label className="field">
-          <span>Ghi chú</span>
+          <span>{t('modal.note')}</span>
           <textarea id="task-note" rows={3} value={note} onChange={(e) => setNote(e.target.value)} />
         </label>
 
         <div className="field-row">
           <label className="field">
-            <span>Cột</span>
+            <span>{t('modal.column')}</span>
             <select id="task-column" value={columnId} onChange={(e) => setColumnId(e.target.value)}>
               {columns.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -108,15 +110,15 @@ export function TaskModal({ taskId, defaultColumnId, onClose, onDelete }: Props)
             </select>
           </label>
           <label className="field">
-            <span>Hạn chót</span>
+            <span>{t('modal.due')}</span>
             <input id="task-due" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
           </label>
         </div>
 
         <div className="field">
-          <span>Mức ưu tiên</span>
-          <div className="seg" role="radiogroup" aria-label="Mức ưu tiên">
-            {(Object.keys(PRIORITY) as Priority[]).map((p) => (
+          <span>{t('modal.priority')}</span>
+          <div className="seg" role="radiogroup" aria-label={t('modal.priority')}>
+            {PRIORITIES.map((p) => (
               <button
                 key={p}
                 type="button"
@@ -125,29 +127,29 @@ export function TaskModal({ taskId, defaultColumnId, onClose, onDelete }: Props)
                 className={`seg-btn prio-${p}${priority === p ? ' on' : ''}`}
                 onClick={() => setPriority(p)}
               >
-                {PRIORITY[p].label}
+                {t(`prio.${p}`)}
               </button>
             ))}
           </div>
         </div>
 
         <label className="field">
-          <span>Nhãn (cách nhau bằng dấu phẩy)</span>
-          <input id="task-tags" value={tags} onChange={(e) => setTags(e.target.value)} placeholder="Công việc, Cá nhân" />
+          <span>{t('modal.tags')}</span>
+          <input id="task-tags" value={tags} onChange={(e) => setTags(e.target.value)} placeholder={t('modal.tagsPh')} />
         </label>
 
         <footer className="modal-foot">
           {task && (
             <button type="button" className="btn danger-ghost" onClick={() => onDelete(task.id)}>
-              Xoá việc
+              {t('modal.delete')}
             </button>
           )}
           <span className="spacer" />
           <button type="button" className="btn ghost" onClick={onClose}>
-            Huỷ
+            {t('modal.cancel')}
           </button>
           <button type="submit" className="btn primary">
-            {task ? 'Lưu' : 'Thêm việc'}
+            {task ? t('modal.save') : t('modal.add')}
           </button>
         </footer>
       </form>

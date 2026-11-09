@@ -163,6 +163,7 @@ kbd {
 }
 .theme-switch button:hover { color: var(--fg); }
 .theme-switch button.on { background: var(--surface-2); color: var(--fg); box-shadow: inset 0 0 0 1px var(--line-strong); }
+.lang-switch button { width: auto; padding: 0 8px; font-family: var(--f-mono); font-size: 11.5px; font-weight: 500; letter-spacing: 0.04em; }
 .icon-btn {
   width: 34px; height: 34px; display: grid; place-items: center; border-radius: 9px;
   border: 1px solid var(--line); background: var(--surface); color: var(--fg-2); font-weight: 600;

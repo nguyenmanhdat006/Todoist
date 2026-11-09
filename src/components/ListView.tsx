@@ -1,7 +1,8 @@
 import type { CSSProperties } from 'react';
 import { useBoard } from '../store/board';
 import type { Task } from '../types';
-import { PRIORITY, tagColor } from '../types';
+import { tagColor } from '../types';
+import { useT } from '../i18n';
 import { dueInfo } from '../utils';
 
 interface Props {
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export function ListView({ matches, onOpenTask }: Props) {
+  const t = useT();
   const columns = useBoard((s) => s.columns);
   const tasks = useBoard((s) => s.tasks);
   const moveTask = useBoard((s) => s.moveTask);
@@ -20,8 +22,8 @@ export function ListView({ matches, onOpenTask }: Props) {
   const rows = columns.flatMap((col) =>
     col.taskIds
       .map((id) => tasks[id])
-      .filter((t): t is Task => !!t && matches(t))
-      .map((t) => ({ task: t, col })),
+      .filter((x): x is Task => !!x && matches(x))
+      .map((x) => ({ task: x, col })),
   );
 
   const toggle = (taskId: string, done: boolean) => {
@@ -31,7 +33,7 @@ export function ListView({ matches, onOpenTask }: Props) {
   };
 
   if (rows.length === 0) {
-    return <div className="list-empty">Không có công việc nào khớp bộ lọc.</div>;
+    return <div className="list-empty">{t('list.empty')}</div>;
   }
 
   return (
@@ -39,17 +41,17 @@ export function ListView({ matches, onOpenTask }: Props) {
       <table className="list">
         <thead>
           <tr>
-            <th className="c-check" aria-label="Hoàn thành" />
-            <th>Công việc</th>
-            <th>Cột</th>
-            <th>Ưu tiên</th>
-            <th>Hạn chót</th>
-            <th>Nhãn</th>
+            <th className="c-check" aria-label={t('list.done')} />
+            <th>{t('list.task')}</th>
+            <th>{t('list.column')}</th>
+            <th>{t('list.priority')}</th>
+            <th>{t('list.due')}</th>
+            <th>{t('list.tags')}</th>
           </tr>
         </thead>
         <tbody>
           {rows.map(({ task, col }) => {
-            const due = dueInfo(task.dueDate, col.isDone);
+            const due = dueInfo(task.dueDate, col.isDone, t);
             return (
               <tr key={task.id} className={col.isDone ? 'is-done' : ''}>
                 <td className="c-check">
@@ -58,7 +60,7 @@ export function ListView({ matches, onOpenTask }: Props) {
                     id={`done-${task.id}`}
                     checked={col.isDone}
                     disabled={!doneCol}
-                    title={doneCol ? 'Đánh dấu hoàn thành' : 'Chưa có cột nào được đặt là cột Hoàn thành'}
+                    title={doneCol ? t('card.check') : t('list.noDoneCol')}
                     onChange={() => toggle(task.id, col.isDone)}
                   />
                 </td>
@@ -74,7 +76,7 @@ export function ListView({ matches, onOpenTask }: Props) {
                   </span>
                 </td>
                 <td>
-                  <span className={`prio prio-${task.priority}`}>{PRIORITY[task.priority].label}</span>
+                  <span className={`prio prio-${task.priority}`}>{t(`prio.${task.priority}`)}</span>
                 </td>
                 <td>{due ? <span className={`due due-${due.tone}`}>{due.label}</span> : <span className="muted">—</span>}</td>
                 <td>

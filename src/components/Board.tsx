@@ -22,6 +22,7 @@ import type { BoardData, Task } from '../types';
 import { COLUMN_COLORS } from '../types';
 import { ColumnHeader, ColumnView } from './Column';
 import { TaskCardBody } from './TaskCard';
+import { useT } from '../i18n';
 
 interface Props {
   matches: (t: Task) => boolean;
@@ -57,6 +58,7 @@ export function Board({ matches, onOpenTask, onDeleteColumn }: Props) {
   const columns = useBoard((s) => s.columns);
   const tasks = useBoard((s) => s.tasks);
   const addColumn = useBoard((s) => s.addColumn);
+  const t = useT();
   const [active, setActive] = useState<Active>(null);
   const before = useRef<BoardData | null>(null);
   const [newCol, setNewCol] = useState<string | null>(null);
@@ -153,7 +155,7 @@ export function Board({ matches, onOpenTask, onDeleteColumn }: Props) {
         <div className="column add-column">
           {newCol === null ? (
             <button type="button" className="add-col-btn" onClick={() => setNewCol('')}>
-              ＋ Thêm cột
+              ＋ {t('col.add')}
             </button>
           ) : (
             <form
@@ -168,7 +170,7 @@ export function Board({ matches, onOpenTask, onDeleteColumn }: Props) {
               <input
                 id="new-column-title"
                 autoFocus
-                placeholder="Tên cột mới, Enter để tạo"
+                placeholder={t('col.newName')}
                 value={newCol}
                 onChange={(e) => setNewCol(e.target.value)}
                 onKeyDown={(e) => e.key === 'Escape' && setNewCol(null)}

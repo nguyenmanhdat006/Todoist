@@ -30,22 +30,20 @@ export type ThemeMode = 'system' | 'light' | 'dark';
 export type ViewMode = 'kanban' | 'list';
 export type PriorityFilter = 'all' | Priority | 'overdue';
 
-export const PRIORITY: Record<Priority, { label: string }> = {
-  high: { label: 'Gấp' },
-  normal: { label: 'Bình thường' },
-  low: { label: 'Thấp' },
-};
+export type Lang = 'vi' | 'en';
+
+export const PRIORITIES: Priority[] = ['high', 'normal', 'low'];
 
 export const COLUMN_COLORS = [
-  { name: 'Xanh dương', hex: '#4f8ff7' },
-  { name: 'Xanh trời', hex: '#38bdf8' },
-  { name: 'Tím', hex: '#a78bfa' },
-  { name: 'Hồng', hex: '#f472b6' },
-  { name: 'Cam', hex: '#fb923c' },
-  { name: 'Vàng', hex: '#facc15' },
-  { name: 'Xanh lá', hex: '#4ade80' },
-  { name: 'Xám', hex: '#94a3b8' },
-];
+  { key: 'blue', hex: '#4f8ff7' },
+  { key: 'sky', hex: '#38bdf8' },
+  { key: 'violet', hex: '#a78bfa' },
+  { key: 'pink', hex: '#f472b6' },
+  { key: 'orange', hex: '#fb923c' },
+  { key: 'yellow', hex: '#facc15' },
+  { key: 'green', hex: '#4ade80' },
+  { key: 'slate', hex: '#94a3b8' },
+] as const;
 
 /** Màu nhãn: cùng tên nhãn luôn ra cùng một màu */
 const TAG_COLORS = ['#4f8ff7', '#38bdf8', '#a78bfa', '#f472b6', '#fb923c', '#facc15', '#4ade80', '#2dd4bf'];

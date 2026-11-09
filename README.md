@@ -24,6 +24,7 @@ Import repo vào Vercel. Vercel tự nhận Vite: build command `npm run build`,
 - Xem dạng Danh sách, tick để chuyển việc sang cột Hoàn thành.
 - Hoàn tác khi xoá việc, xoá cột, nhập dữ liệu.
 - Giao diện sáng và tối.
+- Chuyển ngôn ngữ Tiếng Việt / English (nút VI | EN trên thanh trên cùng). Chuỗi giao diện nằm trong `src/i18n.ts`.
 - Xuất/nhập file JSON để sao lưu.
 - Phím tắt: `N` thêm việc, `/` tìm kiếm.
 
