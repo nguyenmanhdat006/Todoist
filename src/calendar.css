@@ -264,3 +264,9 @@
 .time-opt-value { flex: 1; }
 .time-opt:not(.is-selected) .time-opt-check { visibility: hidden; }
 @media (prefers-reduced-motion: reduce) { .time-list { animation: none; } }
+
+/* Việc trên lịch: khối màu đặc theo hạn (xanh lá còn thời gian, vàng hôm nay, đỏ quá hạn, xanh dương đã xong) */
+.cal-event, .cal-chip { background: var(--col); color: var(--col-fg, #fff); box-shadow: inset 4px 0 0 color-mix(in srgb, #000 22%, var(--col)); }
+.cal-event:hover, .cal-chip:hover { background: color-mix(in srgb, #000 10%, var(--col)); }
+.cal-event-time, .cal-chip-time, .cal-chip-note { color: inherit; opacity: 0.85; }
+.cal-event.is-done, .cal-chip.is-done { opacity: 0.8; }

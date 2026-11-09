@@ -5,6 +5,11 @@ import type { Lang } from './types';
 const vi = {
   'app.name': 'Quản lý công việc',
   'clock.label': 'Bây giờ là',
+  'status.legend': 'Màu theo hạn',
+  'status.ok': 'Còn thời gian',
+  'status.today': 'Hạn hôm nay',
+  'status.overdue': 'Quá hạn',
+  'status.done': 'Đã xong',
   'progress.label': 'Tiến độ',
   'progress.notSet': 'Chưa cập nhật tiến độ',
   'progress.todoHint': 'Chuyển việc sang cột khác (ví dụ Đang làm) để cập nhật tiến độ.',
@@ -288,6 +293,11 @@ export type TKey = keyof typeof vi;
 const en: Record<TKey, string> = {
   'app.name': 'Task management',
   'clock.label': 'Current time',
+  'status.legend': 'Colors by due date',
+  'status.ok': 'On track',
+  'status.today': 'Due today',
+  'status.overdue': 'Overdue',
+  'status.done': 'Done',
   'progress.label': 'Progress',
   'progress.notSet': 'Progress not updated',
   'progress.todoHint': 'Move the task out of To do (for example to In progress) to track progress.',

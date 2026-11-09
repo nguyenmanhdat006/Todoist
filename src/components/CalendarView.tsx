@@ -4,7 +4,7 @@ import '../calendar.css';
 import type { CalMode, Column, Task } from '../types';
 import { tagColor } from '../types';
 import { useT, type T } from '../i18n';
-import { fromMinutes, knownTags, parseISO, timeRange, toISODate, toMinutes, todayISO } from '../utils';
+import { fromMinutes, knownTags, parseISO, timeRange, toISODate, toMinutes, todayISO, STATUS_COLORS, taskStatus, readableText } from '../utils';
 
 interface Props {
   matches: (t: Task) => boolean;
@@ -21,7 +21,7 @@ interface Entry {
   task: Task;
   col: Column;
   done: boolean;
-  /** Màu theo nhãn đầu tiên đang hiện */
+  /** Màu theo hạn: xanh lá còn thời gian, vàng hôm nay, đỏ quá hạn, xanh dương đã xong */
   color: string;
 }
 
@@ -158,14 +158,14 @@ export function CalendarView({ matches, onOpenTask, onCreateAt }: Props) {
           continue;
         }
         const list = map.get(task.dueDate) ?? [];
-        list.push({ task, col, done: col.isDone, color: shownTags.length ? tagColor(shownTags[0]) : NO_TAG_COLOR });
+        list.push({ task, col, done: col.isDone, color: STATUS_COLORS[taskStatus(task, col.isDone, today)] });
         map.set(task.dueDate, list);
       }
     }
     for (const list of map.values())
       list.sort((a, b) => (a.task.startTime ?? '').localeCompare(b.task.startTime ?? ''));
     return { byDate: map, noDate };
-  }, [columns, tasks, matches, hidden]);
+  }, [columns, tasks, matches, hidden, today]);
 
   const days = useMemo(() => {
     if (mode === 'day') return [anchor];
@@ -195,7 +195,7 @@ export function CalendarView({ matches, onOpenTask, onCreateAt }: Props) {
       key={task.id}
       type="button"
       className={`cal-chip${done ? ' is-done' : ''}${task.startTime ? '' : ' is-allday'}`}
-      style={{ '--col': color } as CSSProperties}
+      style={{ '--col': color, '--col-fg': readableText(color) } as CSSProperties}
       title={`${timeRange(task) ? timeRange(task) + ' · ' : ''}${task.title}`}
       onClick={(e) => {
         e.stopPropagation();
@@ -345,6 +345,7 @@ export function CalendarView({ matches, onOpenTask, onCreateAt }: Props) {
                             style={
                               {
                                 '--col': color,
+                                '--col-fg': readableText(color),
                                 top: (start / 60) * HOUR + 1,
                                 height,
                                 left: `calc(${(pos.col / pos.cols) * 100}% + 2px)`,

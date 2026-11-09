@@ -4,7 +4,7 @@ import type { CSSProperties } from 'react';
 import type { Task } from '../types';
 import { useT } from '../i18n';
 import { useBoard } from '../store/board';
-import { canTrackProgress, dueInfo, progressOf, timeRange, tagStyle } from '../utils';
+import { STATUS_COLORS, canTrackProgress, dueInfo, progressOf, taskStatus, timeRange, tagStyle } from '../utils';
 
 interface BodyProps {
   task: Task;
@@ -20,10 +20,11 @@ export function TaskCardBody({ task, done, color, overlay }: BodyProps) {
   const col = useBoard((s) => s.columns.find((c) => c.taskIds.includes(task.id)));
   const tracked = canTrackProgress(col);
   const pct = progressOf(task, col);
+  const status = taskStatus(task, done);
   return (
     <div
-      className={`card${done ? ' is-done' : ''}${overlay ? ' is-overlay' : ''}`}
-      style={{ '--col': color } as CSSProperties}
+      className={`card status-${status}${done ? ' is-done' : ''}${overlay ? ' is-overlay' : ''}`}
+      style={{ '--col': color, '--st': STATUS_COLORS[status] } as CSSProperties}
     >
       <div className="card-head">
         <input

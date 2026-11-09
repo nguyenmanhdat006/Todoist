@@ -124,6 +124,26 @@ export function progressOf(task: Task, col: Column | undefined) {
   return Math.min(100, Math.max(0, Math.round(task.progress ?? 0)));
 }
 
+/**
+ * Trạng thái màu của việc theo hạn:
+ *  done = đã xong (xanh dương), overdue = quá hạn (đỏ), today = hạn hôm nay (vàng), ok = còn thời gian (xanh lá)
+ */
+export type TaskStatus = 'done' | 'overdue' | 'today' | 'ok';
+export const STATUS_COLORS: Record<TaskStatus, string> = {
+  ok: '#22a35a',
+  today: '#f5b301',
+  overdue: '#ef4444',
+  done: '#2563eb',
+};
+export const STATUS_ORDER: TaskStatus[] = ['ok', 'today', 'overdue', 'done'];
+
+export function taskStatus(task: Pick<Task, 'dueDate'>, done: boolean, today = todayISO()): TaskStatus {
+  if (done) return 'done';
+  if (!task.dueDate) return 'ok';
+  if (task.dueDate < today) return 'overdue';
+  return task.dueDate === today ? 'today' : 'ok';
+}
+
 /** Việc có khớp bộ lọc đã lưu không */
 export function matchesFilter(task: Task, f: SavedFilter, done: boolean, columnId: string | undefined) {
   if (f.hideDone && done) return false;
