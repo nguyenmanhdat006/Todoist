@@ -49,6 +49,22 @@ button.hero-next:hover { background: color-mix(in srgb, var(--tag) 18%, var(--su
 .hero-next-count { font-family: var(--f-mono); font-size: 12px; font-weight: 600; color: var(--orange); }
 .is-now .hero-next-count { color: var(--green); }
 
+/* thẻ chạy vòng qua các việc sắp tới */
+.hero-carousel { position: relative; height: 104px; overflow: hidden; border-radius: 12px; }
+.hero-slides { height: 100%; transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1); }
+.hero-slides > .hero-next { height: 100%; justify-content: flex-start; }
+.hero-next-pos { margin-left: 4px; font-family: var(--f-mono); font-weight: 600; letter-spacing: 0; color: var(--fg-2); }
+.hero-dots { position: absolute; right: 10px; bottom: 9px; display: flex; gap: 4px; }
+.hero-dots button {
+  width: 6px; height: 6px; padding: 0; border: 0; border-radius: 999px; cursor: pointer;
+  background: color-mix(in srgb, var(--fg) 22%, transparent); transition: width 0.2s, background 0.2s;
+}
+.hero-dots button.on { width: 16px; background: var(--fg-2); }
+.is-today .hero-badge { background: var(--blue); }
+@media (prefers-reduced-motion: reduce) {
+  .hero-slides { transition: none; }
+}
+
 .hero-progress { display: grid; grid-template-columns: 1fr; gap: 5px; font-size: 12px; color: var(--fg-2); }
 .hero-progress-bar { height: 5px; border-radius: 999px; background: var(--surface-2); overflow: hidden; }
 .hero-progress-bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--blue), var(--green)); }

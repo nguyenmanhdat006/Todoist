@@ -4,7 +4,7 @@
  *  - thẻ "Tiếp theo": việc có giờ sắp diễn ra (đếm ngược), tiến độ hôm nay
  *  - dải giờ hôm nay: các việc có giờ thành khối màu, vạch đỏ ở giờ hiện tại
  */
-import { useMemo, type CSSProperties } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useBoard } from '../store/board';
 import { useSession } from '../sync/session';
 import type { Task } from '../types';
@@ -68,6 +68,112 @@ function duration(min: number, t: T) {
   return m ? `${t('time.hour', { n: h })} ${t('time.min', { n: m })}` : t('time.hour', { n: h });
 }
 
+const QUEUE_MAX = 12;
+const SLIDE_MS = 4000;
+
+type SlideState = 'now' | 'soon' | 'today' | 'later';
+
+function slideState(x: Task, today: string, nowMin: number): SlideState {
+  if (x.dueDate! > today) return 'later';
+  if (!x.startTime) return 'today';
+  return span(x).start <= nowMin ? 'now' : 'soon';
+}
+
+/** Thẻ "Tiếp theo" tự chuyển qua từng việc sắp tới; rê chuột hoặc focus vào thì dừng */
+function UpNext({
+  queue,
+  today,
+  nowMin,
+  t,
+  onOpenTask,
+}: {
+  queue: Task[];
+  today: string;
+  nowMin: number;
+  t: T;
+  onOpenTask: (id: string) => void;
+}) {
+  const [index, setIndex] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const n = queue.length;
+  const i = index % n;
+
+  useEffect(() => {
+    if (n < 2 || paused) return;
+    const id = setInterval(() => setIndex((v) => (v + 1) % n), SLIDE_MS);
+    return () => clearInterval(id);
+  }, [n, paused]);
+
+  const dateLabel = (iso: string) =>
+    new Intl.DateTimeFormat(t.locale, { weekday: 'short', day: 'numeric', month: 'numeric' }).format(new Date(`${iso}T00:00`));
+
+  return (
+    <div
+      className="hero-carousel"
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      onFocus={() => setPaused(true)}
+      onBlur={() => setPaused(false)}
+    >
+      <div className="hero-slides" style={{ transform: `translateY(-${i * 100}%)` }}>
+        {queue.map((x, k) => {
+          const state = slideState(x, today, nowMin);
+          return (
+            <button
+              key={x.id}
+              type="button"
+              className={`hero-next is-${state}`}
+              style={{ '--tag': colorOf(x) } as CSSProperties}
+              tabIndex={k === i ? 0 : -1}
+              aria-hidden={k !== i}
+              onClick={() => onOpenTask(x.id)}
+            >
+              <span className="hero-next-top">
+                <span className="hero-next-label">
+                  {t('hero.next')}
+                  {n > 1 && <span className="hero-next-pos">{` ${k + 1}/${n}`}</span>}
+                </span>
+                <span className="hero-badge">
+                  {state === 'now' ? t('hero.now') : state === 'later' ? t('hero.later') : state === 'today' ? t('due.today') : t('hero.soon')}
+                </span>
+              </span>
+              <span className="hero-next-title">{x.title}</span>
+              <span className="hero-next-meta">
+                {state === 'later' ? dateLabel(x.dueDate!) : t('due.today')}
+                {' · '}
+                {x.startTime ? timeRange(x) : t('rail.allDay')}
+                {x.tags[0] && ` · ${x.tags[0]}`}
+              </span>
+              {(state === 'now' || state === 'soon') && (
+                <span className="hero-next-count">
+                  {state === 'now'
+                    ? t('hero.endsIn', { n: duration(span(x).end - nowMin, t) })
+                    : t('hero.startsIn', { n: duration(span(x).start - nowMin, t) })}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+      {n > 1 && (
+        <div className="hero-dots" role="tablist" aria-label={t('hero.next')}>
+          {queue.map((x, k) => (
+            <button
+              key={x.id}
+              type="button"
+              role="tab"
+              aria-selected={k === i}
+              aria-label={`${k + 1}/${n}: ${x.title}`}
+              className={k === i ? 'on' : ''}
+              onClick={() => setIndex(k)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 const colorOf = (task: Task) => (task.tags[0] ? tagColor(task.tags[0]) : NO_TAG);
 
 function span(task: Task) {
@@ -92,22 +198,17 @@ export function HeroAside({ onOpenTask }: Props) {
     const all = columns.flatMap((c) => c.taskIds).map((id) => tasks[id]).filter((x): x is Task => !!x);
     const todayAll = all.filter((x) => x.dueDate === today);
     const todayTimed = todayAll.filter((x) => x.startTime).sort((a, b) => a.startTime!.localeCompare(b.startTime!));
-    // Việc có giờ chưa xong, sắp tới (kể cả các ngày sau), theo thứ tự thời gian
+    // Việc chưa xong từ hôm nay trở đi, theo thứ tự thời gian (việc cả ngày đứng đầu ngày đó)
     const upcoming = all
-      .filter((x) => x.dueDate && x.startTime && !done.has(x.id) && x.dueDate >= today)
-      .sort((a, b) => `${a.dueDate}${a.startTime}`.localeCompare(`${b.dueDate}${b.startTime}`));
+      .filter((x) => x.dueDate && !done.has(x.id) && x.dueDate >= today)
+      .sort((a, b) => `${a.dueDate}${a.startTime ?? ''}`.localeCompare(`${b.dueDate}${b.startTime ?? ''}`));
     return { todayTimed, todayAll, doneToday: todayAll.filter((x) => done.has(x.id)).length, done, upcoming };
   }, [columns, tasks, today]);
 
-  // Việc tiếp theo: đang diễn ra, hoặc gần nhất chưa bắt đầu
-  const next = upcoming.find((x) => x.dueDate! > today || span(x).end > nowMin);
-  const nextState = !next
-    ? null
-    : next.dueDate! > today
-      ? 'later'
-      : span(next).start <= nowMin
-        ? 'now'
-        : 'soon';
+  // Các việc sắp tới: chưa kết thúc (việc có giờ hôm nay đã qua giờ thì bỏ)
+  const queue = upcoming
+    .filter((x) => x.dueDate! > today || !x.startTime || span(x).end > nowMin)
+    .slice(0, QUEUE_MAX);
 
   const name = user?.name || user?.email.split('@')[0] || '';
   const sayings = SAYINGS[t.lang];
@@ -149,36 +250,8 @@ export function HeroAside({ onOpenTask }: Props) {
       </div>
 
       <div className="hero-next-wrap">
-        {next ? (
-          <button
-            type="button"
-            className={`hero-next is-${nextState}`}
-            style={{ '--tag': colorOf(next) } as CSSProperties}
-            onClick={() => onOpenTask(next.id)}
-          >
-            <span className="hero-next-top">
-              <span className="hero-next-label">{t('hero.next')}</span>
-              <span className="hero-badge">
-                {nextState === 'now' ? t('hero.now') : nextState === 'soon' ? t('hero.soon') : t('hero.later')}
-              </span>
-            </span>
-            <span className="hero-next-title">{next.title}</span>
-            <span className="hero-next-meta">
-              {nextState === 'later' &&
-                new Intl.DateTimeFormat(t.locale, { weekday: 'short', day: 'numeric', month: 'numeric' }).format(
-                  new Date(`${next.dueDate}T00:00`),
-                ) + ' · '}
-              {timeRange(next)}
-              {next.tags[0] && ` · ${next.tags[0]}`}
-            </span>
-            {nextState !== 'later' && (
-              <span className="hero-next-count">
-                {nextState === 'now'
-                  ? t('hero.endsIn', { n: duration(span(next).end - nowMin, t) })
-                  : t('hero.startsIn', { n: duration(span(next).start - nowMin, t) })}
-              </span>
-            )}
-          </button>
+        {queue.length > 0 ? (
+          <UpNext queue={queue} today={today} nowMin={nowMin} t={t} onOpenTask={onOpenTask} />
         ) : (
           <div className="hero-next is-empty">
             <span className="hero-next-label">{t('hero.next')}</span>
