@@ -41,7 +41,6 @@
 .notif-item.is-soon .notif-rel { color: var(--orange); font-weight: 600; }
 .notif-time { font-variant-numeric: tabular-nums; }
 .notif-time::before { content: '·'; margin-right: 8px; color: var(--muted); }
-.notif-dot { flex: none; width: 8px; height: 8px; margin-top: 6px; border-radius: 50%; background: var(--blue); }
 .notif-foot { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 4px 6px 4px; }
 .notif-perm { font-size: 12.5px; color: var(--fg-2); }
 .notif-perm.is-on { color: var(--green); font-weight: 600; }
@@ -52,4 +51,40 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .notif-btn.has-unread svg { animation: none; }
+}
+
+/* đánh dấu đã đọc */
+.notif-head { gap: 8px; }
+.notif-head .menu-label { display: inline-flex; align-items: center; gap: 8px; }
+.notif-count {
+  padding: 1px 7px; border-radius: 999px; font-size: 10.5px; letter-spacing: 0; text-transform: none;
+  color: var(--blue); background: color-mix(in srgb, var(--blue) 14%, transparent);
+}
+.notif-actions { display: inline-flex; align-items: center; gap: 2px; }
+.notif-link { display: inline-flex; align-items: center; gap: 5px; }
+.notif-link.is-primary { color: var(--blue); font-weight: 600; }
+.notif-link.is-primary:hover { color: var(--blue); background: color-mix(in srgb, var(--blue) 12%, transparent); }
+.notif-row { position: relative; }
+.notif-item.is-new { padding-right: 40px; }
+.notif-item:not(.is-new) .notif-task { font-weight: 500; color: var(--fg-2); }
+.notif-mark {
+  position: absolute; top: 8px; right: 6px; width: 28px; height: 28px; display: grid; place-items: center; padding: 0;
+  border: 0; border-radius: 7px; background: none; color: var(--blue);
+}
+.notif-mark > * { grid-area: 1 / 1; }
+.notif-mark svg { opacity: 0; transition: opacity 0.12s; }
+.notif-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--blue); transition: opacity 0.12s; }
+.notif-mark:hover, .notif-mark:focus-visible { background: color-mix(in srgb, var(--blue) 16%, var(--surface)); }
+.notif-mark:hover svg, .notif-mark:focus-visible svg { opacity: 1; }
+.notif-mark:hover .notif-dot, .notif-mark:focus-visible .notif-dot { opacity: 0; }
+@media (hover: none) {
+  .notif-mark svg { opacity: 1; }
+  .notif-mark .notif-dot { opacity: 0; }
+}
+.popover.notif-menu { width: 384px; }
+.notif-head { flex-wrap: wrap; row-gap: 2px; }
+.notif-count, .notif-link, .notif-head .menu-label { white-space: nowrap; }
+.notif-actions { margin-left: auto; }
+@media (max-width: 480px) {
+  .popover.notif-menu { width: auto; }
 }
