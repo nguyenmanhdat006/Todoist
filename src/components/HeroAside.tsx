@@ -2,7 +2,6 @@
  * Phần bên phải thanh đầu trang:
  *  - lời chào theo giờ trong ngày + một câu nói đổi mỗi ngày
  *  - thẻ "Tiếp theo": việc có giờ sắp diễn ra (đếm ngược), tiến độ hôm nay
- *  - dải giờ hôm nay: các việc có giờ thành khối màu, vạch đỏ ở giờ hiện tại
  */
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useBoard } from '../store/board';
@@ -193,16 +192,15 @@ export function HeroAside({ onOpenTask }: Props) {
   const today = toISODate(now);
   const nowMin = now.getHours() * 60 + now.getMinutes();
 
-  const { todayTimed, todayAll, doneToday, done, upcoming } = useMemo(() => {
+  const { todayAll, doneToday, upcoming } = useMemo(() => {
     const done = new Set(columns.filter((c) => c.isDone).flatMap((c) => c.taskIds));
     const all = columns.flatMap((c) => c.taskIds).map((id) => tasks[id]).filter((x): x is Task => !!x);
     const todayAll = all.filter((x) => x.dueDate === today);
-    const todayTimed = todayAll.filter((x) => x.startTime).sort((a, b) => a.startTime!.localeCompare(b.startTime!));
     // Việc chưa xong từ hôm nay trở đi, theo thứ tự thời gian (việc cả ngày đứng đầu ngày đó)
     const upcoming = all
       .filter((x) => x.dueDate && !done.has(x.id) && x.dueDate >= today)
       .sort((a, b) => `${a.dueDate}${a.startTime ?? ''}`.localeCompare(`${b.dueDate}${b.startTime ?? ''}`));
-    return { todayTimed, todayAll, doneToday: todayAll.filter((x) => done.has(x.id)).length, done, upcoming };
+    return { todayAll, doneToday: todayAll.filter((x) => done.has(x.id)).length, upcoming };
   }, [columns, tasks, today]);
 
   // Các việc sắp tới: chưa kết thúc (việc có giờ hôm nay đã qua giờ thì bỏ)
@@ -214,21 +212,6 @@ export function HeroAside({ onOpenTask }: Props) {
   const sayings = SAYINGS[t.lang];
   const dayOfYear = Math.floor((now.getTime() - new Date(now.getFullYear(), 0, 0).getTime()) / 86_400_000);
   const saying = sayings[dayOfYear % sayings.length];
-
-  // Khung giờ của dải: ít nhất 6h–22h, nới ra nếu có việc sớm/muộn hơn
-  const range = useMemo(() => {
-    let from = 6 * 60;
-    let to = 22 * 60;
-    for (const x of todayTimed) {
-      const s = span(x);
-      from = Math.min(from, Math.floor(s.start / 60) * 60);
-      to = Math.max(to, Math.ceil(s.end / 60) * 60);
-    }
-    return { from, to };
-  }, [todayTimed]);
-  const pct = (m: number) => ((Math.min(Math.max(m, range.from), range.to) - range.from) / (range.to - range.from)) * 100;
-  const hours: number[] = [];
-  for (let h = range.from / 60; h <= range.to / 60; h += 3) hours.push(h);
 
   return (
     <div className="hero-aside">
@@ -269,32 +252,6 @@ export function HeroAside({ onOpenTask }: Props) {
         )}
       </div>
 
-      <div className="hero-timeline" aria-label={t('hero.timeline')}>
-        <div className="hero-track">
-          {todayTimed.map((x) => {
-            const s = span(x);
-            return (
-              <button
-                key={x.id}
-                type="button"
-                className={`hero-block${done.has(x.id) ? ' is-done' : ''}`}
-                style={{ '--tag': colorOf(x), left: `${pct(s.start)}%`, width: `${Math.max(pct(s.end) - pct(s.start), 1.5)}%` } as CSSProperties}
-                title={`${timeRange(x)} · ${x.title}`}
-                aria-label={`${timeRange(x)} · ${x.title}`}
-                onClick={() => onOpenTask(x.id)}
-              />
-            );
-          })}
-          {nowMin >= range.from && nowMin <= range.to && <span className="hero-now" style={{ left: `${pct(nowMin)}%` }} aria-hidden="true" />}
-        </div>
-        <div className="hero-hours" aria-hidden="true">
-          {hours.map((h) => (
-            <span key={h} style={{ left: `${pct(h * 60)}%` }}>
-              {h}h
-            </span>
-          ))}
-        </div>
-      </div>
     </div>
   );
 }
