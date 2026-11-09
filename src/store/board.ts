@@ -52,7 +52,7 @@ interface BoardState extends BoardData {
   /** Tạo lời nhắc cho các việc sắp bắt đầu trong 1 tiếng tới; trả về các lời nhắc mới */
   checkReminders: () => Reminder[];
   markRemindersRead: () => void;
-  markReminderRead: (id: string) => void;
+  setReminderRead: (id: string, read: boolean) => void;
   clearReminders: () => void;
   setLang: (l: Lang) => void;
 
@@ -466,8 +466,8 @@ export const useBoard = create<BoardState>()(
       },
       markRemindersRead: () =>
         set((s) => (s.reminders.some((r) => !r.read) ? { reminders: s.reminders.map((r) => ({ ...r, read: true })) } : s)),
-      markReminderRead: (id) =>
-        set((s) => ({ reminders: s.reminders.map((r) => (r.id === id && !r.read ? { ...r, read: true } : r)) })),
+      setReminderRead: (id, read) =>
+        set((s) => ({ reminders: s.reminders.map((r) => (r.id === id && r.read !== read ? { ...r, read } : r)) })),
       clearReminders: () => set({ reminders: [] }),
       setLang: (lang) =>
         set((s) =>

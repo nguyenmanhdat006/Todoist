@@ -148,8 +148,13 @@ export function NotificationBell({ onOpenTask, onToast }: Props) {
               {unread > 0 && <span className="notif-count">{t('notif.unread', { n: unread })}</span>}
             </span>
             <span className="notif-actions">
-              {unread > 0 && (
-                <button type="button" className="notif-link is-primary" onClick={() => useBoard.getState().markRemindersRead()}>
+              {items.length > 0 && (
+                <button
+                  type="button"
+                  className="notif-link is-primary"
+                  disabled={unread === 0}
+                  onClick={() => useBoard.getState().markRemindersRead()}
+                >
                   <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M1.5 8.5l3 3 6-7M7.5 11.5l1 0.2 6-7.2" />
                   </svg>
@@ -181,7 +186,7 @@ export function NotificationBell({ onOpenTask, onToast }: Props) {
                       disabled={!task}
                       onClick={() => {
                         if (!task) return;
-                        useBoard.getState().markReminderRead(r.id);
+                        useBoard.getState().setReminderRead(r.id, true);
                         setOpen(false);
                         onOpenTask(task.id);
                       }}
@@ -200,20 +205,25 @@ export function NotificationBell({ onOpenTask, onToast }: Props) {
                         </span>
                       </span>
                     </button>
-                    {!r.read && (
-                      <button
-                        type="button"
-                        className="notif-mark"
-                        title={t('notif.markRead')}
-                        aria-label={`${t('notif.markRead')}: ${task?.title ?? ''}`}
-                        onClick={() => useBoard.getState().markReminderRead(r.id)}
-                      >
-                        <span className="notif-dot" aria-hidden="true" />
+                    <button
+                      type="button"
+                      className={`notif-mark${r.read ? ' is-read' : ''}`}
+                      title={r.read ? t('notif.markUnread') : t('notif.markRead')}
+                      aria-label={`${r.read ? t('notif.markUnread') : t('notif.markRead')}: ${task?.title ?? ''}`}
+                      onClick={() => useBoard.getState().setReminderRead(r.id, !r.read)}
+                    >
+                      <span className="notif-dot" aria-hidden="true" />
+                      {r.read ? (
+                        <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round">
+                          <rect x="2" y="3.5" width="12" height="9" rx="1.8" />
+                          <path d="M2.5 4.5 8 9l5.5-4.5" strokeLinecap="round" />
+                        </svg>
+                      ) : (
                         <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
                           <path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
-                      </button>
-                    )}
+                      )}
+                    </button>
                   </li>
                 );
               })}

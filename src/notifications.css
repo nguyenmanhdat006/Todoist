@@ -65,7 +65,7 @@
 .notif-link.is-primary { color: var(--blue); font-weight: 600; }
 .notif-link.is-primary:hover { color: var(--blue); background: color-mix(in srgb, var(--blue) 12%, transparent); }
 .notif-row { position: relative; }
-.notif-item.is-new { padding-right: 40px; }
+.notif-item { padding-right: 40px; }
 .notif-item:not(.is-new) .notif-task { font-weight: 500; color: var(--fg-2); }
 .notif-mark {
   position: absolute; top: 8px; right: 6px; width: 28px; height: 28px; display: grid; place-items: center; padding: 0;
@@ -87,4 +87,14 @@
 .notif-actions { margin-left: auto; }
 @media (max-width: 480px) {
   .popover.notif-menu { width: auto; }
+}
+
+/* nút đọc / chưa đọc luôn có; mục đã đọc chỉ hiện biểu tượng khi rê chuột */
+.notif-mark.is-read { color: var(--muted); }
+.notif-mark.is-read .notif-dot { width: 7px; height: 7px; background: none; box-shadow: inset 0 0 0 1.5px var(--line-strong); }
+.notif-mark.is-read:hover, .notif-mark.is-read:focus-visible { color: var(--fg); background: var(--surface-2); }
+.notif-link:disabled { cursor: default; opacity: 0.45; }
+.notif-link.is-primary:disabled:hover { background: none; }
+@media (hover: none) {
+  .notif-mark.is-read svg { opacity: 1; }
 }
