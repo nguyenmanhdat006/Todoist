@@ -18,7 +18,7 @@
   --glow-orange: rgba(251, 146, 60, 0.14);
   --grid: rgba(15, 23, 42, 0.06);
   --tag-ink: 45%;
-  --btn-bg: #0b0c0e;
+  --btn-bg: #2563eb;
   --btn-fg: #ffffff;
   --danger: #b91c1c;
   --warn: #a15c07;
@@ -56,8 +56,8 @@
     --glow-orange: rgba(251, 146, 60, 0.17);
     --grid: rgba(255, 255, 255, 0.035);
     --tag-ink: 100%;
-    --btn-bg: #ffffff;
-    --btn-fg: #0b0c0e;
+    --btn-bg: #2563eb;
+    --btn-fg: #ffffff;
     --danger: #f87171;
     --warn: #fbbf24;
     --green: #4ade80;
@@ -85,8 +85,8 @@
   --glow-orange: rgba(251, 146, 60, 0.17);
   --grid: rgba(255, 255, 255, 0.035);
   --tag-ink: 100%;
-  --btn-bg: #ffffff;
-  --btn-fg: #0b0c0e;
+  --btn-bg: #2563eb;
+  --btn-fg: #ffffff;
   --danger: #f87171;
   --warn: #fbbf24;
   --green: #4ade80;
@@ -191,7 +191,7 @@ kbd {
   width: 28px; height: 26px; display: grid; place-items: center; border: 0; background: none; border-radius: 6px; color: var(--muted);
 }
 .theme-switch button:hover { color: var(--fg); }
-.theme-switch button.on { background: var(--fg); color: var(--bg); box-shadow: none; }
+.theme-switch button.on { background: color-mix(in srgb, var(--blue) 16%, var(--surface)); color: var(--blue); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--blue) 45%, transparent); }
 .lang-switch button { width: auto; padding: 0 8px; font-family: var(--f-mono); font-size: 11.5px; font-weight: 500; letter-spacing: 0.04em; }
 .icon-btn {
   width: 34px; height: 34px; display: grid; place-items: center; border-radius: 9px;
@@ -289,8 +289,11 @@ button.stat-tile:disabled { cursor: default; }
   background: none; color: var(--muted); font-size: 13px; font-weight: 500;
 }
 .seg-filter button:hover { color: var(--fg); }
-.seg-filter button.on { background: var(--fg); color: var(--bg); box-shadow: none; }
-.seg-filter button.on .seg-count { background: color-mix(in srgb, var(--bg) 22%, transparent); color: var(--bg); }
+.seg-filter button.on {
+  background: color-mix(in srgb, var(--blue) 14%, var(--surface)); color: var(--blue); font-weight: 600;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--blue) 45%, transparent);
+}
+.seg-filter button.on .seg-count { background: color-mix(in srgb, var(--blue) 18%, transparent); color: var(--blue); }
 .seg-count {
   font-family: var(--f-mono); font-size: 11px; min-width: 18px; padding: 0 5px; border-radius: 5px; text-align: center;
   background: var(--surface-2); color: var(--fg-2); font-variant-numeric: tabular-nums;
@@ -345,7 +348,11 @@ button.stat-tile:disabled { cursor: default; }
 /* ---------- buttons ---------- */
 .btn { border: 1px solid transparent; border-radius: 9px; padding: 8px 14px; font-weight: 600; background: none; }
 .btn.sm { padding: 5px 10px; font-size: 13px; }
-.btn.primary { background: var(--btn-bg); color: var(--btn-fg); }
+/* Nút chính màu xanh (không còn đen/trắng) */
+.btn.primary {
+  background: linear-gradient(135deg, #3b82f6, var(--btn-bg) 55%, #1d4ed8); color: var(--btn-fg);
+  box-shadow: 0 6px 16px -6px color-mix(in srgb, #2563eb 70%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
 .btn.primary:hover { opacity: 0.9; }
 .btn.create { height: 36px; display: inline-flex; align-items: center; gap: 8px; padding: 0 8px 0 14px; font-size: 13.5px; }
 .btn-kbd { background: transparent; border-color: color-mix(in srgb, var(--btn-fg) 25%, transparent); color: inherit; opacity: 0.6; }
