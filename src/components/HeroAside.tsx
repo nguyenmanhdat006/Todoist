@@ -1,6 +1,6 @@
 /**
  * Phần bên phải thanh đầu trang:
- *  - lời chào theo giờ trong ngày + một câu nói đổi mỗi ngày
+ *  - banner lời chào theo giờ trong ngày, có bàn tay vẫy
  *  - thẻ "Tiếp theo": tự chuyển qua các việc sắp tới (đếm ngược với việc có giờ hôm nay)
  */
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
@@ -19,37 +19,30 @@ interface Props {
 
 const NO_TAG = '#94a3b8';
 
-/** Câu nói trong ngày (tự viết), chọn theo ngày trong năm */
-const SAYINGS: Record<'vi' | 'en', string[]> = {
-  vi: [
-    'Làm xong một việc nhỏ còn hơn lên kế hoạch cho mười việc lớn.',
-    'Bắt đầu từ việc khó nhất, phần còn lại sẽ nhẹ hơn.',
-    'Mỗi ngày tiến một chút là đủ để đi rất xa.',
-    'Tập trung vào một việc, làm cho xong, rồi mới sang việc khác.',
-    'Nghỉ ngơi cũng là một phần của làm việc hiệu quả.',
-    'Đừng chờ có hứng mới làm, cứ làm rồi hứng sẽ đến.',
-    'Việc gì làm được trong hai phút thì làm ngay.',
-    'Một danh sách gọn gàng giúp đầu óc nhẹ nhõm hơn.',
-    'Hôm nay chăm chỉ, ngày mai nhẹ nhàng.',
-    'Chia việc lớn thành các bước nhỏ, rồi đi từng bước.',
-    'Đánh dấu hoàn thành là niềm vui nhỏ nhưng thật.',
-    'Ưu tiên điều quan trọng, không phải điều gấp nhất.',
-  ],
-  en: [
-    'Finishing one small task beats planning ten big ones.',
-    'Start with the hardest thing; the rest gets lighter.',
-    'A little progress every day adds up to a long way.',
-    'Focus on one thing, finish it, then move on.',
-    'Rest is part of doing good work.',
-    "Don't wait for motivation; start, and it will follow.",
-    'If it takes two minutes, do it now.',
-    'A tidy list makes for a lighter mind.',
-    'Work hard today so tomorrow feels easy.',
-    'Break big work into small steps, then take them one by one.',
-    'Ticking a box is a small joy, but a real one.',
-    'Put the important before the urgent.',
-  ],
-};
+/** Bàn tay giơ chữ V trên ống tay áo, vẫy qua lại */
+function WavingHand() {
+  return (
+    <svg className="hero-hand" viewBox="0 0 64 88" width="56" height="77" aria-hidden="true">
+      <g className="hero-hand-wave">
+        {/* ngón trỏ và ngón giữa giơ lên */}
+        <rect x="18" y="5" width="9" height="36" rx="4.5" transform="rotate(-14 22 40)" className="skin" />
+        <rect x="31" y="3" width="9" height="38" rx="4.5" transform="rotate(10 35 40)" className="skin" />
+        {/* lòng bàn tay */}
+        <rect x="15" y="34" width="34" height="30" rx="12" className="skin" />
+        {/* ngón áp út, ngón út gập lại */}
+        <rect x="35" y="36" width="15" height="8" rx="4" className="skin fold" />
+        <rect x="36" y="44" width="13" height="8" rx="4" className="skin fold" />
+        {/* ngón cái gập ngang */}
+        <rect x="12" y="44" width="22" height="9" rx="4.5" transform="rotate(-8 22 48)" className="skin fold" />
+        <circle cx="25" cy="57" r="1.6" className="blush" />
+        <circle cx="39" cy="57" r="1.6" className="blush" />
+      </g>
+      {/* ống tay áo */}
+      <rect x="20" y="66" width="24" height="22" rx="3" className="sleeve" />
+      <rect x="17" y="62" width="30" height="7" rx="3" className="cuff" />
+    </svg>
+  );
+}
 
 function greetingKey(h: number) {
   if (h >= 5 && h < 11) return 'hero.morning' as const;
@@ -208,24 +201,22 @@ export function HeroAside({ onOpenTask }: Props) {
     .slice(0, QUEUE_MAX);
 
   const name = user?.name || user?.email.split('@')[0] || '';
-  const sayings = SAYINGS[t.lang];
-  const dayOfYear = Math.floor((now.getTime() - new Date(now.getFullYear(), 0, 0).getTime()) / 86_400_000);
-  const saying = sayings[dayOfYear % sayings.length];
 
   return (
     <div className="hero-aside">
-      <div className="hero-greet">
-        <div className="hero-hello">
-          <span className="hero-wave" aria-hidden="true">
-            👋
-          </span>
-          <span>
-            {t(greetingKey(now.getHours()))}
-            {name && <strong>, {name}</strong>}
-          </span>
+      <div className="hero-banner">
+        <span className="hero-banner-stripes" aria-hidden="true" />
+        <span className="hero-banner-band" aria-hidden="true" />
+        <div className="hero-banner-content">
+          <WavingHand />
+          <p className="hero-banner-text">
+            <span>
+              {t(greetingKey(now.getHours()))}
+              {name && `, ${name}`}
+            </span>
+            <span>{t('hero.welcome')}</span>
+          </p>
         </div>
-        <p className="hero-sub">{t('hero.welcome')}</p>
-        <p className="hero-saying">“{saying}”</p>
       </div>
 
       <div className="hero-next-wrap">

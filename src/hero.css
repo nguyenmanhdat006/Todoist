@@ -6,31 +6,49 @@
   gap: 12px 22px; padding-left: 28px; border-left: 1px solid var(--line);
 }
 
-/* lời chào */
-.hero-greet { grid-area: greet; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-.hero-hello { display: flex; align-items: center; gap: 8px; font-size: 19px; font-weight: 600; letter-spacing: -0.02em; color: var(--fg); }
-.hero-hello strong {
-  font-weight: 800;
-  background: linear-gradient(90deg, var(--blue), var(--orange)); -webkit-background-clip: text; background-clip: text; color: transparent;
+/* banner lời chào */
+.hero-banner {
+  --ban: var(--danger);
+  grid-area: greet; position: relative; overflow: hidden; min-width: 0; height: 104px; border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--ban) 16%, var(--surface)), color-mix(in srgb, var(--ban) 7%, var(--surface)));
+  border: 1px solid color-mix(in srgb, var(--ban) 22%, var(--line));
 }
-.hero-wave {
-  flex: none; display: inline-block; font-size: 22px; line-height: 1; transform-origin: 70% 75%;
-  animation: hero-wave 2.6s ease-in-out infinite;
+/* hai sọc chéo bên trái */
+.hero-banner-stripes {
+  position: absolute; left: -40px; top: -20px; bottom: -20px; width: 150px; pointer-events: none;
+  background:
+    linear-gradient(115deg, transparent 0 22%, color-mix(in srgb, var(--ban) 30%, transparent) 22% 38%, transparent 38% 50%,
+      color-mix(in srgb, var(--ban) 55%, transparent) 50% 66%, transparent 66%);
 }
-/* Vẫy tay vài nhịp rồi nghỉ, lặp lại */
+/* dải màu đậm hơn ở đáy */
+.hero-banner-band {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 28%; pointer-events: none;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--ban) 24%, transparent), color-mix(in srgb, var(--ban) 12%, transparent));
+}
+.hero-banner-content { position: relative; display: flex; align-items: flex-end; gap: 14px; height: 100%; padding-top: 6px; }
+.hero-banner-text {
+  margin: 0 0 22px; display: flex; flex-direction: column; gap: 2px;
+  font-size: 20px; font-weight: 800; line-height: 1.2; letter-spacing: -0.01em;
+  color: color-mix(in srgb, var(--ban) 85%, var(--fg));
+}
+.hero-banner-text span:last-child { font-weight: 700; }
+
+.hero-hand { flex: none; overflow: visible; }
+.hero-hand .skin { fill: #fbc7a4; stroke: #c9805e; stroke-width: 1.4; }
+.hero-hand .fold { fill: #f6b48f; }
+.hero-hand .blush { fill: #e9967a; }
+.hero-hand .sleeve { fill: #9a3412; }
+.hero-hand .cuff { fill: #7c2d12; }
+.hero-hand-wave { transform-origin: 32px 62px; animation: hero-wave 2.6s ease-in-out infinite; }
+/* Vẫy vài nhịp rồi nghỉ, lặp lại */
 @keyframes hero-wave {
   0%, 45%, 100% { transform: rotate(0); }
-  6% { transform: rotate(16deg); }
-  12% { transform: rotate(-9deg); }
-  18% { transform: rotate(16deg); }
-  24% { transform: rotate(-6deg); }
-  30% { transform: rotate(10deg); }
-}
-.hero-sub { margin: 0; font-size: 13px; color: var(--fg-2); }
-.hero-saying {
-  margin: 6px 0 0; padding-left: 10px; border-left: 2px solid color-mix(in srgb, var(--orange) 55%, transparent);
-  font-size: 13px; font-style: italic; line-height: 1.5; color: var(--muted);
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  6% { transform: rotate(14deg); }
+  12% { transform: rotate(-10deg); }
+  18% { transform: rotate(14deg); }
+  24% { transform: rotate(-7deg); }
+  30% { transform: rotate(8deg); }
 }
 
 /* thẻ "Tiếp theo" */
@@ -80,8 +98,8 @@ button.hero-next:hover { background: color-mix(in srgb, var(--tag) 18%, var(--su
 /* Điện thoại: lời chào ở trên, thẻ Tiếp theo ở dưới */
 @media (max-width: 760px) {
   .hero-aside { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'greet' 'next'; }
-  .hero-hello { font-size: 17px; }
+  .hero-banner-text { font-size: 17px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .hero-wave { animation: none; }
+  .hero-hand-wave { animation: none; }
 }
