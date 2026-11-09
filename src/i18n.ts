@@ -4,6 +4,7 @@ import type { Lang } from './types';
 
 const vi = {
   'app.name': 'Quản lý công việc',
+  'clock.label': 'Bây giờ là',
   'auth.login': 'Đăng nhập',
   'auth.register': 'Đăng ký',
   'auth.tagline': 'Đăng nhập để lưu công việc trên máy chủ và dùng trên mọi thiết bị.',
@@ -264,6 +265,7 @@ export type TKey = keyof typeof vi;
 
 const en: Record<TKey, string> = {
   'app.name': 'Task management',
+  'clock.label': 'Current time',
   'auth.login': 'Sign in',
   'auth.register': 'Sign up',
   'auth.tagline': 'Sign in to keep your tasks on the server and use them on any device.',

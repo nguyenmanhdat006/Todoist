@@ -207,6 +207,23 @@ kbd {
 .toolbar-title { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .eyebrow { font-size: 13px; font-weight: 500; color: var(--muted); }
 .toolbar-title h1 { margin: 0; font-size: 30px; font-weight: 700; letter-spacing: -0.03em; line-height: 1.15; }
+/* đồng hồ kim cạnh tiêu đề */
+.toolbar-title.has-clock { flex-direction: row; align-items: center; gap: 14px; }
+.toolbar-title-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.eyebrow-time {
+  margin-left: 8px; padding-left: 8px; border-left: 1px solid var(--line-strong);
+  font-family: var(--f-mono); font-size: 12.5px; font-weight: 500; color: var(--fg-2); font-variant-numeric: tabular-nums;
+}
+.clock { width: 58px; height: 58px; flex: none; filter: drop-shadow(0 4px 10px color-mix(in srgb, var(--blue) 18%, transparent)); }
+.clock-face { fill: var(--surface); }
+.clock-tick { stroke: var(--line-strong); stroke-width: 1; stroke-linecap: round; }
+.clock-tick.is-hour { stroke: var(--fg-2); stroke-width: 2.4; }
+.clock-hand { stroke-linecap: round; }
+.clock-hand.is-hour { stroke: var(--fg); stroke-width: 5; }
+.clock-hand.is-minute { stroke: var(--fg); stroke-width: 3.2; opacity: 0.85; }
+.clock-hand.is-second { stroke: var(--orange); stroke-width: 1.6; }
+.clock-second-tip { fill: var(--orange); }
+.clock-pin { fill: var(--orange); stroke: var(--surface); stroke-width: 1.5; }
 
 .stat-tiles { display: flex; gap: 8px; }
 .stat-tile {
@@ -614,6 +631,8 @@ button.stat-tile:disabled { cursor: default; }
   .brand-name { display: none; }
   .progress-pill { display: none; }
   .toolbar-title h1 { font-size: 24px; }
+  .clock { width: 48px; height: 48px; }
+  .toolbar-title.has-clock { gap: 12px; }
   .stat-tiles { order: 3; width: 100%; }
   .stat-tile { flex: 1; min-width: 0; padding: 8px 10px; }
   .search { width: auto; flex: 1 1 100%; }

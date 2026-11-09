@@ -11,6 +11,7 @@ import { SettingsMenu, Toast, type ToastData } from './components/Extras';
 import { HelpButton, LangSwitch, ProgressRing, ThemeSwitch } from './components/TopbarWidgets';
 import { NotificationBell } from './components/NotificationBell';
 import { AccountMenu } from './components/AccountMenu';
+import { TitleClock } from './components/Clock';
 import { useSession } from './sync/session';
 import { FilterEditor, filterName } from './components/FilterEditor';
 
@@ -112,10 +113,6 @@ export default function App() {
     };
   }, [tasks, doneIds]);
 
-  const todayLabel = useMemo(
-    () => new Intl.DateTimeFormat(t.locale, { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date()),
-    [t],
-  );
 
   const openCreate = useCallback((defaults?: TaskDefaults) => {
     const cols = useBoard.getState().columns;
@@ -211,10 +208,7 @@ export default function App() {
 
       <div className="toolbar">
         <div className="toolbar-top">
-          <div className="toolbar-title">
-            <span className="eyebrow">{todayLabel}</span>
-            <h1>{t('page.title')}</h1>
-          </div>
+          <TitleClock locale={t.locale} title={t('page.title')} clockLabel={t('clock.label')} />
           <div className="stat-tiles" aria-label={t('stats.label')}>
             <div className="stat-tile tone-open">
               <span className="stat-label">{t('stats.open')}</span>
