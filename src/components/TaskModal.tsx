@@ -4,6 +4,7 @@ import type { Priority } from '../types';
 import { PRIORITIES } from '../types';
 import { useT } from '../i18n';
 import { TagPicker, addTag } from './TagPicker';
+import { TimeSelect } from './TimeSelect';
 import { fromMinutes, toMinutes, todayISO } from '../utils';
 
 /** Giá trị điền sẵn khi tạo việc (ví dụ bấm vào một ô trên lịch) */
@@ -193,36 +194,26 @@ export function TaskModal({ taskId, defaultColumnId, defaults, onClose, onDelete
             </label>
           </div>
           <div className="time-row">
-            <select
+            <TimeSelect
               id="task-start"
-              aria-label={t('modal.start')}
+              label={t('modal.start')}
               value={startTime}
               disabled={!dueDate || allDay}
-              onChange={(e) => changeStart(e.target.value)}
-            >
-              {startOptions.map((x) => (
-                <option key={x} value={x}>
-                  {x}
-                </option>
-              ))}
-            </select>
+              options={startOptions.map((x) => ({ value: x }))}
+              onChange={changeStart}
+            />
             <span className="time-sep" aria-hidden="true">→</span>
-            <select
+            <TimeSelect
               id="task-end"
-              aria-label={t('modal.end')}
+              label={t('modal.end')}
               value={endTime}
               disabled={!dueDate || allDay}
-              onChange={(e) => {
-                setEndTime(e.target.value);
+              options={endOptions.map((x) => ({ value: x, hint: duration(startTime, x) }))}
+              onChange={(v) => {
+                setEndTime(v);
                 setTimeError('');
               }}
-            >
-              {endOptions.map((x) => (
-                <option key={x} value={x}>
-                  {x} ({duration(startTime, x)})
-                </option>
-              ))}
-            </select>
+            />
           </div>
           {!dueDate && <small className="hint">{t('modal.timeNeedsDate')}</small>}
           {timeError && <small className="error">{timeError}</small>}
