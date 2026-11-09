@@ -207,7 +207,7 @@ export default function App() {
       </header>
 
       <div className="toolbar">
-        <div className="toolbar-top">
+        <div className="toolbar-top hero">
           <TitleClock locale={t.locale} title={t('page.title')} clockLabel={t('clock.label')} />
           <div className="stat-tiles" aria-label={t('stats.label')}>
             <div className="stat-tile tone-open">

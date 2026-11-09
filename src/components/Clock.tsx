@@ -70,13 +70,12 @@ export function TitleClock({ locale, title, clockLabel }: { locale: string; titl
     <div className="toolbar-title has-clock">
       <AnalogClock now={now} label={`${clockLabel}: ${time}`} />
       <div className="toolbar-title-text">
-        <span className="eyebrow">
-          {date}
-          <span className="eyebrow-time" aria-hidden="true">
-            {time}
-          </span>
-        </span>
+        <span className="eyebrow">{date}</span>
         <h1>{title}</h1>
+        <span className="hero-time" aria-hidden="true">
+          {time.slice(0, 5)}
+          <span className="hero-sec">{time.slice(5)}</span>
+        </span>
       </div>
     </div>
   );
