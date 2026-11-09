@@ -1,7 +1,7 @@
 /**
  * Phần bên phải thanh đầu trang:
  *  - lời chào theo giờ trong ngày + một câu nói đổi mỗi ngày
- *  - thẻ "Tiếp theo": việc có giờ sắp diễn ra (đếm ngược), tiến độ hôm nay
+ *  - thẻ "Tiếp theo": tự chuyển qua các việc sắp tới (đếm ngược với việc có giờ hôm nay)
  */
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useBoard } from '../store/board';
@@ -192,15 +192,14 @@ export function HeroAside({ onOpenTask }: Props) {
   const today = toISODate(now);
   const nowMin = now.getHours() * 60 + now.getMinutes();
 
-  const { todayAll, doneToday, upcoming } = useMemo(() => {
+  const { upcoming } = useMemo(() => {
     const done = new Set(columns.filter((c) => c.isDone).flatMap((c) => c.taskIds));
     const all = columns.flatMap((c) => c.taskIds).map((id) => tasks[id]).filter((x): x is Task => !!x);
-    const todayAll = all.filter((x) => x.dueDate === today);
     // Việc chưa xong từ hôm nay trở đi, theo thứ tự thời gian (việc cả ngày đứng đầu ngày đó)
     const upcoming = all
       .filter((x) => x.dueDate && !done.has(x.id) && x.dueDate >= today)
       .sort((a, b) => `${a.dueDate}${a.startTime ?? ''}`.localeCompare(`${b.dueDate}${b.startTime ?? ''}`));
-    return { todayAll, doneToday: todayAll.filter((x) => done.has(x.id)).length, upcoming };
+    return { upcoming };
   }, [columns, tasks, today]);
 
   // Các việc sắp tới: chưa kết thúc (việc có giờ hôm nay đã qua giờ thì bỏ)
@@ -217,12 +216,9 @@ export function HeroAside({ onOpenTask }: Props) {
     <div className="hero-aside">
       <div className="hero-greet">
         <div className="hero-hello">
-          <svg className="hero-wave" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M8 13V5.5a1.5 1.5 0 0 1 3 0V12" />
-            <path d="M11 11.5V4a1.5 1.5 0 0 1 3 0v8" />
-            <path d="M14 11.5V5.5a1.5 1.5 0 0 1 3 0V14" />
-            <path d="M17 9.5a1.5 1.5 0 0 1 3 0V15a6 6 0 0 1-6 6h-2a6 6 0 0 1-5.2-3l-2.5-4.3a1.5 1.5 0 0 1 2.6-1.5L8 14" />
-          </svg>
+          <span className="hero-wave" aria-hidden="true">
+            👋
+          </span>
           <span>
             {t(greetingKey(now.getHours()))}
             {name && <strong>, {name}</strong>}
@@ -242,14 +238,6 @@ export function HeroAside({ onOpenTask }: Props) {
           </div>
         )}
 
-        {todayAll.length > 0 && (
-          <div className="hero-progress">
-            <span>{t('hero.todayProgress', { done: doneToday, total: todayAll.length })}</span>
-            <span className="hero-progress-bar" aria-hidden="true">
-              <i style={{ width: `${(doneToday / todayAll.length) * 100}%` }} />
-            </span>
-          </div>
-        )}
       </div>
 
     </div>

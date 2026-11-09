@@ -1,6 +1,6 @@
 /* ---------- phần bên phải thanh đầu trang ---------- */
 .hero-aside {
-  flex: 1 1 520px; min-width: 0; align-self: stretch; display: grid; align-items: start;
+  flex: 1 1 520px; min-width: 0; align-self: stretch; display: grid; align-items: center;
   grid-template-columns: minmax(0, 1fr) minmax(240px, 320px);
   grid-template-areas: 'greet next';
   gap: 12px 22px; padding-left: 28px; border-left: 1px solid var(--line);
@@ -13,11 +13,18 @@
   font-weight: 800;
   background: linear-gradient(90deg, var(--blue), var(--orange)); -webkit-background-clip: text; background-clip: text; color: transparent;
 }
-.hero-wave { flex: none; color: var(--orange); transform-origin: 70% 80%; animation: hero-wave 2.4s ease-in-out 1; }
+.hero-wave {
+  flex: none; display: inline-block; font-size: 22px; line-height: 1; transform-origin: 70% 75%;
+  animation: hero-wave 2.6s ease-in-out infinite;
+}
+/* Vẫy tay vài nhịp rồi nghỉ, lặp lại */
 @keyframes hero-wave {
-  0%, 60%, 100% { transform: rotate(0); }
-  10%, 30% { transform: rotate(16deg); }
-  20%, 40% { transform: rotate(-8deg); }
+  0%, 45%, 100% { transform: rotate(0); }
+  6% { transform: rotate(16deg); }
+  12% { transform: rotate(-9deg); }
+  18% { transform: rotate(16deg); }
+  24% { transform: rotate(-6deg); }
+  30% { transform: rotate(10deg); }
 }
 .hero-sub { margin: 0; font-size: 13px; color: var(--fg-2); }
 .hero-saying {
@@ -65,17 +72,15 @@ button.hero-next:hover { background: color-mix(in srgb, var(--tag) 18%, var(--su
   .hero-slides { transition: none; }
 }
 
-.hero-progress { display: grid; grid-template-columns: 1fr; gap: 5px; font-size: 12px; color: var(--fg-2); }
-.hero-progress-bar { height: 5px; border-radius: 999px; background: var(--surface-2); overflow: hidden; }
-.hero-progress-bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--blue), var(--green)); }
 
-/* Màn hẹp hơn: phần này xuống hàng riêng, bỏ lời chào */
-@media (max-width: 1180px) {
-  .hero-aside {
-    flex-basis: 100%; padding-left: 0; padding-top: 14px; border-left: 0; border-top: 1px solid var(--line);
-    grid-template-columns: minmax(0, 1fr); grid-template-areas: 'next';
-  }
-  .hero-greet { display: none; }
+/* Không đủ chỗ trên một hàng: xuống hàng riêng, ngăn bằng vạch ngang thay cho vạch dọc */
+@media (max-width: 1320px) {
+  .hero-aside { flex-basis: 100%; padding-left: 0; padding-top: 14px; border-left: 0; border-top: 1px solid var(--line); }
+}
+/* Điện thoại: lời chào ở trên, thẻ Tiếp theo ở dưới */
+@media (max-width: 760px) {
+  .hero-aside { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'greet' 'next'; }
+  .hero-hello { font-size: 17px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .hero-wave { animation: none; }
