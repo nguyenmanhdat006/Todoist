@@ -1,0 +1,176 @@
+/**
+ * API của app (Express). Trên Vercel file này chạy như một Vercel Function;
+ * vercel.json chuyển mọi đường dẫn /api/* về đây. Chạy ở máy: npm run dev:api
+ */
+import express, { type NextFunction, type Request, type Response } from 'express';
+import {
+  DUMMY_HASH,
+  checkRateLimit,
+  endSession,
+  hashPassword,
+  logAttempt,
+  readCredentials,
+  requireUser,
+  sessionUser,
+  startSession,
+  verifyPassword,
+  type User,
+} from './_lib/auth.js';
+import { readBoard, writeBoard } from './_lib/board.js';
+import { db } from './_lib/db.js';
+import { HttpError, clientIp, route } from './_lib/http.js';
+
+const app = express();
+app.disable('x-powered-by');
+app.set('trust proxy', true);
+
+app.use((_req, res, next) => {
+  res.set('Cache-Control', 'no-store');
+  next();
+});
+
+// Body JSON: trên Vercel body đã được đọc sẵn (req.body), ở máy thì tự đọc
+const parseJson = express.json({ limit: '4mb' });
+app.use((req, res, next) => {
+  const pre = (req as { body?: unknown }).body;
+  if (pre !== undefined && typeof pre === 'object' && !Buffer.isBuffer(pre)) return next();
+  parseJson(req, res, next);
+});
+
+// Chặn gửi form từ trang khác (CSRF): request thay đổi dữ liệu phải là JSON và cùng nguồn
+app.use((req, _res, next) => {
+  if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') return next();
+  if (!req.is('application/json')) return next(new HttpError(415, 'json_required'));
+  const origin = req.headers.origin;
+  if (origin) {
+    let host = '';
+    try {
+      host = new URL(origin).host;
+    } catch {
+      /* origin hỏng */
+    }
+    // Sau proxy (Vercel, Vite) tên miền gốc nằm ở x-forwarded-host
+    const fwd = req.headers['x-forwarded-host'];
+    const allowed = [Array.isArray(fwd) ? fwd[0] : fwd?.split(',')[0]?.trim(), req.headers.host].filter(Boolean);
+    if (!allowed.includes(host)) return next(new HttpError(403, 'bad_origin'));
+  }
+  next();
+});
+
+const publicUser = (u: User) => ({ id: u.id, email: u.email, name: u.name });
+
+/* ---------- health ---------- */
+
+app.get(
+  '/api/health',
+  route(async (_req, res) => {
+    await db().query('select 1');
+    res.json({ ok: true });
+  }),
+);
+
+/* ---------- tài khoản ---------- */
+
+app.post(
+  '/api/auth/register',
+  route(async (req, res) => {
+    const { email, password, name } = readCredentials(req.body, true);
+    const ip = clientIp(req);
+    await checkRateLimit(email, ip);
+    const hash = await hashPassword(password);
+    const { rows } = await db().query<User>(
+      `insert into users (email, name, password_hash) values ($1, $2, $3)
+       on conflict (email) do nothing
+       returning id, email, name`,
+      [email, name, hash],
+    );
+    if (!rows[0]) {
+      await logAttempt(email, ip, false);
+      throw new HttpError(409, 'email_taken');
+    }
+    await db().query('insert into boards (user_id) values ($1) on conflict do nothing', [rows[0].id]);
+    await startSession(req, res, rows[0].id);
+    res.status(201).json({ user: publicUser(rows[0]) });
+  }),
+);
+
+app.post(
+  '/api/auth/login',
+  route(async (req, res) => {
+    const { email, password } = readCredentials(req.body);
+    const ip = clientIp(req);
+    await checkRateLimit(email, ip);
+    const { rows } = await db().query<User & { password_hash: string }>(
+      'select id, email, name, password_hash from users where email = $1',
+      [email],
+    );
+    const user = rows[0];
+    const ok = await verifyPassword(password, user?.password_hash ?? DUMMY_HASH);
+    await logAttempt(email, ip, ok && !!user);
+    if (!user || !ok) throw new HttpError(401, 'wrong_credentials');
+    await startSession(req, res, user.id);
+    res.json({ user: publicUser(user) });
+  }),
+);
+
+app.post(
+  '/api/auth/logout',
+  route(async (req, res) => {
+    await endSession(req, res);
+    res.json({ ok: true });
+  }),
+);
+
+app.get(
+  '/api/auth/me',
+  route(async (req, res) => {
+    const user = await sessionUser(req);
+    if (!user) throw new HttpError(401, 'unauthorized');
+    res.json({ user: publicUser(user) });
+  }),
+);
+
+/* ---------- dữ liệu ---------- */
+
+app.get(
+  '/api/board',
+  requireUser,
+  route(async (req, res) => {
+    res.json(await readBoard(req.user!.id));
+  }),
+);
+
+app.put(
+  '/api/board',
+  requireUser,
+  route(async (req, res) => {
+    const body = (req.body ?? {}) as { baseRevision?: unknown; file?: unknown };
+    if (typeof body.baseRevision !== 'number' || !Number.isInteger(body.baseRevision)) throw new HttpError(400, 'bad_revision');
+    res.json(await writeBoard(req.user!.id, body.baseRevision, body.file));
+  }),
+);
+
+/* ---------- 404 và lỗi ---------- */
+
+app.use('/api', (_req, _res, next) => next(new HttpError(404, 'not_found')));
+
+app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+  if (err instanceof HttpError) {
+    res.status(err.status).json({ error: err.code, ...err.extra });
+    return;
+  }
+  // Lỗi đọc JSON của express.json()
+  const e = err as { type?: string; status?: number };
+  if (e?.type === 'entity.parse.failed') {
+    res.status(400).json({ error: 'bad_json' });
+    return;
+  }
+  if (e?.type === 'entity.too.large') {
+    res.status(413).json({ error: 'too_large' });
+    return;
+  }
+  console.error(err);
+  res.status(500).json({ error: 'server_error' });
+});
+
+export default app;

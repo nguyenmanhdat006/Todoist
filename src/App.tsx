@@ -10,6 +10,8 @@ import { CalendarView } from './components/CalendarView';
 import { SettingsMenu, Toast, type ToastData } from './components/Extras';
 import { HelpButton, LangSwitch, ProgressRing, ThemeSwitch } from './components/TopbarWidgets';
 import { NotificationBell } from './components/NotificationBell';
+import { AccountMenu } from './components/AccountMenu';
+import { useSession } from './sync/session';
 import { FilterEditor, filterName } from './components/FilterEditor';
 
 export default function App() {
@@ -33,6 +35,17 @@ export default function App() {
   const showToast = useCallback((t: Omit<ToastData, 'id'>) => setToast({ ...t, id: Date.now() }), []);
   const closeToast = useCallback(() => setToast(null), []);
   const closeModal = useCallback(() => setModal(null), []);
+
+  // Thông báo từ phần đồng bộ (xung đột, hết phiên...) hiện bằng toast
+  const notice = useSession((s) => s.notice);
+  useEffect(() => {
+    if (!notice) return;
+    showToast({
+      message: t(notice.key),
+      ...(notice.onAction && notice.actionKey ? { actionLabel: t(notice.actionKey), onUndo: notice.onAction } : {}),
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [notice]);
 
   // Theme
   useEffect(() => {
@@ -191,6 +204,7 @@ export default function App() {
             <NotificationBell onOpenTask={(id) => setModal({ taskId: id, columnId: '' })} onToast={showToast} />
             <SettingsMenu onToast={showToast} />
             <HelpButton />
+            <AccountMenu />
           </div>
         </div>
       </header>

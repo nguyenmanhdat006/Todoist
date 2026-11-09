@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useBoard } from '../store/board';
-import { buildExport, exportFileName, parseImport, type ImportResult, type Issue } from '../data/exchange';
+import { parseImport, type ImportResult, type Issue } from '../data/exchange';
+import { downloadExport } from '../data/download';
 import { useT } from '../i18n';
 
 export interface ToastData {
@@ -69,18 +70,8 @@ export function SettingsMenu({ onToast }: { onToast: (t: Omit<ToastData, 'id'>) 
   }, [open]);
 
   const exportJson = () => {
-    const st = useBoard.getState();
-    const now = new Date();
-    const file = buildExport(st, now);
-    const name = exportFileName(now);
-    const blob = new Blob([JSON.stringify(file, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = name;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-    onToast({ message: t('data.exported', { tasks: file.counts.tasks, name }) });
+    const { name, tasks } = downloadExport();
+    onToast({ message: t('data.exported', { tasks, name }) });
     setOpen(false);
   };
 

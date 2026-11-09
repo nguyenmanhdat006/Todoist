@@ -96,80 +96,15 @@ Quy tắc kiểm tra:
   và bản lưu `localStorage` (`{ "state": { ... } }`).
 - Cột mặc định bị thiếu sẽ được thêm lại; tên mặc định được dịch theo ngôn ngữ đang dùng.
 
-## Gợi ý bảng PostgreSQL (Neon)
+## Lưu vào PostgreSQL (Neon)
 
-```sql
-create table columns (
-  id          text primary key,
-  user_id     uuid not null,
-  title       text not null,
-  color       char(7) not null,
-  is_done     boolean not null default false,
-  builtin     text check (builtin in ('overdue','todo','doing','review','done')),
-  position    integer not null,
-  unique (user_id, builtin)
-);
+Bảng thật nằm ở [`db/migrations/001_init.sql`](../db/migrations/001_init.sql): `board_columns`, `tasks`
+(nhãn là mảng `tags text[]`), `saved_filters`, `reminders`, cùng `users`, `sessions`, `boards`.
+Khoá chính là `(user_id, id)` nên hai tài khoản nhập cùng một file vẫn không đụng nhau.
 
-create table tasks (
-  id               text primary key,
-  user_id          uuid not null,
-  column_id        text not null references columns(id) on delete cascade,
-  position         integer not null,
-  title            text not null,
-  note             text not null default '',
-  priority         text not null default 'normal' check (priority in ('high','normal','low')),
-  due_date         date,
-  start_time       time,
-  end_time         time check (end_time is null or end_time > start_time),
-  timezone         text not null,
-  created_at       timestamptz not null,
-  updated_at       timestamptz not null,
-  completed_at     timestamptz,
-  auto_overdue_for date,
-  prev_column_id   text
-);
-
-create table tags (
-  user_id uuid not null,
-  name    text not null,
-  color   char(7) not null,
-  preset  text,
-  primary key (user_id, name)
-);
-
-create table task_tags (
-  task_id  text not null references tasks(id) on delete cascade,
-  user_id  uuid not null,
-  tag_name text not null,
-  primary key (task_id, tag_name),
-  foreign key (user_id, tag_name) references tags(user_id, name) on update cascade
-);
-
-create table saved_filters (
-  id          text primary key,
-  user_id     uuid not null,
-  name        text,
-  label_key   text,
-  priorities  text[] not null default '{}',
-  tags        text[] not null default '{}',
-  column_ids  text[] not null default '{}',
-  due         text not null default 'any',
-  hide_done   boolean not null default false
-);
-
-create table reminders (
-  id         text primary key,
-  user_id    uuid not null,
-  task_id    text not null references tasks(id) on delete cascade,
-  at_local   timestamp not null,
-  created_at timestamptz not null,
-  read       boolean not null default false
-);
-```
-
-Nhập một file vào DB: chèn `columns` → `tags` → `tasks` (kèm `timezone` của file) → `task_tags`
-(từ `tasks[].tags`) → `saved_filters` → `reminders`, tất cả trong một transaction. Id trong file giữ nguyên
-nên nhập lại nhiều lần có thể dùng `insert ... on conflict (id) do update` và so `updated_at` để giữ bản mới hơn.
+API `PUT /api/board` nhận đúng định dạng file này (`{ baseRevision, file }`), kiểm tra bằng cùng bộ `parseImport()`
+rồi thay toàn bộ dữ liệu của người dùng trong một transaction (`jsonb_to_recordset` cho từng bảng).
+`GET /api/board` trả lại dữ liệu theo đúng định dạng này.
 
 ## Đổi phiên bản
 

@@ -5,9 +5,24 @@
  * mỗi dòng có id ổn định và vị trí (position), để sau này đổ thẳng vào DB.
  * Mô tả đầy đủ: docs/export-format.md và docs/export.schema.json.
  */
-import type { BuiltinColumn, Column, DueRule, Priority, Reminder, SavedFilter, Task } from '../types';
-import { BUILTIN_COLUMNS, PRESET_TAGS, tagColor } from '../types';
-import type { TKey } from '../i18n';
+// Dùng chung cho cả trình duyệt và API (api/), nên chỉ phụ thuộc types.ts và ghi rõ đuôi .js cho Node
+import type { BuiltinColumn, Column, DueRule, Priority, Reminder, SavedFilter, Task } from '../types.js';
+import { BUILTIN_COLUMNS, PRESET_TAGS, tagColor } from '../types.js';
+
+/** Mã thông báo khi nhập; trùng với khoá trong src/i18n.ts */
+export type IssueKey =
+  | 'imp.notObject'
+  | 'imp.unknownFormat'
+  | 'imp.newerVersion'
+  | 'imp.missingLists'
+  | 'imp.noColumns'
+  | 'imp.skipItem'
+  | 'imp.fixedField'
+  | 'imp.duplicateId'
+  | 'imp.unknownColumn'
+  | 'imp.orphans'
+  | 'toast.unreadable';
+type TKey = IssueKey;
 
 export const EXPORT_FORMAT = 'task-management-export';
 export const EXPORT_VERSION = 2;

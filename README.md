@@ -1,18 +1,46 @@
 # Quản lý công việc (Task management)
 
-Ứng dụng quản lý công việc cá nhân dạng Kanban. Chỉ có frontend, dữ liệu lưu trong `localStorage` của trình duyệt.
+Ứng dụng quản lý công việc dạng Kanban + Lịch. Frontend React (Vite), backend Express chạy như Vercel Function,
+dữ liệu lưu trên PostgreSQL (Neon). Mỗi người dùng có tài khoản riêng (email + mật khẩu).
+Trình duyệt vẫn giữ một bản tạm trong `localStorage` để mở nhanh và dùng được khi mất mạng; có mạng lại thì tự đồng bộ.
 
-## Chạy
+## Chạy ở máy
+
+1. Tạo file `.env.local` (không đưa lên git) theo mẫu `.env.example`, điền `DATABASE_URL` của Neon
+   (nên dùng một branch riêng cho phát triển trong Neon).
+2. Chạy:
 
 ```bash
 npm install
-npm run dev      # http://localhost:5173
-npm run build    # xuất ra dist/
+npm run db:migrate   # tạo bảng (chạy lại bao nhiêu lần cũng được)
+npm run dev:api      # API: http://localhost:3001/api/health
+npm run dev          # web: http://localhost:5173 (tự chuyển /api sang cổng 3001)
 ```
 
 ## Deploy lên Vercel
 
-Import repo vào Vercel. Vercel tự nhận Vite: build command `npm run build`, output `dist`. Không cần biến môi trường.
+1. Vercel → project → **Storage** → **Create** → **Neon** (hoặc tự tạo trên Neon rồi thêm biến `DATABASE_URL`
+   trong Settings → Environment Variables).
+2. Push lên nhánh `main`. Lệnh `npm run build` tự chạy migrate (tạo/cập nhật bảng) khi có `DATABASE_URL`, rồi build web.
+3. Thư mục `api/` được Vercel chạy như Function; `vercel.json` chuyển mọi `/api/*` về `api/index.ts`.
+4. Mở web, đăng ký tài khoản. Nếu trình duyệt đang có dữ liệu cũ (dùng trước khi có đăng nhập), app hỏi có lưu vào tài khoản không.
+   Dữ liệu ở trình duyệt khác thì xuất file JSON ở đó rồi nhập vào sau khi đăng nhập.
+
+Kiểm tra API: `GET /api/health` trả `{ "ok": true }` khi đã kết nối được database.
+
+## API
+
+| Method | Đường dẫn | Mô tả |
+|---|---|---|
+| POST | `/api/auth/register` | `{ email, password, name? }` → tạo tài khoản, đăng nhập |
+| POST | `/api/auth/login` | `{ email, password }` |
+| POST | `/api/auth/logout` | xoá phiên |
+| GET | `/api/auth/me` | người dùng hiện tại (401 nếu chưa đăng nhập) |
+| GET | `/api/board` | `{ revision, file }` — `file` theo định dạng xuất JSON v2, `null` nếu chưa có dữ liệu |
+| PUT | `/api/board` | `{ baseRevision, file }` → lưu toàn bộ; 409 nếu thiết bị khác đã lưu trước |
+
+Bảo mật: mật khẩu băm bằng scrypt; phiên là token ngẫu nhiên trong cookie `httpOnly`, `SameSite=Lax` (DB chỉ lưu sha256);
+request ghi dữ liệu phải là JSON và cùng nguồn; khoá tạm sau 8 lần sai mật khẩu trong 15 phút.
 
 ## Tính năng
 
@@ -26,12 +54,16 @@ Import repo vào Vercel. Vercel tự nhận Vite: build command `npm run build`,
 - Hoàn tác khi xoá việc, xoá cột, nhập dữ liệu.
 - Giao diện sáng và tối.
 - Chuyển ngôn ngữ Tiếng Việt / English (nút VI | EN trên thanh trên cùng). Chuỗi giao diện nằm trong `src/i18n.ts`.
-- Xuất/nhập file JSON để sao lưu hoặc đưa lên database sau này. Khi nhập, app kiểm tra file và hiện tóm tắt trước khi thay dữ liệu. Định dạng file và gợi ý bảng PostgreSQL: [docs/export-format.md](docs/export-format.md).
+- Tài khoản riêng, dữ liệu lưu trên máy chủ và đồng bộ giữa các thiết bị; vẫn dùng được khi mất mạng.
+- Xuất/nhập file JSON để sao lưu hoặc chuyển dữ liệu. Khi nhập, app kiểm tra file và hiện tóm tắt trước khi thay dữ liệu. Định dạng file và gợi ý bảng PostgreSQL: [docs/export-format.md](docs/export-format.md).
 - Phím tắt: `N` thêm việc, `/` tìm kiếm.
 
 ## Cấu trúc
 
-- `src/data/exchange.ts`: tạo file xuất (schemaVersion 2) và kiểm tra/đọc file nhập (kể cả định dạng cũ).
-- `src/store/board.ts`: toàn bộ dữ liệu và thao tác (Zustand + persist, key localStorage `sakura-kanban`, giữ nguyên tên cũ để không mất dữ liệu). Muốn chuyển sang database (ví dụ Neon) thì chỉ cần thay phần này.
+- `api/`: backend Express (`index.ts`), `_lib/auth.ts` (mật khẩu, phiên), `_lib/board.ts` (đọc/ghi dữ liệu theo người dùng).
+- `db/migrations/`: SQL tạo bảng; `scripts/migrate.ts` chạy các file chưa áp dụng.
+- `src/sync/`: đăng nhập và đồng bộ với máy chủ (gửi thay đổi sau ~0,8 giây, xử lý mất mạng và sửa đồng thời).
+- `src/data/exchange.ts`: định dạng file xuất JSON v2 và bộ kiểm tra dữ liệu, dùng chung cho trình duyệt và API.
+- `src/store/board.ts`: dữ liệu và thao tác phía trình duyệt (Zustand + persist, key localStorage `sakura-kanban`).
 - `src/components/Board.tsx`: logic kéo thả (dnd-kit).
 - `src/styles.css`: màu sắc và theme.
