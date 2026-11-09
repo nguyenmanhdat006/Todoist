@@ -12,6 +12,7 @@ import { HelpButton, LangSwitch, ProgressRing, ThemeSwitch } from './components/
 import { NotificationBell } from './components/NotificationBell';
 import { AccountMenu } from './components/AccountMenu';
 import { TitleClock } from './components/Clock';
+import { HeroAside } from './components/HeroAside';
 import { useSession } from './sync/session';
 import { FilterEditor, filterName } from './components/FilterEditor';
 
@@ -237,6 +238,7 @@ export default function App() {
               <span className="stat-value">{stats.overdue}</span>
             </button>
           </div>
+          <HeroAside onOpenTask={(id) => setModal({ taskId: id, columnId: '' })} />
         </div>
 
         <div className="filterbar">
