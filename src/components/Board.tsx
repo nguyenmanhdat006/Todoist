@@ -152,10 +152,12 @@ export function Board({ matches, onOpenTask, onDeleteColumn }: Props) {
           ))}
         </SortableContext>
 
-        <div className="column add-column">
+        <div className={`column add-column${newCol === null ? '' : ' is-editing'}`}>
           {newCol === null ? (
-            <button type="button" className="add-col-btn" onClick={() => setNewCol('')}>
-              ＋ {t('col.add')}
+            <button type="button" className="add-col-btn" aria-label={t('col.add')} title={t('col.add')} onClick={() => setNewCol('')}>
+              <svg viewBox="0 0 16 16" width="18" height="18" aria-hidden="true">
+                <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+              </svg>
             </button>
           ) : (
             <form
