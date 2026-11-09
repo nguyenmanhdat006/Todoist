@@ -5,7 +5,8 @@ import { useT } from './i18n';
 import { fold, isOverdue, matchesFilter } from './utils';
 import { Board } from './components/Board';
 import { ListView } from './components/ListView';
-import { TaskModal } from './components/TaskModal';
+import { TaskModal, type TaskDefaults } from './components/TaskModal';
+import { CalendarView } from './components/CalendarView';
 import { SettingsMenu, Toast, type ToastData } from './components/Extras';
 import { HelpButton, LangSwitch, ProgressRing, ThemeSwitch } from './components/TopbarWidgets';
 import { FilterEditor, filterName } from './components/FilterEditor';
@@ -24,7 +25,7 @@ export default function App() {
   const [filter, setFilter] = useState<string>('all');
   /** undefined = đóng, null = tạo mới, SavedFilter = đang sửa */
   const [editing, setEditing] = useState<SavedFilter | null | undefined>(undefined);
-  const [modal, setModal] = useState<{ taskId: string | null; columnId: string } | null>(null);
+  const [modal, setModal] = useState<{ taskId: string | null; columnId: string; defaults?: TaskDefaults } | null>(null);
   const [toast, setToast] = useState<ToastData | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -101,10 +102,10 @@ export default function App() {
     [t],
   );
 
-  const openCreate = useCallback(() => {
+  const openCreate = useCallback((defaults?: TaskDefaults) => {
     const cols = useBoard.getState().columns;
     const first = firstOpenColumn(cols) ?? cols[0];
-    if (first) setModal({ taskId: null, columnId: first.id });
+    if (first) setModal({ taskId: null, columnId: first.id, defaults });
   }, []);
 
   // Phím tắt: N = việc mới, / = tìm kiếm
@@ -177,6 +178,9 @@ export default function App() {
             <button type="button" className={view === 'list' ? 'on' : ''} aria-current={view === 'list' ? 'page' : undefined} onClick={() => setView('list')}>
               {t('nav.list')}
             </button>
+            <button type="button" className={view === 'calendar' ? 'on' : ''} aria-current={view === 'calendar' ? 'page' : undefined} onClick={() => setView('calendar')}>
+              {t('nav.calendar')}
+            </button>
           </nav>
           <div className="topbar-right">
             <ProgressRing done={stats.done} total={stats.total} />
@@ -222,7 +226,7 @@ export default function App() {
               <span className="stat-value">{stats.overdue}</span>
             </button>
           </div>
-          <button type="button" className="btn primary create" onClick={openCreate}>
+          <button type="button" className="btn primary create" onClick={() => openCreate()}>
             <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
               <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
             </svg>
@@ -317,6 +321,12 @@ export default function App() {
             onOpenTask={(id) => setModal({ taskId: id, columnId: '' })}
             onDeleteColumn={deleteColumn}
           />
+        ) : view === 'calendar' ? (
+          <CalendarView
+            matches={matches}
+            onOpenTask={(id) => setModal({ taskId: id, columnId: '' })}
+            onCreateAt={(date, time) => openCreate({ dueDate: date, startTime: time })}
+          />
         ) : (
           <ListView matches={matches} filtering={!!query.trim() || filter !== 'all'} onOpenTask={(id) => setModal({ taskId: id, columnId: '' })} />
         )}
@@ -327,6 +337,7 @@ export default function App() {
           key={modal.taskId ?? 'new'}
           taskId={modal.taskId}
           defaultColumnId={modal.columnId}
+          defaults={modal.defaults}
           onClose={closeModal}
           onDelete={deleteTask}
         />

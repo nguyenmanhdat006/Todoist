@@ -118,7 +118,7 @@ export function HelpButton() {
     };
   }, [open]);
   return (
-    <div className="settings" ref={ref}>
+    <div className="settings help" ref={ref}>
       <button
         type="button"
         className="icon-btn"

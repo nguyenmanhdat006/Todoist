@@ -2,7 +2,7 @@ import { useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useBoard } from '../store/board';
 import { tagColor } from '../types';
 import { useT } from '../i18n';
-import { fold } from '../utils';
+import { fold, knownTags } from '../utils';
 
 interface Props {
   value: string[];
@@ -28,11 +28,7 @@ export function TagPicker({ value, onChange, draft, onDraftChange }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [focused, setFocused] = useState(false);
 
-  const known = useMemo(() => {
-    const set = new Set<string>();
-    Object.values(tasks).forEach((x) => x.tags.forEach((g) => set.add(g)));
-    return [...set].sort((a, b) => a.localeCompare(b, t.locale));
-  }, [tasks, t.locale]);
+  const known = useMemo(() => knownTags(tasks, t.lang, t.locale), [tasks, t.lang, t.locale]);
 
   const q = fold(draft.trim());
   const suggestions = known.filter((g) => !value.includes(g) && (!q || fold(g).includes(q)));

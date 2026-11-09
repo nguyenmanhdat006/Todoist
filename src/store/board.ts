@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { BoardData, BuiltinColumn, Column, Lang, Priority, SavedFilter, Task, ThemeMode, ViewMode } from '../types';
-import { BUILTIN_COLUMNS } from '../types';
+import type { BoardData, BuiltinColumn, CalMode, Column, Lang, Priority, SavedFilter, Task, ThemeMode, ViewMode } from '../types';
+import { BUILTIN_COLUMNS, PRESET_TAGS } from '../types';
 import { addDaysISO, todayISO, uid } from '../utils';
 
 export interface TaskInput {
@@ -9,12 +9,17 @@ export interface TaskInput {
   note?: string;
   priority?: Priority;
   dueDate?: string | null;
+  startTime?: string | null;
+  endTime?: string | null;
   tags?: string[];
 }
 
 interface BoardState extends BoardData {
   theme: ThemeMode;
   view: ViewMode;
+  calMode: CalMode;
+  /** Nhãn đang bị ẩn trên lịch; '' = việc không có nhãn */
+  calHiddenTags: string[];
   lang: Lang;
   filters: SavedFilter[];
 
@@ -41,6 +46,8 @@ interface BoardState extends BoardData {
 
   setTheme: (t: ThemeMode) => void;
   setView: (v: ViewMode) => void;
+  setCalMode: (m: CalMode) => void;
+  setCalHiddenTags: (tags: string[]) => void;
   setLang: (l: Lang) => void;
 
   addFilter: (f: Omit<SavedFilter, 'id'>) => string;
@@ -56,6 +63,8 @@ function makeTask(input: TaskInput): Task {
     note: input.note?.trim() ?? '',
     priority: input.priority ?? 'normal',
     dueDate: input.dueDate ?? null,
+    startTime: input.dueDate ? (input.startTime ?? null) : null,
+    endTime: input.dueDate && input.startTime ? (input.endTime ?? null) : null,
     tags: input.tags ?? [],
     createdAt: new Date().toISOString(),
     completedAt: null,
@@ -108,6 +117,7 @@ function defaultTextTranslator(to: Lang) {
       if (note) map.set(note, B.tasks[i][1]);
     });
     (Object.keys(A.tags) as (keyof typeof A.tags)[]).forEach((k) => map.set(A.tags[k], B.tags[k]));
+    PRESET_TAGS.forEach((p) => map.set(p[from], p[to]));
     A.columns.forEach((c, i) => map.set(c, B.columns[i]));
   }
   return (text: string) => map.get(text) ?? text;
@@ -211,10 +221,10 @@ export function demoData(lang: Lang = detectLang()): BoardData {
   const { work, personal, study } = L.tags;
   const tasks = [
     t(0, { priority: 'low' }),
-    t(1, { priority: 'high', dueDate: addDaysISO(0), tags: [work] }),
+    t(1, { priority: 'high', dueDate: addDaysISO(0), startTime: '09:00', endTime: '10:30', tags: [work] }),
     t(2, { dueDate: addDaysISO(3), tags: [personal] }),
     t(3, { tags: [study] }),
-    t(4, { priority: 'high', dueDate: addDaysISO(1), tags: [work] }),
+    t(4, { priority: 'high', dueDate: addDaysISO(1), startTime: '14:00', endTime: '15:30', tags: [work] }),
     t(5, { dueDate: addDaysISO(-1), tags: [personal] }),
     t(6, { priority: 'low', tags: [personal] }, true),
   ];
@@ -247,6 +257,8 @@ function sanitize(raw: unknown): BoardData | null {
       note: typeof x.note === 'string' ? x.note : '',
       priority: x.priority === 'high' || x.priority === 'low' ? x.priority : 'normal',
       dueDate: typeof x.dueDate === 'string' ? x.dueDate : null,
+      startTime: typeof x.startTime === 'string' && typeof x.dueDate === 'string' ? x.startTime : null,
+      endTime: typeof x.endTime === 'string' && typeof x.startTime === 'string' ? x.endTime : null,
       tags: Array.isArray(x.tags) ? x.tags.filter((g): g is string => typeof g === 'string') : [],
       createdAt: typeof x.createdAt === 'string' ? x.createdAt : new Date().toISOString(),
       completedAt: typeof x.completedAt === 'string' ? x.completedAt : null,
@@ -272,6 +284,8 @@ export const useBoard = create<BoardState>()(
       ...demoData(),
       theme: 'dark',
       view: 'kanban',
+      calMode: 'week',
+      calHiddenTags: [],
       lang: detectLang(),
       filters: defaultFilters(),
 
@@ -421,7 +435,14 @@ export const useBoard = create<BoardState>()(
 
       setTheme: (theme) => set({ theme }),
       setView: (view) => set({ view }),
-      setLang: (lang) => set((s) => (s.lang === lang ? s : { lang, ...localizeDefaults(s, lang) })),
+      setCalMode: (calMode) => set({ calMode }),
+      setCalHiddenTags: (calHiddenTags) => set({ calHiddenTags }),
+      setLang: (lang) =>
+        set((s) =>
+          s.lang === lang
+            ? s
+            : { lang, ...localizeDefaults(s, lang), calHiddenTags: s.calHiddenTags.map(defaultTextTranslator(lang)) },
+        ),
 
       addFilter: (f) => {
         const id = uid('f');
@@ -443,7 +464,7 @@ export const useBoard = create<BoardState>()(
         merged.columns = ensureBuiltins(merged.columns, merged.lang);
         return { ...merged, ...localizeDefaults(merged, merged.lang) };
       },
-      partialize: (s) => ({ columns: s.columns, tasks: s.tasks, theme: s.theme, view: s.view, lang: s.lang, filters: s.filters }),
+      partialize: (s) => ({ columns: s.columns, tasks: s.tasks, theme: s.theme, view: s.view, calMode: s.calMode, calHiddenTags: s.calHiddenTags, lang: s.lang, filters: s.filters }),
     },
   ),
 );

@@ -618,6 +618,8 @@ button.stat-tile:disabled { cursor: default; }
   /* nút "Theo hệ thống" ẩn trên màn hình hẹp, vẫn còn Sáng/Tối */
   .theme-switch:not(.lang-switch) button:last-child { display: none; }
   .lang-switch button { padding: 0 6px; }
+  /* bảng phím tắt không dùng được trên điện thoại */
+  .settings.help { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {

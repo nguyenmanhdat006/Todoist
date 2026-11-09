@@ -1,5 +1,6 @@
 import type { T } from './i18n';
-import type { SavedFilter, Task } from './types';
+import type { Lang, SavedFilter, Task } from './types';
+import { presetTagNames } from './types';
 
 export const uid = (prefix: string) =>
   `${prefix}_${Math.random().toString(36).slice(2, 8)}${Date.now().toString(36).slice(-4)}`;
@@ -22,6 +23,38 @@ export function addDaysISO(n: number) {
 function parseISODate(s: string) {
   const [y, m, d] = s.split('-').map(Number);
   return new Date(y, m - 1, d);
+}
+
+/** "09:00–10:30", "09:00" hoặc "" khi là việc cả ngày */
+export function timeRange(task: Pick<Task, 'dueDate' | 'startTime' | 'endTime'>) {
+  if (!task.dueDate || !task.startTime) return '';
+  return task.endTime ? `${task.startTime}–${task.endTime}` : task.startTime;
+}
+
+/** "HH:MM" -> số phút từ 00:00 */
+export function toMinutes(hm: string) {
+  const [h, m] = hm.split(':').map(Number);
+  return h * 60 + (m || 0);
+}
+
+export function fromMinutes(n: number) {
+  const v = Math.max(0, Math.min(n, 23 * 60 + 59));
+  return `${String(Math.floor(v / 60)).padStart(2, '0')}:${String(v % 60).padStart(2, '0')}`;
+}
+
+export function parseISO(s: string) {
+  const [y, m, d] = s.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
+/** Mọi nhãn để chọn: nhãn có sẵn (theo thứ tự cố định) rồi tới nhãn tự tạo (theo ABC) */
+export function knownTags(tasks: Record<string, Task>, lang: Lang, locale: string, extra: string[] = []) {
+  const presets = presetTagNames(lang);
+  const preset = new Set(presets);
+  const custom = new Set<string>();
+  for (const x of Object.values(tasks)) for (const g of x.tags) if (!preset.has(g)) custom.add(g);
+  for (const g of extra) if (!preset.has(g)) custom.add(g);
+  return [...presets, ...[...custom].sort((a, b) => a.localeCompare(b, locale))];
 }
 
 export type DueTone = 'overdue' | 'today' | 'soon' | 'normal' | 'done';

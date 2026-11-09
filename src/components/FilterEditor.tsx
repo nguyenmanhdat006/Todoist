@@ -3,7 +3,7 @@ import { useBoard } from '../store/board';
 import type { DueRule, Priority, SavedFilter } from '../types';
 import { PRIORITIES, tagColor } from '../types';
 import { useT } from '../i18n';
-import { matchesFilter } from '../utils';
+import { knownTags, matchesFilter } from '../utils';
 
 const DUE_RULES: DueRule[] = ['any', 'overdue', 'today', 'week', 'none'];
 
@@ -42,12 +42,7 @@ export function FilterEditor({ filter, onClose, onSaved, onDelete }: Props) {
     return () => document.removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  const allTags = useMemo(() => {
-    const set = new Set<string>();
-    Object.values(tasks).forEach((x) => x.tags.forEach((g) => set.add(g)));
-    tags.forEach((g) => set.add(g));
-    return [...set].sort((a, b) => a.localeCompare(b, t.locale));
-  }, [tasks, tags, t.locale]);
+  const allTags = useMemo(() => knownTags(tasks, t.lang, t.locale, tags), [tasks, tags, t.lang, t.locale]);
 
   const draft: SavedFilter = {
     id: filter?.id ?? '',

@@ -7,6 +7,10 @@ export interface Task {
   priority: Priority;
   /** YYYY-MM-DD */
   dueDate: string | null;
+  /** Giờ bắt đầu HH:MM trong ngày dueDate; null = cả ngày */
+  startTime?: string | null;
+  /** Giờ kết thúc HH:MM */
+  endTime?: string | null;
   tags: string[];
   createdAt: string;
   completedAt: string | null;
@@ -36,7 +40,8 @@ export interface BoardData {
 }
 
 export type ThemeMode = 'system' | 'light' | 'dark';
-export type ViewMode = 'kanban' | 'list';
+export type ViewMode = 'kanban' | 'list' | 'calendar';
+export type CalMode = 'month' | 'week' | 'day';
 /** Điều kiện hạn chót của bộ lọc */
 export type DueRule = 'any' | 'overdue' | 'today' | 'week' | 'none';
 
@@ -68,9 +73,32 @@ export const COLUMN_COLORS = [
   { key: 'slate', hex: '#94a3b8' },
 ] as const;
 
-/** Màu nhãn: cùng tên nhãn luôn ra cùng một màu */
+/** Nhãn có sẵn: luôn hiện để chọn, mỗi nhãn một màu riêng, tự dịch theo ngôn ngữ */
+export const PRESET_TAGS = [
+  { key: 'work', vi: 'Công việc', en: 'Work', color: '#4f8ff7' },
+  { key: 'personal', vi: 'Cá nhân', en: 'Personal', color: '#4ade80' },
+  { key: 'study', vi: 'Học tập', en: 'Study', color: '#a78bfa' },
+  { key: 'homework', vi: 'Bài tập', en: 'Homework', color: '#fb923c' },
+  { key: 'exam', vi: 'Lịch thi', en: 'Exam', color: '#f87171' },
+  { key: 'meeting', vi: 'Họp', en: 'Meeting', color: '#38bdf8' },
+  { key: 'health', vi: 'Sức khoẻ', en: 'Health', color: '#2dd4bf' },
+  { key: 'family', vi: 'Gia đình', en: 'Family', color: '#f472b6' },
+  { key: 'shopping', vi: 'Mua sắm', en: 'Shopping', color: '#facc15' },
+  { key: 'finance', vi: 'Tài chính', en: 'Finance', color: '#a3e635' },
+  { key: 'other', vi: 'Khác', en: 'Other', color: '#94a3b8' },
+] as const;
+
+export function presetTagNames(lang: Lang): string[] {
+  return PRESET_TAGS.map((p) => p[lang]);
+}
+
+const PRESET_COLOR = new Map<string, string>(PRESET_TAGS.flatMap((p) => [[p.vi, p.color], [p.en, p.color]] as [string, string][]));
+
+/** Màu nhãn: nhãn có sẵn dùng màu riêng, nhãn tự tạo thì cùng tên luôn ra cùng một màu */
 const TAG_COLORS = ['#4f8ff7', '#38bdf8', '#a78bfa', '#f472b6', '#fb923c', '#facc15', '#4ade80', '#2dd4bf'];
 export function tagColor(tag: string) {
+  const preset = PRESET_COLOR.get(tag);
+  if (preset) return preset;
   let h = 0;
   for (const ch of tag) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
   return TAG_COLORS[h % TAG_COLORS.length];

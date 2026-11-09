@@ -4,15 +4,29 @@ import type { Priority } from '../types';
 import { PRIORITIES } from '../types';
 import { useT } from '../i18n';
 import { TagPicker, addTag } from './TagPicker';
+import { fromMinutes, toMinutes, todayISO } from '../utils';
+
+/** Giá trị điền sẵn khi tạo việc (ví dụ bấm vào một ô trên lịch) */
+export interface TaskDefaults {
+  dueDate?: string;
+  /** null = cả ngày */
+  startTime?: string | null;
+}
+
+function nextHour() {
+  const d = new Date();
+  return fromMinutes(Math.min((d.getHours() + 1) * 60, 23 * 60));
+}
 
 interface Props {
   taskId: string | null;
   defaultColumnId: string;
+  defaults?: TaskDefaults;
   onClose: () => void;
   onDelete: (id: string) => void;
 }
 
-export function TaskModal({ taskId, defaultColumnId, onClose, onDelete }: Props) {
+export function TaskModal({ taskId, defaultColumnId, defaults, onClose, onDelete }: Props) {
   const t = useT();
   const columns = useBoard((s) => s.columns);
   const task = useBoard((s) => (taskId ? s.tasks[taskId] : undefined));
@@ -21,7 +35,24 @@ export function TaskModal({ taskId, defaultColumnId, onClose, onDelete }: Props)
   const [title, setTitle] = useState(task?.title ?? '');
   const [note, setNote] = useState(task?.note ?? '');
   const [priority, setPriority] = useState<Priority>(task?.priority ?? 'normal');
-  const [dueDate, setDueDate] = useState(task?.dueDate ?? '');
+  // Việc mới: mặc định hôm nay, giờ tròn kế tiếp, kéo dài 1 tiếng
+  const initStart = task ? (task.startTime ?? null) : defaults?.startTime !== undefined ? defaults.startTime : nextHour();
+  const [dueDate, setDueDate] = useState(task ? (task.dueDate ?? '') : (defaults?.dueDate ?? todayISO()));
+  const [allDay, setAllDay] = useState(initStart === null);
+  const [startTime, setStartTime] = useState(initStart ?? nextHour());
+  const [endTime, setEndTime] = useState(
+    task?.endTime ?? fromMinutes(toMinutes(initStart ?? nextHour()) + 60),
+  );
+  const [timeError, setTimeError] = useState('');
+  const changeStart = (v: string) => {
+    // Dời giờ kết thúc theo, giữ nguyên thời lượng
+    if (v && startTime && endTime) {
+      const len = Math.max(toMinutes(endTime) - toMinutes(startTime), 15);
+      setEndTime(fromMinutes(toMinutes(v) + len));
+    }
+    setStartTime(v);
+    setTimeError('');
+  };
   const [tags, setTags] = useState<string[]>(task?.tags ?? []);
   const [tagDraft, setTagDraft] = useState('');
   const [columnId, setColumnId] = useState(currentColumnId);
@@ -38,12 +69,19 @@ export function TaskModal({ taskId, defaultColumnId, onClose, onDelete }: Props)
       setError(t('modal.titleError'));
       return;
     }
+    const timed = !!dueDate && !allDay && !!startTime;
+    if (timed && endTime && toMinutes(endTime) <= toMinutes(startTime)) {
+      setTimeError(t('modal.timeError'));
+      return;
+    }
     const s = useBoard.getState();
     const data = {
       title: title.trim(),
       note: note.trim(),
       priority,
       dueDate: dueDate || null,
+      startTime: timed ? startTime : null,
+      endTime: timed && endTime ? endTime : null,
       // Lấy luôn nhãn đang gõ dở chưa nhấn Enter
       tags: addTag(tags, tagDraft, tags),
     };
@@ -116,6 +154,51 @@ export function TaskModal({ taskId, defaultColumnId, onClose, onDelete }: Props)
             <span>{t('modal.due')}</span>
             <input id="task-due" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
           </label>
+        </div>
+
+        <div className="field">
+          <div className="time-head">
+            <span>{t('modal.time')}</span>
+            <label className="check time-allday">
+              <input
+                type="checkbox"
+                id="task-allday"
+                checked={allDay}
+                disabled={!dueDate}
+                onChange={(e) => {
+                  setAllDay(e.target.checked);
+                  setTimeError('');
+                }}
+              />
+              {t('modal.allDay')}
+            </label>
+          </div>
+          <div className="time-row">
+            <input
+              id="task-start"
+              type="time"
+              step={900}
+              aria-label={t('modal.start')}
+              value={startTime}
+              disabled={!dueDate || allDay}
+              onChange={(e) => changeStart(e.target.value)}
+            />
+            <span className="time-sep" aria-hidden="true">→</span>
+            <input
+              id="task-end"
+              type="time"
+              step={900}
+              aria-label={t('modal.end')}
+              value={endTime}
+              disabled={!dueDate || allDay}
+              onChange={(e) => {
+                setEndTime(e.target.value);
+                setTimeError('');
+              }}
+            />
+          </div>
+          {!dueDate && <small className="hint">{t('modal.timeNeedsDate')}</small>}
+          {timeError && <small className="error">{timeError}</small>}
         </div>
 
         <div className="field">

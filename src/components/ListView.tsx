@@ -3,7 +3,7 @@ import { useBoard } from '../store/board';
 import type { Task } from '../types';
 import { tagColor } from '../types';
 import { useT } from '../i18n';
-import { dueInfo } from '../utils';
+import { dueInfo, timeRange } from '../utils';
 
 interface Props {
   matches: (t: Task) => boolean;
@@ -96,6 +96,7 @@ export function ListView({ matches, filtering, onOpenTask }: Props) {
                                   <path d="M2.5 7h11M5.5 2v3M10.5 2v3" strokeLinecap="round" />
                                 </svg>
                                 {due.label}
+                                {task.startTime && ` · ${timeRange(task)}`}
                               </span>
                             )}
                           </div>

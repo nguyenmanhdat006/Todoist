@@ -5,7 +5,7 @@ import type { Task } from '../types';
 import { tagColor } from '../types';
 import { useT } from '../i18n';
 import { useBoard } from '../store/board';
-import { dueInfo } from '../utils';
+import { dueInfo, timeRange } from '../utils';
 
 interface BodyProps {
   task: Task;
@@ -53,7 +53,7 @@ export function TaskCardBody({ task, done, color, overlay }: BodyProps) {
             <span className={`prio prio-${task.priority}`}>{t(`prio.${task.priority}`)}</span>
           )}
           {task.priority !== 'normal' && due && <span className="sep">/</span>}
-          {due && <span className={`due due-${due.tone}`}>{due.label}</span>}
+          {due && <span className={`due due-${due.tone}`}>{due.label}{task.startTime && ` · ${timeRange(task)}`}</span>}
         </div>
       )}
     </div>
