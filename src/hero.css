@@ -103,3 +103,33 @@ button.hero-next:hover { background: color-mix(in srgb, var(--tag) 18%, var(--su
 @media (prefers-reduced-motion: reduce) {
   .hero-hand-wave { animation: none; }
 }
+
+/* ---------- 3 ô thống kê cùng kiểu và cùng chiều cao với banner ---------- */
+.hero .stat-tiles { gap: 10px; }
+.hero .stat-tile[class*='tone-'] {
+  position: relative; overflow: hidden; isolation: isolate; height: 104px; min-width: 150px; justify-content: center;
+  gap: 4px; padding: 12px 18px 16px; border-radius: 14px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--tone) 16%, var(--surface)), color-mix(in srgb, var(--tone) 7%, var(--surface)));
+  border: 1px solid color-mix(in srgb, var(--tone) 22%, var(--line));
+  box-shadow: none;
+}
+/* sọc chéo ở góc phải, như banner */
+.hero .stat-tile[class*='tone-']::before {
+  content: ''; position: absolute; z-index: -1; right: -46px; top: -20px; bottom: -20px; width: 120px; pointer-events: none;
+  background: linear-gradient(115deg, transparent 0 22%, color-mix(in srgb, var(--tone) 22%, transparent) 22% 38%, transparent 38% 50%,
+    color-mix(in srgb, var(--tone) 40%, transparent) 50% 66%, transparent 66%);
+}
+/* dải màu ở đáy */
+.hero .stat-tile[class*='tone-']::after {
+  content: ''; position: absolute; z-index: -1; left: 0; right: 0; bottom: 0; height: 28%; pointer-events: none;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--tone) 20%, transparent), color-mix(in srgb, var(--tone) 10%, transparent));
+}
+.hero .stat-label { font-size: 13px; }
+.hero .stat-value { font-size: 32px; font-weight: 800; line-height: 1.05; }
+.hero .stat-of { font-size: 15px; }
+.hero .stat-bar { width: 72%; height: 4px; background: color-mix(in srgb, var(--tone) 22%, transparent); }
+.hero .stat-tile.is-alert:hover { background: color-mix(in srgb, var(--danger) 20%, var(--surface)); }
+@media (max-width: 760px) {
+  .hero .stat-tile[class*='tone-'] { min-width: 0; height: 88px; padding: 10px 12px 14px; }
+  .hero .stat-value { font-size: 26px; }
+}
