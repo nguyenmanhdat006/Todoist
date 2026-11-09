@@ -58,8 +58,14 @@ export default function App() {
       done: all.filter((t) => doneIds.has(t.id)).length,
       open: all.filter((t) => !doneIds.has(t.id)).length,
       overdue: all.filter((t) => isOverdue(t.dueDate, doneIds.has(t.id))).length,
+      high: all.filter((t) => t.priority === 'high' && !doneIds.has(t.id)).length,
     };
   }, [tasks, doneIds]);
+
+  const todayLabel = useMemo(
+    () => new Intl.DateTimeFormat('vi-VN', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date()),
+    [],
+  );
 
   const openCreate = useCallback(() => {
     const first = useBoard.getState().columns.find((c) => !c.isDone) ?? useBoard.getState().columns[0];
@@ -135,26 +141,34 @@ export default function App() {
       </header>
 
       <div className="toolbar">
-        <div className="toolbar-title">
-          <h1>
-            Công việc <span className="grad">của tôi</span>
-          </h1>
-          <p className="toolbar-sub">
-            <span className="mono">{stats.open}</span> đang mở · <span className="mono">{stats.done}</span> đã xong
+        <div className="toolbar-top">
+          <div className="toolbar-title">
+            <span className="eyebrow">{todayLabel}</span>
+            <h1>Công việc</h1>
+          </div>
+          <div className="toolbar-stats" aria-label="Thống kê">
+            <span>
+              <b>{stats.open}</b> đang mở
+            </span>
+            <span>
+              <b>{stats.done}</b> đã xong
+            </span>
             {stats.overdue > 0 && (
-              <>
-                {' · '}
-                <button type="button" className="stat-overdue" onClick={() => setFilter('overdue')}>
-                  {stats.overdue} quá hạn
-                </button>
-              </>
+              <button type="button" className="stat-overdue" onClick={() => setFilter('overdue')}>
+                <b>{stats.overdue}</b> quá hạn
+              </button>
             )}
-          </p>
-        </div>
-        <div className="toolbar-actions">
-          <button type="button" className="btn primary create" onClick={openCreate} title="Phím tắt: N">
-            Tạo việc <span aria-hidden="true">＋</span>
+          </div>
+          <button type="button" className="btn primary create" onClick={openCreate}>
+            <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+              <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+            Tạo việc
+            <kbd className="btn-kbd">N</kbd>
           </button>
+        </div>
+
+        <div className="filterbar">
           <div className="search">
             <svg className="search-icon" viewBox="0 0 16 16" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
               <circle cx="7" cy="7" r="4.5" />
@@ -171,19 +185,35 @@ export default function App() {
             />
             <kbd className="search-kbd">/</kbd>
           </div>
-          <div className="chips" role="group" aria-label="Bộ lọc">
-            {FILTERS.map((f) => (
-              <button
-                key={f.id}
-                type="button"
-                className={`chip${filter === f.id ? ' on' : ''}`}
-                aria-pressed={filter === f.id}
-                onClick={() => setFilter(f.id)}
-              >
-                {f.label}
-              </button>
-            ))}
+          <div className="seg-filter" role="group" aria-label="Bộ lọc">
+            {FILTERS.map((f) => {
+              const n = f.id === 'high' ? stats.high : f.id === 'overdue' ? stats.overdue : stats.total;
+              return (
+                <button
+                  key={f.id}
+                  type="button"
+                  className={filter === f.id ? 'on' : ''}
+                  aria-pressed={filter === f.id}
+                  onClick={() => setFilter(f.id)}
+                >
+                  {f.label}
+                  <span className={'seg-count' + (f.id === 'overdue' && n > 0 ? ' is-alert' : '')}>{n}</span>
+                </button>
+              );
+            })}
           </div>
+          {(query || filter !== 'all') && (
+            <button
+              type="button"
+              className="clear-filter"
+              onClick={() => {
+                setQuery('');
+                setFilter('all');
+              }}
+            >
+              Xoá bộ lọc
+            </button>
+          )}
         </div>
       </div>
 
