@@ -1,9 +1,8 @@
 import { useState, type CSSProperties } from 'react';
 import { useBoard } from '../store/board';
 import type { Task } from '../types';
-import { tagColor } from '../types';
 import { useT } from '../i18n';
-import { dueInfo, timeRange } from '../utils';
+import { dueInfo, timeRange, tagStyle } from '../utils';
 
 interface Props {
   matches: (t: Task) => boolean;
@@ -81,14 +80,14 @@ export function ListView({ matches, filtering, onOpenTask }: Props) {
                             {task.note && <span className="lv-note">{task.note}</span>}
                           </button>
                           <div className="lv-meta">
+                            {task.priority !== 'normal' && (
+                              <span className={`prio-chip prio-${task.priority}`}>{t(`prio.${task.priority}`)}</span>
+                            )}
                             {task.tags.map((g) => (
-                              <span key={g} className="tag" style={{ '--tag': tagColor(g) } as CSSProperties}>
+                              <span key={g} className="tag" style={tagStyle(g)}>
                                 {g}
                               </span>
                             ))}
-                            {task.priority !== 'normal' && (
-                              <span className={`lv-pill prio-${task.priority}`}>{t(`prio.${task.priority}`)}</span>
-                            )}
                             {due && (
                               <span className={`lv-pill lv-due due-${due.tone}`}>
                                 <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5">

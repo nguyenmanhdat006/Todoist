@@ -2,7 +2,7 @@ import { useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useBoard } from '../store/board';
 import { tagColor } from '../types';
 import { useT } from '../i18n';
-import { fold, knownTags } from '../utils';
+import { fold, knownTags, tagStyle } from '../utils';
 
 interface Props {
   value: string[];
@@ -52,7 +52,7 @@ export function TagPicker({ value, onChange, draft, onDraftChange }: Props) {
         }}
       >
         {value.map((g) => (
-          <span key={g} className="tag tag-chip" style={{ '--tag': tagColor(g) } as CSSProperties}>
+          <span key={g} className="tag tag-chip" style={tagStyle(g)}>
             {g}
             <button
               type="button"

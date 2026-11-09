@@ -1,6 +1,7 @@
 import type { T } from './i18n';
 import type { Lang, SavedFilter, Task } from './types';
-import { presetTagNames } from './types';
+import { presetTagNames, tagColor } from './types';
+import type { CSSProperties } from 'react';
 
 export const uid = (prefix: string) =>
   `${prefix}_${Math.random().toString(36).slice(2, 8)}${Date.now().toString(36).slice(-4)}`;
@@ -103,6 +104,12 @@ export function readableText(hex: string) {
   const lin = (c: number) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
   const L = 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
   return L > 0.4 ? '#2b2023' : '#ffffff';
+}
+
+/** Style cho một nhãn dạng khối màu đặc: nền theo màu nhãn, chữ tối hoặc trắng tuỳ độ sáng */
+export function tagStyle(tag: string): CSSProperties {
+  const c = tagColor(tag);
+  return { '--tag': c, '--tag-fg': readableText(c) } as CSSProperties;
 }
 
 /** Việc có khớp bộ lọc đã lưu không */

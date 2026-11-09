@@ -2,10 +2,9 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { CSSProperties } from 'react';
 import type { Task } from '../types';
-import { tagColor } from '../types';
 import { useT } from '../i18n';
 import { useBoard } from '../store/board';
-import { dueInfo, timeRange } from '../utils';
+import { dueInfo, timeRange, tagStyle } from '../utils';
 
 interface BodyProps {
   task: Task;
@@ -38,22 +37,22 @@ export function TaskCardBody({ task, done, color, overlay }: BodyProps) {
         <div className="card-title">{task.title}</div>
       </div>
       {task.note && <div className="card-note">{task.note}</div>}
-      {task.tags.length > 0 && (
+      {(task.tags.length > 0 || task.priority !== 'normal') && (
         <div className="card-tags">
+          {task.priority !== 'normal' && <span className={`prio-chip prio-${task.priority}`}>{t(`prio.${task.priority}`)}</span>}
           {task.tags.map((tag) => (
-            <span key={tag} className="tag" style={{ '--tag': tagColor(tag) } as CSSProperties}>
+            <span key={tag} className="tag" style={tagStyle(tag)}>
               {tag}
             </span>
           ))}
         </div>
       )}
-      {(due || task.priority !== 'normal') && (
+      {due && (
         <div className="card-foot">
-          {task.priority !== 'normal' && (
-            <span className={`prio prio-${task.priority}`}>{t(`prio.${task.priority}`)}</span>
-          )}
-          {task.priority !== 'normal' && due && <span className="sep">/</span>}
-          {due && <span className={`due due-${due.tone}`}>{due.label}{task.startTime && ` · ${timeRange(task)}`}</span>}
+          <span className={`due due-${due.tone}`}>
+            {due.label}
+            {task.startTime && ` · ${timeRange(task)}`}
+          </span>
         </div>
       )}
     </div>
