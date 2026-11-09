@@ -61,6 +61,7 @@ function ColumnMenu({ column, onClose, onDelete }: { column: Column; onClose: ()
   const updateColumn = useBoard((s) => s.updateColumn);
   const canDelete = useBoard((s) => s.columns.length > 1);
   const [title, setTitle] = useState(column.title);
+  const cardMode = column.cardColor ?? 'status';
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -114,6 +115,39 @@ function ColumnMenu({ column, onClose, onDelete }: { column: Column; onClose: ()
             />
           ))}
         </div>
+      </div>
+      <div className="field">
+        <span>{t('col.cardColor')}</span>
+        <div className="swatches">
+          <button
+            type="button"
+            className={`swatch is-status${cardMode === 'status' ? ' on' : ''}`}
+            title={t('col.cardStatus')}
+            aria-label={t('col.cardStatus')}
+            onClick={() => updateColumn(column.id, { cardColor: 'status' })}
+          />
+          <button
+            type="button"
+            className={`swatch is-none${cardMode === 'none' ? ' on' : ''}`}
+            title={t('col.cardNone')}
+            aria-label={t('col.cardNone')}
+            onClick={() => updateColumn(column.id, { cardColor: 'none' })}
+          />
+          {COLUMN_COLORS.map((c) => (
+            <button
+              key={c.hex}
+              type="button"
+              className={`swatch${c.hex === cardMode ? ' on' : ''}`}
+              style={{ background: c.hex }}
+              title={t(`color.${c.key}`)}
+              aria-label={`${t('col.cardColor')}: ${t(`color.${c.key}`)}`}
+              onClick={() => updateColumn(column.id, { cardColor: c.hex })}
+            />
+          ))}
+        </div>
+        <small className="hint">
+          {cardMode === 'status' ? t('col.cardStatusHint') : cardMode === 'none' ? t('col.cardNone') : t('col.cardFixedHint')}
+        </small>
       </div>
       {!column.builtin && (
         <label className="check">

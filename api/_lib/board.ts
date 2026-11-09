@@ -54,6 +54,7 @@ export async function readBoard(userId: string): Promise<BoardResponse> {
       isDone: c.is_done,
       builtin: c.builtin,
       position: c.position,
+      cardColor: c.card_color ?? 'status',
     })),
     tags: [],
     tasks: tasks.rows.map((t) => ({
@@ -112,6 +113,7 @@ export async function writeBoard(userId: string, baseRevision: number, raw: unkn
     is_done: c.isDone,
     builtin: c.builtin ?? null,
     position,
+    card_color: c.cardColor ?? 'status',
   }));
   const taskRows = columns.flatMap((c) =>
     c.taskIds.map((id, position) => {
@@ -167,9 +169,9 @@ export async function writeBoard(userId: string, baseRevision: number, raw: unkn
     await c.query('delete from board_columns where user_id = $1', [userId]);
 
     await c.query(
-      `insert into board_columns (user_id, id, title, color, is_done, builtin, position)
-       select $1, x.id, x.title, x.color, x.is_done, x.builtin, x.position
-       from jsonb_to_recordset($2::jsonb) as x(id text, title text, color text, is_done boolean, builtin text, position int)`,
+      `insert into board_columns (user_id, id, title, color, is_done, builtin, position, card_color)
+       select $1, x.id, x.title, x.color, x.is_done, x.builtin, x.position, x.card_color
+       from jsonb_to_recordset($2::jsonb) as x(id text, title text, color text, is_done boolean, builtin text, position int, card_color text)`,
       [userId, JSON.stringify(colRows)],
     );
     if (taskRows.length)

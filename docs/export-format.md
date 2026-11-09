@@ -40,6 +40,7 @@ Dữ liệu được tổ chức thành các danh sách phẳng giống các b�
 | `isDone` | boolean | việc trong cột này tính là đã xong |
 | `builtin` | `overdue` \| `todo` \| `doing` \| `review` \| `done` \| null | cột mặc định, không xoá được |
 | `position` | integer | thứ tự từ trái sang phải, bắt đầu 0 |
+| `cardColor` | `status` \| `none` \| `#rrggbb` | màu thẻ trong cột: theo hạn (mặc định), không tô, hoặc một màu cố định |
 
 ## tasks
 

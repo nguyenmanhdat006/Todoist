@@ -269,9 +269,7 @@ button.stat-tile { cursor: pointer; }
 button.stat-tile:disabled { cursor: default; }
 .stat-tile.is-alert:hover { background: color-mix(in srgb, var(--danger) 18%, var(--surface)); }
 .stat-tile.is-zero { opacity: 0.75; }
-.filterbar .status-legend { margin-left: auto; }
-.filterbar .create { margin-left: 12px; }
-@media (max-width: 1100px) { .filterbar .create { margin-left: auto; } }
+.filterbar .create { margin-left: auto; }
 
 .filterbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .search { position: relative; width: 340px; max-width: 100%; }
@@ -750,19 +748,18 @@ button.stat-tile:disabled { cursor: default; }
 .progress-field.is-locked { opacity: 0.55; }
 .progress-field.is-locked input, .progress-field.is-locked button { cursor: not-allowed; }
 
-/* ---------- màu thẻ theo hạn: xanh lá còn thời gian, vàng hôm nay, đỏ quá hạn, xanh dương đã xong ---------- */
-.card[class*='status-'] {
+/* ---------- màu thẻ (theo tuỳ chọn của cột): mặc định theo hạn — xanh lá còn thời gian, vàng hôm nay, đỏ quá hạn, xanh dương đã xong ---------- */
+.card.is-tinted {
   background: color-mix(in srgb, var(--st) 14%, var(--surface));
   border-color: color-mix(in srgb, var(--st) 45%, var(--line));
 }
-.card[class*='status-']::before { left: -1px; top: -1px; bottom: -1px; width: 5px; background: var(--st); }
-.card[class*='status-']:hover { border-color: var(--st); }
+.card.is-tinted::before { left: -1px; top: -1px; bottom: -1px; width: 5px; background: var(--st); }
+.card.is-tinted:hover { border-color: var(--st); }
 .card.status-done.is-done { opacity: 0.85; }
 .card.status-today .due, .card.status-overdue .due { font-weight: 700; }
 .card.status-today .due { color: color-mix(in srgb, var(--st) 70%, var(--fg)); }
 
-/* chú thích màu */
-.status-legend { display: inline-flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--fg-2); }
-.status-legend span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
-.status-legend i { width: 12px; height: 12px; background: var(--st); }
-@media (max-width: 1100px) { .filterbar .status-legend { display: none; } }
+
+/* tuỳ chọn màu thẻ trong menu cột */
+.swatch.is-status { background: conic-gradient(#22a35a 0 25%, #f5b301 0 50%, #ef4444 0 75%, #2563eb 0); }
+.swatch.is-none { background: linear-gradient(135deg, var(--surface) 45%, var(--danger) 45% 55%, var(--surface) 55%); }

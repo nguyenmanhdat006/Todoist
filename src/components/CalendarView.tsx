@@ -4,7 +4,7 @@ import '../calendar.css';
 import type { CalMode, Column, Task } from '../types';
 import { tagColor } from '../types';
 import { useT, type T } from '../i18n';
-import { fromMinutes, knownTags, parseISO, timeRange, toISODate, toMinutes, todayISO, STATUS_COLORS, taskStatus, readableText } from '../utils';
+import { fromMinutes, knownTags, parseISO, timeRange, toISODate, toMinutes, todayISO, readableText, cardColorOf } from '../utils';
 
 interface Props {
   matches: (t: Task) => boolean;
@@ -21,7 +21,7 @@ interface Entry {
   task: Task;
   col: Column;
   done: boolean;
-  /** Màu theo hạn: xanh lá còn thời gian, vàng hôm nay, đỏ quá hạn, xanh dương đã xong */
+  /** Màu theo tuỳ chọn màu thẻ của cột (mặc định theo hạn); cột không tô thì dùng màu cột */
   color: string;
 }
 
@@ -158,7 +158,7 @@ export function CalendarView({ matches, onOpenTask, onCreateAt }: Props) {
           continue;
         }
         const list = map.get(task.dueDate) ?? [];
-        list.push({ task, col, done: col.isDone, color: STATUS_COLORS[taskStatus(task, col.isDone, today)] });
+        list.push({ task, col, done: col.isDone, color: cardColorOf(task, col, today) ?? col.color });
         map.set(task.dueDate, list);
       }
     }

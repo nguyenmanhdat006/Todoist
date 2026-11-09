@@ -137,6 +137,14 @@ export const STATUS_COLORS: Record<TaskStatus, string> = {
 };
 export const STATUS_ORDER: TaskStatus[] = ['ok', 'today', 'overdue', 'done'];
 
+/** Màu tô cho thẻ theo tuỳ chọn của cột; null = không tô */
+export function cardColorOf(task: Pick<Task, 'dueDate'>, col: Column | undefined, today = todayISO()): string | null {
+  const mode = col?.cardColor ?? 'status';
+  if (mode === 'none') return null;
+  if (mode === 'status') return STATUS_COLORS[taskStatus(task, !!col?.isDone, today)];
+  return mode;
+}
+
 export function taskStatus(task: Pick<Task, 'dueDate'>, done: boolean, today = todayISO()): TaskStatus {
   if (done) return 'done';
   if (!task.dueDate) return 'ok';

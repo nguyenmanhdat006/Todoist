@@ -35,6 +35,8 @@ export interface ExportColumn {
   /** Khoá của cột mặc định (không xoá được), null nếu là cột tự tạo */
   builtin: BuiltinColumn | null;
   position: number;
+  /** Màu thẻ: 'status' (theo hạn), 'none' hoặc #rrggbb */
+  cardColor: string;
 }
 
 export interface ExportTag {
@@ -143,6 +145,7 @@ export function buildExport(s: ExportSource, now = new Date()): ExportFile {
     isDone: c.isDone,
     builtin: c.builtin ?? null,
     position,
+    cardColor: c.cardColor ?? 'status',
   }));
 
   return {
@@ -341,6 +344,9 @@ function readColumn(raw: unknown, path: string, warn: (key: TKey, vars?: Issue['
   const builtin = BUILTIN_COLUMNS.includes(raw.builtin as BuiltinColumn) ? (raw.builtin as BuiltinColumn) : undefined;
   const col: Column = { id, title, color, isDone: raw.isDone === true || builtin === 'done', taskIds: [] };
   if (builtin) col.builtin = builtin;
+  const card = str(raw.cardColor);
+  if (card && (card === 'status' || card === 'none' || COLOR_RE.test(card))) col.cardColor = card;
+  else if (raw.cardColor !== undefined) warn('imp.fixedField', { path, field: 'cardColor' });
   return col;
 }
 

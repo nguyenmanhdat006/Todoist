@@ -43,6 +43,8 @@ export interface Column {
   taskIds: string[];
   /** Cột mặc định: luôn tồn tại, không xoá được */
   builtin?: BuiltinColumn;
+  /** Màu thẻ trong cột: 'status' = theo hạn (mặc định), 'none' = không tô, hoặc mã màu #rrggbb */
+  cardColor?: string;
 }
 
 export type BuiltinColumn = 'overdue' | 'todo' | 'doing' | 'review' | 'done';
