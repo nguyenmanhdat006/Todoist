@@ -126,6 +126,7 @@ const vi = {
   'modal.add': 'Thêm việc',
 
   'list.empty': 'Không có công việc nào khớp bộ lọc.',
+  'list.emptyGroup': 'Chưa có việc nào.',
   'list.done': 'Hoàn thành',
   'list.task': 'Công việc',
   'list.column': 'Cột',
@@ -270,6 +271,7 @@ const en: Record<TKey, string> = {
   'modal.add': 'Add task',
 
   'list.empty': 'No tasks match these filters.',
+  'list.emptyGroup': 'No tasks yet.',
   'list.done': 'Done',
   'list.task': 'Task',
   'list.column': 'Column',

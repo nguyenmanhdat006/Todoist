@@ -145,7 +145,7 @@ export default function App() {
   };
 
   return (
-    <div className="app">
+    <div className={`app view-${view}`}>
       <header className="topbar">
         <div className="topbar-inner">
           <div className="brand">
@@ -184,25 +184,33 @@ export default function App() {
             <span className="eyebrow">{todayLabel}</span>
             <h1>{t('page.title')}</h1>
           </div>
-          <div className="toolbar-stats" aria-label={t('stats.label')}>
-            <span>
-              <b>{stats.open}</b> {t('stats.open')}
-            </span>
-            <span>
-              <b>{stats.done}</b> {t('stats.done')}
-            </span>
-            {stats.overdue > 0 && (
-              <button
-                type="button"
-                className="stat-overdue"
-                onClick={() => {
-                  const f = filters.find((x) => x.due === 'overdue');
-                  if (f) setFilter(f.id);
-                }}
-              >
-                <b>{stats.overdue}</b> {t('stats.overdue')}
-              </button>
-            )}
+          <div className="stat-tiles" aria-label={t('stats.label')}>
+            <div className="stat-tile">
+              <span className="stat-label">{t('stats.open')}</span>
+              <span className="stat-value">{stats.open}</span>
+            </div>
+            <div className="stat-tile">
+              <span className="stat-label">{t('stats.done')}</span>
+              <span className="stat-value">
+                {stats.done}
+                <span className="stat-of">/{stats.total}</span>
+              </span>
+              <span className="stat-bar" aria-hidden="true">
+                <i style={{ width: `${stats.total ? (stats.done / stats.total) * 100 : 0}%` }} />
+              </span>
+            </div>
+            <button
+              type="button"
+              className={'stat-tile' + (stats.overdue > 0 ? ' is-alert' : '')}
+              disabled={stats.overdue === 0}
+              onClick={() => {
+                const f = filters.find((x) => x.due === 'overdue');
+                if (f) setFilter(f.id);
+              }}
+            >
+              <span className="stat-label">{t('stats.overdue')}</span>
+              <span className="stat-value">{stats.overdue}</span>
+            </button>
           </div>
           <button type="button" className="btn primary create" onClick={openCreate}>
             <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
@@ -300,7 +308,7 @@ export default function App() {
             onDeleteColumn={deleteColumn}
           />
         ) : (
-          <ListView matches={matches} onOpenTask={(id) => setModal({ taskId: id, columnId: '' })} />
+          <ListView matches={matches} filtering={!!query.trim() || filter !== 'all'} onOpenTask={(id) => setModal({ taskId: id, columnId: '' })} />
         )}
       </main>
 
