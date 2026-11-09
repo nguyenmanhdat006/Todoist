@@ -619,6 +619,8 @@ button.stat-tile:disabled { cursor: default; }
   .lang-switch button { padding: 0 6px; }
   /* bảng phím tắt không dùng được trên điện thoại */
   .settings.help { display: none; }
+  /* chừa chỗ cho chuông thông báo */
+  .brand { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {

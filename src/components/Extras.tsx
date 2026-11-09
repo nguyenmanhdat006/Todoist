@@ -7,6 +7,8 @@ export interface ToastData {
   id: number;
   message: string;
   onUndo?: () => void;
+  /** Chữ trên nút hành động; mặc định là Hoàn tác */
+  actionLabel?: string;
 }
 
 export function Toast({ toast, onClose }: { toast: ToastData | null; onClose: () => void }) {
@@ -29,7 +31,7 @@ export function Toast({ toast, onClose }: { toast: ToastData | null; onClose: ()
             onClose();
           }}
         >
-          {t('toast.undo')}
+          {toast.actionLabel ?? t('toast.undo')}
         </button>
       )}
     </div>

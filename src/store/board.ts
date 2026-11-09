@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { BoardData, BuiltinColumn, CalMode, Column, Lang, Priority, SavedFilter, Task, ThemeMode, ViewMode } from '../types';
+import type { BoardData, BuiltinColumn, CalMode, Reminder, Column, Lang, Priority, SavedFilter, Task, ThemeMode, ViewMode } from '../types';
 import { BUILTIN_COLUMNS, PRESET_TAGS } from '../types';
 import { addDaysISO, todayISO, uid } from '../utils';
 
@@ -20,6 +20,7 @@ interface BoardState extends BoardData {
   calMode: CalMode;
   /** Nhãn đang bị ẩn trên lịch; '' = việc không có nhãn */
   calHiddenTags: string[];
+  reminders: Reminder[];
   lang: Lang;
   filters: SavedFilter[];
 
@@ -48,6 +49,10 @@ interface BoardState extends BoardData {
   setView: (v: ViewMode) => void;
   setCalMode: (m: CalMode) => void;
   setCalHiddenTags: (tags: string[]) => void;
+  /** Tạo lời nhắc cho các việc sắp bắt đầu trong 1 tiếng tới; trả về các lời nhắc mới */
+  checkReminders: () => Reminder[];
+  markRemindersRead: () => void;
+  clearReminders: () => void;
   setLang: (l: Lang) => void;
 
   addFilter: (f: Omit<SavedFilter, 'id'>) => string;
@@ -55,6 +60,9 @@ interface BoardState extends BoardData {
   deleteFilter: (id: string) => void;
   setFilters: (filters: SavedFilter[]) => void;
 }
+
+/** Nhắc trước khi việc bắt đầu 1 tiếng */
+export const REMIND_BEFORE_MS = 60 * 60_000;
 
 function makeTask(input: TaskInput): Task {
   return {
@@ -286,6 +294,7 @@ export const useBoard = create<BoardState>()(
       view: 'kanban',
       calMode: 'week',
       calHiddenTags: [],
+      reminders: [],
       lang: detectLang(),
       filters: defaultFilters(),
 
@@ -437,6 +446,26 @@ export const useBoard = create<BoardState>()(
       setView: (view) => set({ view }),
       setCalMode: (calMode) => set({ calMode }),
       setCalHiddenTags: (calHiddenTags) => set({ calHiddenTags }),
+
+      checkReminders: () => {
+        const s = get();
+        const now = Date.now();
+        const done = new Set(s.columns.filter((c) => c.isDone).flatMap((c) => c.taskIds));
+        const fresh: Reminder[] = [];
+        for (const task of Object.values(s.tasks)) {
+          if (done.has(task.id) || !task.dueDate || !task.startTime) continue;
+          const at = `${task.dueDate}T${task.startTime}`;
+          const diff = new Date(`${at}:00`).getTime() - now;
+          if (diff <= 0 || diff > REMIND_BEFORE_MS) continue;
+          if (s.reminders.some((r) => r.taskId === task.id && r.at === at)) continue;
+          fresh.push({ id: uid('n'), taskId: task.id, at, createdAt: new Date().toISOString(), read: false });
+        }
+        if (fresh.length) set({ reminders: [...fresh, ...s.reminders].slice(0, 50) });
+        return fresh;
+      },
+      markRemindersRead: () =>
+        set((s) => (s.reminders.some((r) => !r.read) ? { reminders: s.reminders.map((r) => ({ ...r, read: true })) } : s)),
+      clearReminders: () => set({ reminders: [] }),
       setLang: (lang) =>
         set((s) =>
           s.lang === lang
@@ -464,7 +493,7 @@ export const useBoard = create<BoardState>()(
         merged.columns = ensureBuiltins(merged.columns, merged.lang);
         return { ...merged, ...localizeDefaults(merged, merged.lang) };
       },
-      partialize: (s) => ({ columns: s.columns, tasks: s.tasks, theme: s.theme, view: s.view, calMode: s.calMode, calHiddenTags: s.calHiddenTags, lang: s.lang, filters: s.filters }),
+      partialize: (s) => ({ columns: s.columns, tasks: s.tasks, theme: s.theme, view: s.view, calMode: s.calMode, calHiddenTags: s.calHiddenTags, reminders: s.reminders, lang: s.lang, filters: s.filters }),
     },
   ),
 );

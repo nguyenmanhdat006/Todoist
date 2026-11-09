@@ -9,6 +9,7 @@ import { TaskModal, type TaskDefaults } from './components/TaskModal';
 import { CalendarView } from './components/CalendarView';
 import { SettingsMenu, Toast, type ToastData } from './components/Extras';
 import { HelpButton, LangSwitch, ProgressRing, ThemeSwitch } from './components/TopbarWidgets';
+import { NotificationBell } from './components/NotificationBell';
 import { FilterEditor, filterName } from './components/FilterEditor';
 
 export default function App() {
@@ -187,6 +188,7 @@ export default function App() {
             <ProgressRing done={stats.done} total={stats.total} />
             <LangSwitch />
             <ThemeSwitch />
+            <NotificationBell onOpenTask={(id) => setModal({ taskId: id, columnId: '' })} onToast={showToast} />
             <SettingsMenu onToast={showToast} />
             <HelpButton />
           </div>

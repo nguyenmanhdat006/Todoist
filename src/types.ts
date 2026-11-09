@@ -20,6 +20,16 @@ export interface Task {
   prevColumnId?: string | null;
 }
 
+/** Lời nhắc: tạo ra khi một việc có giờ còn ≤ 1 tiếng nữa là bắt đầu */
+export interface Reminder {
+  id: string;
+  taskId: string;
+  /** Thời điểm bắt đầu lúc tạo nhắc, dạng YYYY-MM-DDTHH:MM (giờ máy) */
+  at: string;
+  createdAt: string;
+  read: boolean;
+}
+
 export interface Column {
   id: string;
   title: string;
