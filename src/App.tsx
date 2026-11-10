@@ -9,6 +9,7 @@ import { TaskModal, type TaskDefaults } from './components/TaskModal';
 import { CalendarView } from './components/CalendarView';
 import { SettingsMenu, type ToastData } from './components/Extras';
 import { showToast as showToastMsg } from './toast';
+import { findSampleTaskIds } from './data/legacySample';
 import { HelpButton, LangSwitch, ProgressRing, ThemeSwitch } from './components/TopbarWidgets';
 import { NotificationBell } from './components/NotificationBell';
 import { AccountMenu } from './components/AccountMenu';
@@ -20,6 +21,8 @@ import { switchBoard, useSession } from './sync/session';
 import { loadOverview, useOverview, useScopedEntries } from './sync/overview';
 import { ScopeSelect } from './components/Social';
 import { FilterEditor, filterName } from './components/FilterEditor';
+
+const purgedBoards = new Set<string>();
 
 export default function App() {
   const columns = useBoard((s) => s.columns);
@@ -61,6 +64,26 @@ export default function App() {
     const id = setInterval(() => void refreshPeople(), 60_000);
     return () => clearInterval(id);
   }, [board]);
+
+  // Dọn việc mẫu mà bản cũ từng nạp sẵn (mỗi bảng chỉ dọn một lần, có thể hoàn tác)
+  const switching = useSession((s) => s.switching);
+  const allTasks = useBoard((s) => s.tasks);
+  useEffect(() => {
+    if (switching) return;
+    const key = board ?? 'personal';
+    if (purgedBoards.has(key)) return;
+    const ids = findSampleTaskIds(allTasks);
+    purgedBoards.add(key);
+    if (ids.length === 0) return;
+    const st = useBoard.getState();
+    const prev = st.snapshot();
+    ids.forEach((id) => st.deleteTask(id));
+    showToastMsg(t('toast.sampleRemoved', { n: ids.length }), {
+      kind: 'info',
+      onAction: () => useBoard.getState().restore(prev),
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [board, switching, allTasks]);
   // Danh sách và Lịch hiển thị việc của mọi bảng; Bảng chỉ hiện bảng đang mở
   const scope = useOverview((s) => s.scope);
   const aggregate = view !== 'kanban';
