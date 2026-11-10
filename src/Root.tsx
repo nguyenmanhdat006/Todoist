@@ -3,7 +3,7 @@ import App from './App';
 import { useBoard } from './store/board';
 import { boot, useSession } from './sync/session';
 import { ToastHost } from './components/ToastHost';
-import { AuthScreen, ChooseScreen, SplashScreen } from './components/AuthScreen';
+import { AuthScreen, SplashScreen } from './components/AuthScreen';
 
 let booted = false;
 
@@ -31,7 +31,7 @@ export default function Root() {
   }, [lang]);
 
   const screen =
-    status === 'checking' ? <SplashScreen /> : status === 'anon' ? <AuthScreen /> : status === 'choose' ? <ChooseScreen /> : <App />;
+    status === 'checking' ? <SplashScreen /> : status === 'anon' ? <AuthScreen /> : <App />;
   return (
     <>
       {screen}

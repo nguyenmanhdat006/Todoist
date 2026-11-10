@@ -1,0 +1,39 @@
+/* ---------- hồ sơ và quản lý người dùng ---------- */
+.profile-hero { display: flex; align-items: center; gap: 14px; padding: 4px 0 2px; }
+.profile-hero-id { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.profile-hero-id strong { font-size: 17px; letter-spacing: -0.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.profile-hero-id span { font-size: 13px; color: var(--fg-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.role-chip {
+  flex: none; padding: 3px 9px; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--fg-2); background: var(--surface-2); border: 1px solid var(--line-strong);
+}
+.role-chip.is-admin { color: #fff; background: var(--blue); border-color: transparent; }
+
+.profile-password .field input { width: 100%; height: 38px; padding: 0 11px; }
+.profile-password .modal-foot { margin-top: 2px; justify-content: space-between; }
+.project-dialog .field input:disabled { background: var(--surface-2); color: var(--fg-2); cursor: not-allowed; }
+
+.admin-bar { display: flex; align-items: center; gap: 12px; }
+.admin-search { flex: 1; min-width: 0; height: 36px; padding: 0 11px; border: 1px solid var(--line-strong); background: var(--surface); }
+.admin-count { flex: none; font-size: 12px; color: var(--muted); }
+.admin-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; max-height: 380px; overflow-y: auto; }
+.admin-row {
+  display: flex; align-items: center; gap: 10px; padding: 9px 10px; border: 1px solid var(--line); background: var(--surface);
+  transition: border-color 0.15s, background-color 0.15s;
+}
+.admin-row:hover { border-color: var(--line-strong); background: var(--surface-2); }
+.admin-row.is-disabled { opacity: 0.65; }
+.admin-id { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.admin-id strong { display: flex; align-items: center; gap: 6px; font-size: 13.5px; }
+.admin-id strong, .admin-id > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-id > span { font-size: 12px; color: var(--muted); }
+.admin-you, .admin-locked { flex: none; padding: 1px 6px; font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+.admin-you { color: var(--blue); background: color-mix(in srgb, var(--blue) 14%, transparent); }
+.admin-locked { color: var(--danger); background: color-mix(in srgb, var(--danger) 14%, transparent); }
+.admin-role { flex: none; height: 30px; padding: 0 8px; border: 1px solid var(--line-strong); background: var(--surface); }
+.admin-role:disabled { opacity: 0.6; cursor: not-allowed; }
+.admin-empty { padding: 18px; text-align: center; color: var(--muted); font-size: 13px; }
+@media (max-width: 560px) {
+  .admin-row { flex-wrap: wrap; }
+  .admin-id { flex-basis: calc(100% - 50px); }
+}

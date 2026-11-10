@@ -1,10 +1,23 @@
 /** Gọi API (/api/*). Lỗi được chuẩn hoá thành ApiError để màn hình hiển thị đúng thông báo. */
 import type { ExportColumn, ExportFile, ExportTask } from '../data/exchange';
 
+export type Role = 'admin' | 'user';
+
 export interface ApiUser {
   id: string;
   email: string;
   name: string;
+}
+
+/** Người đang đăng nhập; role (admin / user) thiếu khi dùng bản offline */
+export interface AccountUser extends ApiUser {
+  role?: Role;
+}
+
+export interface AdminUser extends AccountUser {
+  role: Role;
+  disabled: boolean;
+  createdAt: string;
 }
 
 export interface FriendLists {
@@ -91,11 +104,16 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<T>
 }
 
 export const api = {
-  me: () => call<{ user: ApiUser }>('GET', '/api/auth/me'),
-  login: (email: string, password: string) => call<{ user: ApiUser }>('POST', '/api/auth/login', { email, password }),
+  me: () => call<{ user: AccountUser }>('GET', '/api/auth/me'),
+  login: (email: string, password: string) => call<{ user: AccountUser }>('POST', '/api/auth/login', { email, password }),
   register: (email: string, password: string, name: string) =>
-    call<{ user: ApiUser }>('POST', '/api/auth/register', { email, password, name }),
+    call<{ user: AccountUser }>('POST', '/api/auth/register', { email, password, name }),
   logout: () => call<{ ok: true }>('POST', '/api/auth/logout', {}),
+  updateProfile: (name: string) => call<{ user: AccountUser }>('PATCH', '/api/me', { name }),
+  changePassword: (current: string, password: string) => call<{ ok: true }>('POST', '/api/me/password', { current, password }),
+  adminUsers: () => call<{ users: AdminUser[] }>('GET', '/api/admin/users'),
+  adminUpdateUser: (id: string, patch: { role?: Role; disabled?: boolean }) =>
+    call<{ user: AdminUser }>('PATCH', `/api/admin/users/${id}`, patch),
   /** board = id bảng trong dự án; null = bảng cá nhân */
   getBoard: (board: string | null) =>
     call<{ revision: number; file: ExportFile | null }>('GET', board ? `/api/board?board=${encodeURIComponent(board)}` : '/api/board'),

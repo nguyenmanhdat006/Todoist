@@ -10,24 +10,16 @@ import { toast } from '../toast';
 import { create } from 'zustand';
 import { buildExport, parseImport, type ExportFile } from '../data/exchange';
 import { defaultFilters, emptyBoard, useBoard, type Snapshot } from '../store/board';
-import { api, ApiError, type ApiUser } from './api';
+import { api, ApiError, type AccountUser } from './api';
 
-export type Status = 'checking' | 'anon' | 'choose' | 'ready';
+export type Status = 'checking' | 'anon' | 'ready';
 export type SyncState = 'saved' | 'saving' | 'pending' | 'offline' | 'error';
 
 export interface Notice {
   id: number;
-  key: 'sync.conflict' | 'sync.sessionExpired' | 'sync.uploaded';
+  key: 'sync.conflict' | 'sync.sessionExpired';
   actionKey?: 'sync.keepLocal';
   onAction?: () => void;
-}
-
-/** Lựa chọn khi đăng nhập lần đầu trên máy đã có dữ liệu chưa đồng bộ */
-export interface Choice {
-  localTasks: number;
-  serverTasks: number;
-  serverRevision: number;
-  serverFile: ExportFile | null;
 }
 
 interface Meta {
@@ -42,11 +34,10 @@ interface Meta {
 
 interface SessionState {
   status: Status;
-  user: ApiUser | null;
+  user: AccountUser | null;
   sync: SyncState;
   /** Lỗi khi kiểm tra phiên lúc mở app (ví dụ không kết nối được máy chủ) */
   bootError: string | null;
-  choice: Choice | null;
   notice: Notice | null;
   /** Bảng đang mở (null = bảng cá nhân, hoặc id bảng trong dự án) */
   board: string | null;
@@ -59,7 +50,6 @@ export const useSession = create<SessionState>(() => ({
   user: null,
   sync: 'saved',
   bootError: null,
-  choice: null,
   notice: null,
   board: null,
   switching: false,
@@ -128,7 +118,6 @@ function resetLocal() {
   });
 }
 
-const taskCount = () => Object.keys(useBoard.getState().tasks).length;
 
 /* ---------- gửi lên ---------- */
 
@@ -226,10 +215,8 @@ if (typeof window !== 'undefined') {
 
 /* ---------- đăng nhập / mở app ---------- */
 
-async function enter(user: ApiUser) {
+async function enter(user: AccountUser) {
   const sameUser = meta.userId === user.id;
-  // Dữ liệu đang có trên máy chưa từng gắn với tài khoản nào (dùng app trước khi có đăng nhập)
-  const unsyncedLocal = !meta.userId && taskCount() > 0;
   saveMeta({ userId: user.id, email: user.email, name: user.name, ...(sameUser ? {} : { revision: 0, dirty: false, board: null }) });
   set({ user, bootError: null, board: meta.board });
 
@@ -251,44 +238,12 @@ async function enter(user: ApiUser) {
     board = await api.getBoard(null);
   }
   const { revision, file } = board;
-  if (unsyncedLocal) {
-    set({
-      status: 'choose',
-      choice: { localTasks: taskCount(), serverTasks: file?.tasks.length ?? 0, serverRevision: revision, serverFile: file },
-    });
-    return;
-  }
   if (!sameUser) resetLocal();
   if (file) applyFile(file);
   saveMeta({ revision, dirty: !file });
   set({ status: 'ready', sync: file ? 'saved' : 'pending' });
   // Tài khoản mới: lưu bảng trống (có các cột mặc định) lên máy chủ
   if (!file) await push();
-}
-
-/** Người dùng chọn giữ dữ liệu trên máy này hay dùng dữ liệu của tài khoản */
-export async function choose(useLocal: boolean) {
-  const c = useSession.getState().choice;
-  if (!c) return;
-  set({ choice: null });
-  saveMeta({ revision: c.serverRevision });
-  if (useLocal) {
-    saveMeta({ dirty: true });
-    set({ status: 'ready' });
-    await push();
-    if (!meta.dirty) notify({ key: 'sync.uploaded' });
-    return;
-  }
-  if (c.serverFile) {
-    applyFile(c.serverFile);
-    saveMeta({ dirty: false });
-    set({ status: 'ready', sync: 'saved' });
-  } else {
-    resetLocal();
-    saveMeta({ dirty: true });
-    set({ status: 'ready' });
-    await push();
-  }
 }
 
 export async function boot() {
@@ -334,6 +289,12 @@ function retryBoot() {
   setTimeout(tick, RETRY_DELAY);
 }
 
+/** Cập nhật thông tin người dùng đang đăng nhập (sau khi sửa hồ sơ) */
+export function applyUser(user: AccountUser) {
+  saveMeta({ email: user.email, name: user.name });
+  set({ user });
+}
+
 export async function login(email: string, password: string) {
   const { user } = await api.login(email, password);
   await enter(user);
@@ -358,15 +319,10 @@ export async function logout(confirmLoss: () => boolean): Promise<boolean> {
   }
   resetLocal();
   saveMeta({ userId: null, email: '', name: '', revision: 0, dirty: false, board: null });
-  set({ status: 'anon', user: null, sync: 'saved', choice: null, board: null });
+  set({ status: 'anon', user: null, sync: 'saved', board: null });
   toast.success('toast.signedOut');
   return true;
 }
-
-export const syncNow = () => {
-  if (!meta.dirty) saveMeta({ dirty: true });
-  return push();
-};
 
 /* ---------- chuyển bảng (cá nhân / dự án) ---------- */
 

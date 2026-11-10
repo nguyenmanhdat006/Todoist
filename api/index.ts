@@ -6,10 +6,12 @@ import express, { type NextFunction, type Request, type Response } from 'express
 import {
   DUMMY_HASH,
   checkRateLimit,
+  endOtherSessions,
   endSession,
   hashPassword,
   logAttempt,
   readCredentials,
+  requireAdmin,
   requireUser,
   sessionUser,
   startSession,
@@ -81,7 +83,7 @@ app.use((req, _res, next) => {
   next();
 });
 
-const publicUser = (u: User) => ({ id: u.id, email: u.email, name: u.name });
+const publicUser = (u: User) => ({ id: u.id, email: u.email, name: u.name, role: u.role });
 
 /* ---------- health ---------- */
 
@@ -105,7 +107,7 @@ app.post(
     const { rows } = await db().query<User>(
       `insert into users (email, name, password_hash) values ($1, $2, $3)
        on conflict (email) do nothing
-       returning id, email, name`,
+       returning id, email, name, role`,
       [email, name, hash],
     );
     if (!rows[0]) {
@@ -124,14 +126,15 @@ app.post(
     const { email, password } = readCredentials(req.body);
     const ip = clientIp(req);
     await checkRateLimit(email, ip);
-    const { rows } = await db().query<User & { password_hash: string }>(
-      'select id, email, name, password_hash from users where email = $1',
+    const { rows } = await db().query<User & { password_hash: string; disabled: boolean }>(
+      'select id, email, name, role, disabled, password_hash from users where email = $1',
       [email],
     );
     const user = rows[0];
     const ok = await verifyPassword(password, user?.password_hash ?? DUMMY_HASH);
     await logAttempt(email, ip, ok && !!user);
     if (!user || !ok) throw new HttpError(401, 'wrong_credentials');
+    if (user.disabled) throw new HttpError(403, 'account_disabled');
     await startSession(req, res, user.id);
     res.json({ user: publicUser(user) });
   }),
@@ -151,6 +154,85 @@ app.get(
     const user = await sessionUser(req);
     if (!user) throw new HttpError(401, 'unauthorized');
     res.json({ user: publicUser(user) });
+  }),
+);
+
+/* ---------- hồ sơ cá nhân ---------- */
+
+app.patch(
+  '/api/me',
+  requireUser,
+  route(async (req, res) => {
+    const b = (req.body ?? {}) as Record<string, unknown>;
+    const name = typeof b.name === 'string' ? b.name.trim() : '';
+    if (!name || name.length > 80) throw new HttpError(400, 'invalid_name');
+    const { rows } = await db().query<User>('update users set name = $2 where id = $1 returning id, email, name, role', [req.user!.id, name]);
+    res.json({ user: publicUser(rows[0]) });
+  }),
+);
+
+app.post(
+  '/api/me/password',
+  requireUser,
+  route(async (req, res) => {
+    const b = (req.body ?? {}) as Record<string, unknown>;
+    const current = typeof b.current === 'string' ? b.current : '';
+    const next = typeof b.password === 'string' ? b.password : '';
+    if (!current || current.length > 200) throw new HttpError(400, 'invalid_password');
+    if (next.length < 8 || next.length > 200) throw new HttpError(400, 'weak_password');
+    const ip = clientIp(req);
+    const me = req.user!;
+    await checkRateLimit(me.email, ip);
+    const { rows } = await db().query<{ password_hash: string }>('select password_hash from users where id = $1', [me.id]);
+    const ok = await verifyPassword(current, rows[0]?.password_hash ?? DUMMY_HASH);
+    await logAttempt(me.email, ip, ok);
+    if (!ok) throw new HttpError(400, 'wrong_password');
+    await db().query('update users set password_hash = $2 where id = $1', [me.id, await hashPassword(next)]);
+    await endOtherSessions(req, me.id);
+    res.json({ ok: true });
+  }),
+);
+
+/* ---------- quản trị người dùng (chỉ admin) ---------- */
+
+app.get(
+  '/api/admin/users',
+  requireAdmin,
+  route(async (_req, res) => {
+    const { rows } = await db().query(
+      `select id, email, name, role, disabled, created_at as "createdAt" from users order by created_at`,
+    );
+    res.json({ users: rows });
+  }),
+);
+
+app.patch(
+  '/api/admin/users/:id',
+  requireAdmin,
+  route(async (req, res) => {
+    const id = requireUuid(req.params.id);
+    if (id === req.user!.id) throw new HttpError(400, 'self_change');
+    const b = (req.body ?? {}) as Record<string, unknown>;
+    const sets: string[] = [];
+    const vals: unknown[] = [id];
+    if (b.role !== undefined) {
+      if (b.role !== 'admin' && b.role !== 'user') throw new HttpError(400, 'invalid_role');
+      vals.push(b.role);
+      sets.push(`role = $${vals.length}`);
+    }
+    if (b.disabled !== undefined) {
+      if (typeof b.disabled !== 'boolean') throw new HttpError(400, 'invalid_disabled');
+      vals.push(b.disabled);
+      sets.push(`disabled = $${vals.length}`);
+    }
+    if (!sets.length) throw new HttpError(400, 'nothing_to_change');
+    const { rows } = await db().query(
+      `update users set ${sets.join(', ')} where id = $1 returning id, email, name, role, disabled, created_at as "createdAt"`,
+      vals,
+    );
+    if (!rows[0]) throw new HttpError(404, 'not_found');
+    if (rows[0].disabled) await db().query('delete from sessions where user_id = $1', [id]);
+    res.json({ user: rows[0] });
   }),
 );
 

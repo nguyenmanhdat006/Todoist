@@ -580,7 +580,7 @@ function Sidebar({ onClose: closeNow }: { onClose: () => void }) {
   );
 }
 
-function Dialog({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+export function Dialog({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
   const t = useT();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

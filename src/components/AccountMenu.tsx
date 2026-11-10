@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useT } from '../i18n';
-import { logout, syncNow, useSession } from '../sync/session';
+import { logout, useSession } from '../sync/session';
 import { LangSwitch, ThemeSwitch } from './TopbarWidgets';
+import { AdminDialog, ProfileDialog, RoleBadge } from './Profile';
 import '../auth.css';
 
 /** Nút tài khoản trên thanh trên cùng: trạng thái lưu, đồng bộ, đăng xuất */
@@ -10,6 +11,7 @@ export function AccountMenu() {
   const user = useSession((s) => s.user);
   const sync = useSession((s) => s.sync);
   const [open, setOpen] = useState(false);
+  const [dialog, setDialog] = useState<'profile' | 'admin' | null>(null);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -54,10 +56,7 @@ export function AccountMenu() {
               {user.name && <strong>{user.name}</strong>}
               <span>{user.email}</span>
             </span>
-          </div>
-          <div className={`account-status sync-${sync}`} role="status">
-            <span className="sync-dot" aria-hidden="true" />
-            {status}
+            <RoleBadge role={user.role} />
           </div>
           {/* Màn hình hẹp: ngôn ngữ và giao diện nằm trong menu này thay vì trên thanh trên cùng */}
           <div className="account-prefs">
@@ -65,9 +64,28 @@ export function AccountMenu() {
             <ThemeSwitch />
           </div>
           <div className="menu-sep" />
-          <button type="button" className="menu-item" disabled={sync === 'saving'} onClick={() => void syncNow()}>
-            {t('sync.now')}
+          <button
+            type="button"
+            className="menu-item"
+            onClick={() => {
+              setDialog('profile');
+              setOpen(false);
+            }}
+          >
+            {t('profile.menu')}
           </button>
+          {user.role === 'admin' && (
+            <button
+              type="button"
+              className="menu-item"
+              onClick={() => {
+                setDialog('admin');
+                setOpen(false);
+              }}
+            >
+              {t('admin.menu')}
+            </button>
+          )}
           <button
             type="button"
             className="menu-item"
@@ -80,6 +98,8 @@ export function AccountMenu() {
           </button>
         </div>
       )}
+      {dialog === 'profile' && <ProfileDialog onClose={() => setDialog(null)} />}
+      {dialog === 'admin' && <AdminDialog onClose={() => setDialog(null)} />}
     </div>
   );
 }

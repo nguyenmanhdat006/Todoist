@@ -36,6 +36,10 @@ Kiểm tra API: `GET /api/health` trả `{ "ok": true }` khi đã kết nối đ
 | POST | `/api/auth/login` | `{ email, password }` |
 | POST | `/api/auth/logout` | xoá phiên |
 | GET | `/api/auth/me` | người dùng hiện tại (401 nếu chưa đăng nhập) |
+| PATCH | `/api/me` | `{ name }` → sửa tên hiển thị |
+| POST | `/api/me/password` | `{ current, password }` → đổi mật khẩu, đăng xuất các thiết bị khác |
+| GET | `/api/admin/users` | danh sách tài khoản (chỉ admin) |
+| PATCH | `/api/admin/users/:id` | `{ role?: 'admin' \| 'user', disabled?: boolean }` (chỉ admin, không đổi được chính mình) |
 | GET | `/api/board` | `{ revision, file }` — `file` theo định dạng xuất JSON v2, `null` nếu chưa có dữ liệu |
 | PUT | `/api/board` | `{ baseRevision, file, board? }` → lưu toàn bộ; 409 nếu thiết bị khác đã lưu trước |
 | GET/POST/DELETE | `/api/friends…` | danh sách bạn bè, gửi lời mời qua email, đồng ý, huỷ |

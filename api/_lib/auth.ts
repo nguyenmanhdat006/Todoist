@@ -6,10 +6,13 @@ import { HttpError, isHttps, readCookie } from './http.js';
 export const SESSION_COOKIE = 'tm_session';
 const SESSION_DAYS = 30;
 
+export type Role = 'admin' | 'user';
+
 export interface User {
   id: string;
   email: string;
   name: string;
+  role: Role;
 }
 
 declare module 'express-serve-static-core' {
@@ -85,9 +88,9 @@ export async function sessionUser(req: Request): Promise<User | null> {
   const token = readCookie(req, SESSION_COOKIE);
   if (!token || token.length > 100) return null;
   const { rows } = await db().query<User>(
-    `select u.id, u.email, u.name
+    `select u.id, u.email, u.name, u.role
        from sessions s join users u on u.id = s.user_id
-      where s.token_hash = $1 and s.expires_at > now()`,
+      where s.token_hash = $1 and s.expires_at > now() and not u.disabled`,
     [sha256(token)],
   );
   return rows[0] ?? null;
@@ -102,6 +105,23 @@ export async function requireUser(req: Request, _res: Response, next: NextFuncti
   } catch (e) {
     next(e);
   }
+}
+
+export async function requireAdmin(req: Request, res: Response, next: NextFunction) {
+  await requireUser(req, res, (err?: unknown) => {
+    if (err) return next(err);
+    if (req.user?.role !== 'admin') return next(new HttpError(403, 'forbidden'));
+    next();
+  });
+}
+
+/** Đăng xuất mọi nơi khác (giữ phiên hiện tại), dùng sau khi đổi mật khẩu */
+export async function endOtherSessions(req: Request, userId: string) {
+  const token = readCookie(req, SESSION_COOKIE);
+  await db().query('delete from sessions where user_id = $1 and ($2::text is null or token_hash <> $2)', [
+    userId,
+    token ? sha256(token) : null,
+  ]);
 }
 
 /* ---------- chặn dò mật khẩu ---------- */

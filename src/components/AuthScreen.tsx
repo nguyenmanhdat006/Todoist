@@ -1,9 +1,8 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { useT, type TKey } from '../i18n';
 import { ApiError } from '../sync/api';
-import { boot, choose, login, register, useSession } from '../sync/session';
+import { boot, login, register, useSession } from '../sync/session';
 import { LangSwitch, ThemeSwitch } from './TopbarWidgets';
-import { downloadExport } from '../data/download';
 import '../auth.css';
 
 export function BrandMark() {
@@ -19,6 +18,7 @@ export function BrandMark() {
 }
 
 const KNOWN_ERRORS = [
+  'account_disabled',
   'invalid_email',
   'weak_password',
   'invalid_password',
@@ -172,44 +172,6 @@ export function AuthScreen() {
           {t(mode === 'login' ? 'auth.register' : 'auth.login')}
         </button>
       </p>
-    </Shell>
-  );
-}
-
-/** Đăng nhập lần đầu trên máy đã có dữ liệu chưa đồng bộ: chọn giữ bản nào */
-export function ChooseScreen() {
-  const t = useT();
-  const c = useSession((s) => s.choice);
-  const [busy, setBusy] = useState(false);
-  if (!c) return null;
-  const pick = async (useLocal: boolean) => {
-    setBusy(true);
-    try {
-      await choose(useLocal);
-    } finally {
-      setBusy(false);
-    }
-  };
-  return (
-    <Shell>
-      <h1 className="auth-title">{t('choose.title')}</h1>
-      <p className="auth-tagline">
-        {t('choose.local', { n: c.localTasks })}{' '}
-        {c.serverTasks > 0 || c.serverFile ? t('choose.serverHas', { n: c.serverTasks }) : t('choose.serverEmpty')}
-      </p>
-      <div className="choose-list">
-        <button type="button" className="choose-opt is-primary" disabled={busy} onClick={() => void pick(true)}>
-          <strong>{t('choose.useLocal')}</strong>
-          <span>{c.serverFile ? t('choose.replaceNote', { n: c.localTasks }) : t('choose.useLocalNote', { n: c.localTasks })}</span>
-        </button>
-        <button type="button" className="choose-opt" disabled={busy} onClick={() => void pick(false)}>
-          <strong>{c.serverFile ? t('choose.useServer') : t('choose.startEmpty')}</strong>
-          <span>{c.serverFile ? t('choose.useServerNote', { n: c.serverTasks }) : t('choose.startEmptyNote')}</span>
-        </button>
-      </div>
-      <button type="button" className="auth-link choose-export" onClick={() => downloadExport()}>
-        {t('data.export')}
-      </button>
     </Shell>
   );
 }
