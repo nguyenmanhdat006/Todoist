@@ -134,7 +134,7 @@ async function boardsOf(projectIds: string[]): Promise<Map<string, BoardInfo[]>>
 
 export async function listProjects(me: string) {
   const { rows } = await db().query(
-    `select p.id, p.name, p.owner_id as "ownerId", pm.role,
+    `select p.id, p.name, p.owner_id as "ownerId", p.kind, pm.role,
             (select count(*)::int from project_members x where x.project_id = p.id) as "memberCount"
        from projects p join project_members pm on pm.project_id = p.id and pm.user_id = $1
       order by p.created_at`,
@@ -171,27 +171,47 @@ export async function projectMembers(projectId: string) {
 
 export async function getProject(me: string, projectId: string) {
   const role = await projectRole(me, projectId);
-  const { rows } = await db().query('select id, name, owner_id as "ownerId", created_at as "createdAt" from projects where id = $1', [
+  const { rows } = await db().query('select id, name, owner_id as "ownerId", kind, created_at as "createdAt" from projects where id = $1', [
     projectId,
   ]);
   const boards = (await boardsOf([projectId])).get(projectId) ?? [];
   return { project: { ...rows[0], role, boards }, members: await projectMembers(projectId) };
 }
 
-/** Tạo dự án kèm bảng đầu tiên; người tạo là host */
-export async function createProject(me: string, rawName: unknown, rawBoardName: unknown) {
+export type ProjectKind = 'personal' | 'team';
+
+/**
+ * Tạo dự án (chưa có bảng nào; tự tạo bảng sau). Người tạo là host.
+ * kind = 'personal': dự án riêng, không thêm được người khác; 'team': dự án nhóm.
+ */
+export async function createProject(me: string, rawName: unknown, rawKind: unknown) {
   const name = readName(rawName);
-  const boardName = typeof rawBoardName === 'string' && rawBoardName.trim() ? readName(rawBoardName) : 'Bảng chính';
+  const kind: ProjectKind = rawKind === 'personal' ? 'personal' : 'team';
   return tx(async (c) => {
-    const { rows } = await c.query<{ id: string }>('insert into projects (name, owner_id) values ($1, $2) returning id', [name, me]);
+    const { rows } = await c.query<{ id: string }>('insert into projects (name, owner_id, kind) values ($1, $2, $3) returning id', [
+      name,
+      me,
+      kind,
+    ]);
     const id = rows[0].id;
     await c.query(`insert into project_members (project_id, user_id, role) values ($1, $2, 'host')`, [id, me]);
-    const b = await c.query<{ id: string }>('insert into project_boards (project_id, name, position) values ($1, $2, 0) returning id', [
-      id,
-      boardName,
-    ]);
-    await c.query('insert into boards (board_id) values ($1)', [b.rows[0].id]);
-    return { id, name, ownerId: me, role: 'host', memberCount: 1, boards: [{ id: b.rows[0].id, name: boardName, position: 0 }] };
+    return { id, name, ownerId: me, kind, role: 'host', memberCount: 1, boards: [] as BoardInfo[] };
+  });
+}
+
+/**
+ * Tài khoản mới: tạo sẵn dự án cá nhân "Cá nhân" với bảng "Bảng của tôi".
+ * Id bảng = id người dùng (trùng với bảng cá nhân mặc định của API) để dữ liệu luôn ở cùng một chỗ.
+ */
+export async function createPersonalSpace(userId: string) {
+  await tx(async (c) => {
+    await c.query('insert into boards (board_id) values ($1) on conflict do nothing', [userId]);
+    const { rows } = await c.query<{ id: string }>(
+      `insert into projects (name, owner_id, kind) values ('Cá nhân', $1, 'personal') returning id`,
+      [userId],
+    );
+    await c.query(`insert into project_members (project_id, user_id, role) values ($1, $2, 'host')`, [rows[0].id, userId]);
+    await c.query(`insert into project_boards (id, project_id, name, position) values ($1, $2, 'Bảng của tôi', 0)`, [userId, rows[0].id]);
   });
 }
 
@@ -247,13 +267,11 @@ export async function renameBoard(me: string, boardId: string, rawName: unknown)
   return { id: boardId, name };
 }
 
-/** Xoá bảng: chỉ host, và dự án phải còn ít nhất một bảng */
+/** Xoá bảng: chỉ host */
 export async function deleteBoard(me: string, boardId: string) {
   const projectId = await boardProject(boardId);
   await requireHost(me, projectId);
   await tx(async (c) => {
-    const { rows } = await c.query<{ n: number }>('select count(*)::int as n from project_boards where project_id = $1', [projectId]);
-    if (rows[0].n <= 1) throw new HttpError(400, 'last_board');
     for (const table of BOARD_TABLES) await c.query(`delete from ${table} where board_id = $1`, [boardId]);
     await c.query('delete from project_boards where id = $1', [boardId]);
   });
@@ -263,6 +281,8 @@ export async function deleteBoard(me: string, boardId: string) {
 
 export async function addMember(me: string, projectId: string, memberId: string) {
   await requireHost(me, projectId);
+  const { rows: kindRows } = await db().query<{ kind: ProjectKind }>('select kind from projects where id = $1', [projectId]);
+  if (kindRows[0]?.kind === 'personal') throw new HttpError(400, 'personal_project');
   if (!(await areFriends(me, memberId))) throw new HttpError(400, 'not_friend');
   const { rowCount } = await db().query(
     `insert into project_members (project_id, user_id, role) values ($1, $2, 'member') on conflict do nothing`,

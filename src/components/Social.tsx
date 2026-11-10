@@ -7,7 +7,7 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useT, type TKey } from '../i18n';
-import { api, ApiError, type ApiUser, type Member } from '../sync/api';
+import { api, ApiError, type ApiUser, type Member, type ProjectInfo } from '../sync/api';
 import {
   acceptFriend,
   addMember,
@@ -26,6 +26,7 @@ import {
   usePeople,
 } from '../sync/people';
 import { useBoard } from '../store/board';
+import { useOverview } from '../sync/overview';
 import { switchBoard, useSession } from '../sync/session';
 import { Avatar } from './Avatar';
 import '../social.css';
@@ -41,8 +42,8 @@ const ERRORS = [
   'host_only',
   'host_cannot_leave',
   'project_not_found',
+  'personal_project',
   'board_not_found',
-  'last_board',
   'network',
 ] as const;
 function errKey(e: unknown): TKey {
@@ -265,7 +266,7 @@ export function SidebarToggle() {
 }
 
 type DialogState =
-  | { kind: 'createProject' }
+  | { kind: 'createProject'; projectKind: 'personal' | 'team' }
   | { kind: 'createBoard'; projectId: string }
   | { kind: 'manage'; projectId: string }
   | null;
@@ -273,12 +274,16 @@ type DialogState =
 function Sidebar({ onClose }: { onClose: () => void }) {
   const t = useT();
   const board = useSession((s) => s.board);
+  const me = useSession((s) => s.user);
   const view = useBoard((s) => s.view);
   const setView = useBoard((s) => s.setView);
   const { projects, notices } = usePeople();
-  const current = projectOfBoard(board, projects);
-  const [expanded, setExpanded] = useState<Set<string>>(() => new Set(current ? [current.id] : []));
+  const current = projectOfBoard(board ?? me?.id ?? null, projects);
   const [dialog, setDialog] = useState<DialogState>(null);
+  // Danh sách bảng xổ xuống dưới nút Board
+  const [boardMenu, setBoardMenu] = useState(false);
+  const activeBoardId = board ?? me?.id ?? '';
+  const activeBoardName = projects.flatMap((p) => p.boards).find((b) => b.id === activeBoardId)?.name;
   const unreadByProject = new Map<string, string[]>();
   for (const n of notices)
     if (n.type === 'project_added' && !n.read && n.data.projectId)
@@ -300,15 +305,16 @@ function Sidebar({ onClose }: { onClose: () => void }) {
     }
   };
 
-  const toggleProject = (id: string) => {
-    setExpanded((s) => {
-      const next = new Set(s);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+  // Bấm tên dự án: xổ / thu danh sách bảng của dự án, và đánh dấu đã xem thông báo "được thêm vào dự án"
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set(current ? [current.id] : []));
+  const toggleProject = (p: ProjectInfo) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(p.id)) next.delete(p.id);
+      else next.add(p.id);
       return next;
     });
-    // Mở dự án mới được thêm vào: đánh dấu thông báo đã xem
-    const ids = unreadByProject.get(id);
+    const ids = unreadByProject.get(p.id);
     if (ids) void readNotices(ids);
   };
 
@@ -338,86 +344,184 @@ function Sidebar({ onClose }: { onClose: () => void }) {
 
         <nav className="side-section" aria-label={t('nav.label')}>
           <div className="side-label">{t('side.views')}</div>
-          {views.map(({ v, key, icon }) => (
-            <button key={v} type="button" className={`side-item${view === v ? ' on' : ''}`} onClick={() => setView(v)}>
-              <svg viewBox="0 0 20 20" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5">
-                {icon}
-              </svg>
-              {t(key)}
-            </button>
-          ))}
-        </nav>
-
-        <div className="side-section">
-          <button type="button" className={`side-item side-my${board === null ? ' on' : ''}`} onClick={() => void open(null, 'kanban')}>
-            <svg viewBox="0 0 20 20" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5">
-              <circle cx="10" cy="7" r="3" />
-              <path d="M4 16.5c.7-2.8 3-4.5 6-4.5s5.3 1.7 6 4.5" strokeLinecap="round" />
-            </svg>
-            {t('side.myBoard')}
-          </button>
-        </div>
-
-        <div className="side-section side-projects">
-          <div className="side-label side-label-row">
-            <span>
-              {t('social.projects')}
-              {unreadProjects > 0 && <span className="side-dot-count">{unreadProjects}</span>}
-            </span>
-            <button type="button" className="side-add" title={t('social.newProject')} aria-label={t('social.newProject')} onClick={() => setDialog({ kind: 'createProject' })}>
-              +
-            </button>
-          </div>
-          {projects.length === 0 && <p className="side-empty">{t('side.noProjects')}</p>}
-          {projects.map((p) => {
-            const isOpen = expanded.has(p.id);
-            const isNew = unreadByProject.has(p.id);
-            return (
-              <div key={p.id} className={`side-project${p.id === current?.id ? ' is-current' : ''}`}>
-                <button type="button" className="side-item side-project-head" aria-expanded={isOpen} onClick={() => toggleProject(p.id)}>
-                  <svg className="side-chevron" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
-                    <path d="M6 4l4 4-4 4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          {views.map(({ v, key, icon }) =>
+            v === 'kanban' ? (
+              <div key={v} className="side-dropdown">
+                <button
+                  type="button"
+                  className={`side-item${view === v ? ' on' : ''}`}
+                  aria-expanded={boardMenu}
+                  aria-haspopup="listbox"
+                  onClick={() => {
+                    setView('kanban');
+                    setBoardMenu((o) => !o);
+                  }}
+                >
+                  <svg viewBox="0 0 20 20" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    {icon}
                   </svg>
-                  <span className="side-project-name">{p.name}</span>
-                  {isNew && <span className="side-new" aria-label={t('side.newProjectBadge')} title={t('side.newProjectBadge')} />}
-                  <span className={`role-badge${p.role === 'host' ? ' is-host' : ''}`}>{p.role === 'host' ? t('social.host') : t('social.member')}</span>
+                  <span className="side-item-text">{t(key)}</span>
+                  {activeBoardName && <span className="side-current">{activeBoardName}</span>}
+                  <svg className="side-caret" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
+                    <path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
                 </button>
-                {isOpen && (
-                  <div className="side-boards">
-                    {p.boards.map((b) => (
-                      <button key={b.id} type="button" className={`side-item side-board${b.id === board ? ' on' : ''}`} onClick={() => void open(b.id)}>
-                        <svg viewBox="0 0 20 20" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5">
-                          <path d="M3 3.5h4v13H3zM8 3.5h4v8H8zM13 3.5h4v10h-4z" />
-                        </svg>
-                        {b.name}
-                      </button>
-                    ))}
-                    <button type="button" className="side-item side-sub" onClick={() => setDialog({ kind: 'createBoard', projectId: p.id })}>
-                      ＋ {t('side.newBoard')}
-                    </button>
-                    <button type="button" className="side-item side-sub" onClick={() => setDialog({ kind: 'manage', projectId: p.id })}>
-                      {t('social.manageProject')} · {p.memberCount}
-                    </button>
+                {boardMenu && (
+                  <div className="side-board-menu" role="listbox" aria-label={t('side.pickBoard')}>
+                    {projects.every((p) => p.boards.length === 0) && <p className="side-empty">{t('side.noBoardsAny')}</p>}
+                    {(['personal', 'team'] as const).map((kind) =>
+                      projects
+                        .filter((p) => (p.kind ?? 'team') === kind && p.boards.length > 0)
+                        .map((p) => (
+                          <div key={p.id} className="side-board-group">
+                            <div className="side-board-group-name">
+                              <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                                {kind === 'personal' ? (
+                                  <>
+                                    <circle cx="8" cy="5.5" r="2.4" />
+                                    <path d="M3.2 13c.6-2 2.3-3.2 4.8-3.2s4.2 1.2 4.8 3.2" />
+                                  </>
+                                ) : (
+                                  <>
+                                    <circle cx="5.8" cy="6" r="2.1" />
+                                    <circle cx="11" cy="6.6" r="1.7" />
+                                    <path d="M1.8 13c.5-1.8 2-2.8 4-2.8s3.5 1 4 2.8M10.4 10.4c1.6 0 2.9.8 3.4 2.4" />
+                                  </>
+                                )}
+                              </svg>
+                              <span className="side-board-group-text">{p.name}</span>
+                            </div>
+                            {p.boards.map((b) => (
+                              <button
+                                key={b.id}
+                                type="button"
+                                role="option"
+                                aria-selected={b.id === activeBoardId}
+                                className={`side-item side-board${b.id === activeBoardId ? ' on' : ''}`}
+                                onClick={() => void open(b.id, 'kanban')}
+                              >
+                                <span className="side-board-name">{b.name}</span>
+                                {b.id === activeBoardId && (
+                                  <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+                                    <path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                                  </svg>
+                                )}
+                              </button>
+                            ))}
+                          </div>
+                        )),
+                    )}
                   </div>
                 )}
               </div>
-            );
-          })}
-        </div>
+            ) : (
+              <button key={v} type="button" className={`side-item${view === v ? ' on' : ''}`} onClick={() => setView(v)}>
+                <svg viewBox="0 0 20 20" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  {icon}
+                </svg>
+                {t(key)}
+              </button>
+            ),
+          )}
+        </nav>
+
+        {(['personal', 'team'] as const).map((kind) => {
+          const list = projects.filter((p) => (p.kind ?? 'team') === kind);
+          const unread = kind === 'team' ? unreadProjects : 0;
+          return (
+            <div key={kind} className={`side-section side-projects is-${kind}`}>
+              <div className="side-label side-label-row">
+                <span>
+                  {t(kind === 'personal' ? 'side.personalProjects' : 'side.teamProjects')}
+                  {unread > 0 && <span className="side-dot-count">{unread}</span>}
+                </span>
+                <button
+                  type="button"
+                  className="side-add"
+                  title={t(kind === 'personal' ? 'side.newPersonal' : 'social.newProject')}
+                  aria-label={t(kind === 'personal' ? 'side.newPersonal' : 'social.newProject')}
+                  onClick={() => setDialog({ kind: 'createProject', projectKind: kind })}
+                >
+                  +
+                </button>
+              </div>
+              {list.length === 0 && <p className="side-empty">{t(kind === 'personal' ? 'side.noPersonal' : 'side.noProjects')}</p>}
+              {list.map((p) => {
+                const isNew = unreadByProject.has(p.id);
+                const isOpen = expanded.has(p.id);
+                return (
+                  <div key={p.id} className="side-project">
+                    <div className={`side-prow${p.id === current?.id ? ' is-current' : ''}`}>
+                      <button type="button" className="side-prow-main" aria-expanded={isOpen} onClick={() => toggleProject(p)} title={p.name}>
+                        <svg className="side-chevron" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
+                          <path d="M6 4l4 4-4 4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                        <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5">
+                          <path d="M2.5 5.5h5l1.6 1.8h8.4v8.2h-15z" />
+                        </svg>
+                        <span className="side-project-name">{p.name}</span>
+                        {isNew && <span className="side-new" aria-label={t('side.newProjectBadge')} title={t('side.newProjectBadge')} />}
+                        {kind === 'team' && (
+                          <span className={`role-badge${p.role === 'host' ? ' is-host' : ''}`}>{p.role === 'host' ? t('social.host') : t('social.member')}</span>
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        className="side-icon"
+                        title={kind === 'team' ? t('social.manageProject') : t('side.manageProject')}
+                        aria-label={`${kind === 'team' ? t('social.manageProject') : t('side.manageProject')}: ${p.name}`}
+                        onClick={() => setDialog({ kind: 'manage', projectId: p.id })}
+                      >
+                        <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round">
+                          <circle cx="8" cy="8" r="2.2" />
+                          <path d="M8 1.8v1.7M8 12.5v1.7M1.8 8h1.7M12.5 8h1.7M3.6 3.6l1.2 1.2M11.2 11.2l1.2 1.2M12.4 3.6l-1.2 1.2M4.8 11.2l-1.2 1.2" />
+                        </svg>
+                      </button>
+                    </div>
+                    {isOpen && (
+                      <div className="side-board-menu side-project-boards" role="listbox" aria-label={p.name}>
+                        {p.boards.length === 0 && <p className="side-empty">{t('side.noBoards')}</p>}
+                        {p.boards.map((b) => (
+                          <button
+                            key={b.id}
+                            type="button"
+                            role="option"
+                            aria-selected={b.id === activeBoardId}
+                            className={`side-item side-board${b.id === activeBoardId ? ' on' : ''}`}
+                            onClick={() => void open(b.id, 'kanban')}
+                          >
+                            <span className="side-board-name">{b.name}</span>
+                            {b.id === activeBoardId && (
+                              <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+                                <path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                              </svg>
+                            )}
+                          </button>
+                        ))}
+                        <button type="button" className="side-item side-board side-newboard" onClick={() => setDialog({ kind: 'createBoard', projectId: p.id })}>
+                          <span className="side-board-name">＋ {t('side.newBoard')}</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })}
 
         {dialog?.kind === 'createProject' && (
           <NameDialog
-            title={t('social.newProject')}
+            title={t(dialog.projectKind === 'personal' ? 'side.newPersonal' : 'social.newProject')}
             label={t('social.projectName')}
-            placeholder={t('social.projectNamePh')}
-            hint={t('social.newProjectHint')}
+            placeholder={t(dialog.projectKind === 'personal' ? 'side.personalNamePh' : 'social.projectNamePh')}
+            hint={t(dialog.projectKind === 'personal' ? 'side.newPersonalHint' : 'social.newProjectHint')}
             submitLabel={t('social.create')}
             onClose={() => setDialog(null)}
             onSubmit={async (name) => {
-              const p = await createProject(name, t('side.firstBoard'));
-              setDialog(null);
-              setExpanded((s) => new Set(s).add(p.id));
-              await open(p.boards[0]?.id ?? null);
+              const p = await createProject(name, dialog.projectKind);
+              setExpanded((prev) => new Set(prev).add(p.id));
+              setDialog({ kind: 'createBoard', projectId: p.id });
             }}
           />
         )}
@@ -465,7 +569,7 @@ function Dialog({ title, onClose, children }: { title: string; onClose: () => vo
   }, [onClose]);
   // Gắn vào body: thanh trên cùng có backdrop-filter nên position: fixed bên trong nó sẽ bị giới hạn theo thanh
   return createPortal(
-    <div className="backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+    <div className="backdrop over-side" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal project-dialog" role="dialog" aria-modal="true" aria-label={title}>
         <header className="modal-head">
           <h2>{title}</h2>
@@ -542,6 +646,7 @@ function ManageProjectDialog({ projectId, onClose, onLeft }: { projectId: string
   const { friends, projects } = usePeople();
   const project = projects.find((p) => p.id === projectId);
   const isHost = project?.role === 'host';
+  const isPersonal = project?.kind === 'personal';
   const [name, setName] = useState(project?.name ?? '');
   const [pick, setPick] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -566,7 +671,7 @@ function ManageProjectDialog({ projectId, onClose, onLeft }: { projectId: string
   const candidates = friends.filter((f) => !members.some((m) => m.id === f.id));
 
   return (
-    <Dialog title={t('social.manageProject')} onClose={onClose}>
+    <Dialog title={t(isPersonal ? 'side.manageProject' : 'social.manageProject')} onClose={onClose}>
       <div className="project-form">
         <label className="field">
           <span>{t('social.projectName')}</span>
@@ -585,6 +690,7 @@ function ManageProjectDialog({ projectId, onClose, onLeft }: { projectId: string
           </div>
         </label>
 
+        {!isPersonal && (
         <div className="field">
           <span>
             {t('social.members')} · {members.length}
@@ -611,6 +717,7 @@ function ManageProjectDialog({ projectId, onClose, onLeft }: { projectId: string
             ))}
           </ul>
         </div>
+        )}
 
         {project && (
           <div className="field">
@@ -637,21 +744,21 @@ function ManageProjectDialog({ projectId, onClose, onLeft }: { projectId: string
                       >
                         {t('side.rename')}
                       </button>
-                      {project.boards.length > 1 && (
-                        <button
-                          type="button"
-                          className="person-x"
-                          title={t('side.deleteBoard')}
-                          aria-label={`${t('side.deleteBoard')}: ${b.name}`}
-                          onClick={() =>
-                            void run(async () => {
-                              if (window.confirm(t('side.deleteBoardConfirm', { name: b.name }))) await deleteBoard(b.id);
-                            })
-                          }
-                        >
-                          ×
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        className="person-x"
+                        title={t('side.deleteBoard')}
+                        aria-label={`${t('side.deleteBoard')}: ${b.name}`}
+                        onClick={() =>
+                          void run(async () => {
+                            if (!window.confirm(t('side.deleteBoardConfirm', { name: b.name }))) return;
+                            if (useSession.getState().board === b.id) await switchBoard(null, () => true);
+                            await deleteBoard(b.id);
+                          })
+                        }
+                      >
+                        ×
+                      </button>
                     </span>
                   )}
                 </li>
@@ -660,7 +767,7 @@ function ManageProjectDialog({ projectId, onClose, onLeft }: { projectId: string
           </div>
         )}
 
-        {isHost && (
+        {isHost && !isPersonal && (
           <div className="field">
             <span>{t('social.addMember')}</span>
             {candidates.length === 0 ? (
@@ -734,5 +841,33 @@ function ManageProjectDialog({ projectId, onClose, onLeft }: { projectId: string
         </footer>
       </div>
     </Dialog>
+  );
+}
+
+/* ---------------- chọn phạm vi cho Danh sách / Lịch ---------------- */
+
+/** Chọn xem việc của tất cả bảng, một dự án, hoặc một bảng */
+export function ScopeSelect() {
+  const t = useT();
+  const projects = usePeople((s) => s.projects);
+  const scope = useOverview((s) => s.scope);
+  const setScope = useOverview((s) => s.setScope);
+  return (
+    <label className="scope-select">
+      <span className="sr-only">{t('scope.label')}</span>
+      <select value={scope} aria-label={t('scope.label')} onChange={(e) => setScope(e.target.value)}>
+        <option value="all">{t('scope.all')}</option>
+        {projects.map((p) => (
+          <optgroup key={p.id} label={p.name}>
+            <option value={`p:${p.id}`}>{t('scope.allProject', { name: p.name })}</option>
+            {p.boards.map((b) => (
+              <option key={b.id} value={`b:${b.id}`}>
+                {p.name} · {b.name}
+              </option>
+            ))}
+          </optgroup>
+        ))}
+      </select>
+    </label>
   );
 }

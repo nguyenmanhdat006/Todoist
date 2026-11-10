@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent, type ReactElement } from 'react';
 import { useBoard } from '../store/board';
+import { useScopedEntries } from '../sync/overview';
 import '../calendar.css';
 import type { CalMode, Column, Task } from '../types';
 import { tagColor } from '../types';
@@ -7,8 +8,9 @@ import { useT, type T } from '../i18n';
 import { fromMinutes, knownTags, parseISO, timeRange, toISODate, toMinutes, todayISO, readableText, cardColorOf } from '../utils';
 
 interface Props {
-  matches: (t: Task) => boolean;
-  onOpenTask: (id: string) => void;
+  matches: (t: Task, done?: boolean, colId?: string) => boolean;
+  /** boardId: bảng chứa việc (khác bảng đang mở thì app chuyển sang bảng đó trước khi mở) */
+  onOpenTask: (id: string, boardId?: string) => void;
   /** Tạo việc tại ngày/giờ đã bấm; time = null là việc cả ngày */
   onCreateAt: (date: string, time: string | null) => void;
 }
@@ -23,6 +25,9 @@ interface Entry {
   done: boolean;
   /** Màu theo tuỳ chọn màu thẻ của cột (mặc định theo hạn); cột không tô thì dùng màu cột */
   color: string;
+  boardId: string;
+  /** Dự án · Bảng, hiện trong gợi ý khi rê chuột */
+  where: string;
 }
 
 /** Màu cho việc không có nhãn */
@@ -107,8 +112,9 @@ function span(task: Task) {
 
 export function CalendarView({ matches, onOpenTask, onCreateAt }: Props) {
   const t = useT();
-  const columns = useBoard((s) => s.columns);
-  const tasks = useBoard((s) => s.tasks);
+  const entries = useScopedEntries();
+  // knownTags cần một bảng id → việc; dùng khoá boardId:taskId để việc ở các bảng khác nhau không đè nhau
+  const tasks = useMemo(() => Object.fromEntries(entries.map((e) => [e.key, e.task])), [entries]);
   const mode = useBoard((s) => s.calMode);
   const setMode = useBoard((s) => s.setCalMode);
   const hiddenList = useBoard((s) => s.calHiddenTags);
@@ -147,25 +153,26 @@ export function CalendarView({ matches, onOpenTask, onCreateAt }: Props) {
   const { byDate, noDate } = useMemo(() => {
     const map = new Map<string, Entry[]>();
     let noDate = 0;
-    for (const col of columns) {
-      for (const id of col.taskIds) {
-        const task = tasks[id];
-        if (!task || !matches(task)) continue;
-        const shownTags = task.tags.filter((g) => !hidden.has(g));
-        if (task.tags.length ? shownTags.length === 0 : hidden.has('')) continue;
-        if (!task.dueDate) {
-          noDate++;
-          continue;
-        }
-        const list = map.get(task.dueDate) ?? [];
-        list.push({ task, col, done: col.isDone, color: cardColorOf(task, col, today) ?? col.color });
-        map.set(task.dueDate, list);
+    for (const e of entries) {
+      const { task, col } = e;
+      if (!matches(task, col.isDone, col.id)) continue;
+      const shownTags = task.tags.filter((g) => !hidden.has(g));
+      if (task.tags.length ? shownTags.length === 0 : hidden.has('')) continue;
+      if (!task.dueDate) {
+        noDate++;
+        continue;
       }
+      const list = map.get(task.dueDate) ?? [];
+      list.push({
+        task, col, done: col.isDone, color: cardColorOf(task, col, today) ?? col.color,
+        boardId: e.boardId, where: e.projectName ? `${e.projectName} · ${e.boardName}` : e.boardName,
+      });
+      map.set(task.dueDate, list);
     }
     for (const list of map.values())
       list.sort((a, b) => (a.task.startTime ?? '').localeCompare(b.task.startTime ?? ''));
     return { byDate: map, noDate };
-  }, [columns, tasks, matches, hidden, today]);
+  }, [entries, matches, hidden, today]);
 
   const days = useMemo(() => {
     if (mode === 'day') return [anchor];
@@ -190,16 +197,16 @@ export function CalendarView({ matches, onOpenTask, onCreateAt }: Props) {
     setMode('day');
   };
 
-  const chip = ({ task, done, color }: Entry, compact = false) => (
+  const chip = ({ task, done, color, boardId, where }: Entry, compact = false) => (
     <button
-      key={task.id}
+      key={`${boardId}:${task.id}`}
       type="button"
       className={`cal-chip${done ? ' is-done' : ''}${task.startTime ? '' : ' is-allday'}`}
       style={{ '--col': color, '--col-fg': readableText(color) } as CSSProperties}
-      title={`${timeRange(task) ? timeRange(task) + ' · ' : ''}${task.title}`}
+      title={`${timeRange(task) ? timeRange(task) + ' · ' : ''}${task.title}${where ? ` — ${where}` : ''}`}
       onClick={(e) => {
         e.stopPropagation();
-        onOpenTask(task.id);
+        onOpenTask(task.id, boardId);
       }}
     >
       {task.startTime && <span className="cal-chip-time">{task.startTime}</span>}
@@ -333,13 +340,13 @@ export function CalendarView({ matches, onOpenTask, onCreateAt }: Props) {
                       style={{ height: 24 * HOUR }}
                       onClick={(e) => createAtPointer(e, iso)}
                     >
-                      {timed.map(({ task, done, color }) => {
+                      {timed.map(({ task, done, color, boardId, where }) => {
                         const { start, end } = span(task);
                         const pos = lay.get(task.id) ?? { col: 0, cols: 1 };
                         const height = Math.max(((end - start) / 60) * HOUR - 2, 20);
                         return (
                           <button
-                            key={task.id}
+                            key={`${boardId}:${task.id}`}
                             type="button"
                             className={`cal-event${done ? ' is-done' : ''}${height < 40 ? ' is-short' : ''}`}
                             style={
@@ -352,10 +359,10 @@ export function CalendarView({ matches, onOpenTask, onCreateAt }: Props) {
                                 width: `calc(${100 / pos.cols}% - 4px)`,
                               } as CSSProperties
                             }
-                            title={`${timeRange(task)} · ${task.title}`}
+                            title={`${timeRange(task)} · ${task.title}${where ? ` — ${where}` : ''}`}
                             onClick={(e) => {
                               e.stopPropagation();
-                              onOpenTask(task.id);
+                              onOpenTask(task.id, boardId);
                             }}
                           >
                             <span className="cal-event-title">{task.title}</span>

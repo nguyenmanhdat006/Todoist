@@ -6,26 +6,24 @@ import { useMemo, useState, type CSSProperties } from 'react';
 import { useBoard } from '../store/board';
 import { AvatarStack } from './Avatar';
 import { userDirectory, usePeople } from '../sync/people';
+import { useScopedEntries, useOverviewUsers, type Entry } from '../sync/overview';
 import { useSession } from '../sync/session';
-import type { Column, Priority, Task } from '../types';
+import type { Priority, Task } from '../types';
 import { PRIORITIES } from '../types';
 import { useT, type T } from '../i18n';
 import { canTrackProgress, dueInfo, parseISO, progressOf, tagStyle, timeRange } from '../utils';
 
 interface Props {
-  matches: (t: Task) => boolean;
+  matches: (t: Task, done?: boolean, colId?: string) => boolean;
   /** Giữ để tương thích; bảng luôn chỉ hiện việc khớp bộ lọc */
   filtering?: boolean;
-  onOpenTask: (id: string) => void;
+  /** boardId: bảng chứa việc (khác bảng đang mở thì app chuyển sang bảng đó trước khi mở) */
+  onOpenTask: (id: string, boardId?: string) => void;
 }
 
-type SortKey = 'order' | 'title' | 'stage' | 'priority' | 'created' | 'due' | 'finished' | 'progress';
+type SortKey = 'order' | 'title' | 'board' | 'stage' | 'priority' | 'created' | 'due' | 'finished' | 'progress';
 
-interface Row {
-  task: Task;
-  col: Column;
-  colIndex: number;
-  position: number;
+interface Row extends Entry {
   pct: number;
 }
 
@@ -40,24 +38,27 @@ function fmtDate(iso: string | null | undefined, t: T) {
 export function ListView({ matches, onOpenTask }: Props) {
   const t = useT();
   const columns = useBoard((s) => s.columns);
-  const tasks = useBoard((s) => s.tasks);
+  const entries = useScopedEntries();
   const { toggleDone, moveTask, updateTask } = useBoard.getState();
   const me = useSession((s) => s.user);
   const people = usePeople();
+  const otherUsers = useOverviewUsers();
   const dir = userDirectory(me, people);
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: 'order', dir: 1 });
+  // Thứ tự bảng: theo lần xuất hiện đầu tiên trong danh sách (bảng cá nhân trước)
+  const boardRank = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const e of entries) if (!m.has(e.boardId)) m.set(e.boardId, m.size);
+    return m;
+  }, [entries]);
 
   const rows = useMemo(() => {
     const out: Row[] = [];
-    columns.forEach((col, colIndex) =>
-      col.taskIds.forEach((id, position) => {
-        const task = tasks[id];
-        if (task && matches(task)) out.push({ task, col, colIndex, position, pct: progressOf(task, col) });
-      }),
-    );
+    for (const e of entries) if (matches(e.task, e.col.isDone, e.col.id)) out.push({ ...e, pct: progressOf(e.task, e.col) });
     const cmp: Record<SortKey, (a: Row, b: Row) => number> = {
-      order: (a, b) => a.colIndex - b.colIndex || a.position - b.position,
+      order: (a, b) => (boardRank.get(a.boardId) ?? 0) - (boardRank.get(b.boardId) ?? 0) || a.colIndex - b.colIndex || a.position - b.position,
       title: (a, b) => a.task.title.localeCompare(b.task.title, t.locale),
+      board: (a, b) => (boardRank.get(a.boardId) ?? 0) - (boardRank.get(b.boardId) ?? 0),
       stage: (a, b) => a.colIndex - b.colIndex,
       priority: (a, b) => PRIO_RANK[a.task.priority] - PRIO_RANK[b.task.priority],
       created: (a, b) => a.task.createdAt.localeCompare(b.task.createdAt),
@@ -68,7 +69,7 @@ export function ListView({ matches, onOpenTask }: Props) {
     };
     const base = cmp.order;
     return out.sort((a, b) => sort.dir * cmp[sort.key](a, b) || base(a, b));
-  }, [columns, tasks, matches, sort, t.locale]);
+  }, [entries, matches, sort, boardRank, t.locale]);
 
   const head = (key: SortKey, label: string, className = '') => (
     <th className={className} aria-sort={sort.key === key ? (sort.dir === 1 ? 'ascending' : 'descending') : undefined}>
@@ -92,6 +93,7 @@ export function ListView({ matches, onOpenTask }: Props) {
           <colgroup>
             <col style={{ width: 40 }} />
             <col />
+            <col style={{ width: 170 }} />
             <col style={{ width: 150 }} />
             <col style={{ width: 120 }} />
             <col style={{ width: 190 }} />
@@ -105,6 +107,7 @@ export function ListView({ matches, onOpenTask }: Props) {
             <tr>
               <th aria-label={t('list.done')} />
               {head('title', t('list.task'), 'is-left')}
+              {head('board', t('list.board'))}
               {head('stage', t('list.stage'))}
               {head('priority', t('list.priority'))}
               <th>{t('list.tags')}</th>
@@ -118,42 +121,52 @@ export function ListView({ matches, onOpenTask }: Props) {
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={10} className="lt-empty">
+                <td colSpan={11} className="lt-empty">
                   {t('list.empty')}
                 </td>
               </tr>
             ) : (
-              rows.map(({ task, col, pct }) => {
+              rows.map(({ key, task, col, pct, boardId, boardName, projectName, kind, foreign }) => {
                 const done = col.isDone;
                 const due = dueInfo(task.dueDate, done, t);
-                const tracked = canTrackProgress(col);
+                // Việc ở bảng khác chỉ xem; muốn sửa nhanh thì mở bảng đó (bấm tên việc)
+                const tracked = canTrackProgress(col) && !foreign;
+                const lock = foreign ? t('list.otherBoard') : undefined;
                 return (
-                  <tr key={task.id} className={done ? 'is-done' : ''}>
+                  <tr key={key} className={`${done ? 'is-done' : ''}${foreign ? ' is-foreign' : ''}`}>
                     <td className="lt-check">
                       <input
                         type="checkbox"
                         className="card-check"
                         checked={done}
                         aria-label={done ? t('card.uncheck') : t('card.check')}
+                        disabled={foreign}
+                        title={lock}
                         onChange={() => toggleDone(task.id)}
                       />
                     </td>
                     <td className="is-left">
-                      <button type="button" className="lt-title" onClick={() => onOpenTask(task.id)} title={task.note || task.title}>
+                      <button type="button" className="lt-title" onClick={() => onOpenTask(task.id, boardId)} title={task.note || task.title}>
                         {task.title}
                       </button>
+                    </td>
+                    <td className="lt-board" title={`${projectName} · ${boardName}`}>
+                      <span className={`lt-board-project${kind === 'personal' ? ' is-personal' : ''}`}>{projectName}</span>
+                      <span className="lt-board-name">{boardName}</span>
                     </td>
                     <td>
                       <label className="lt-select" style={{ '--col': col.color } as CSSProperties}>
                         <select
                           aria-label={t('list.stage')}
                           value={col.id}
+                          disabled={foreign}
+                          title={lock}
                           onChange={(e) => {
                             const target = columns.find((c) => c.id === e.target.value);
                             if (target) moveTask(task.id, target.id, target.taskIds.length);
                           }}
                         >
-                          {columns.map((c) => (
+                          {(foreign ? [col] : columns).map((c) => (
                             <option key={c.id} value={c.id}>
                               {c.title}
                             </option>
@@ -165,6 +178,8 @@ export function ListView({ matches, onOpenTask }: Props) {
                       <select
                         aria-label={t('list.priority')}
                         value={task.priority}
+                        disabled={foreign}
+                        title={lock}
                         onChange={(e) => updateTask(task.id, { priority: e.target.value as Priority })}
                       >
                         {PRIORITIES.map((p) => (
@@ -182,7 +197,7 @@ export function ListView({ matches, onOpenTask }: Props) {
                       ))}
                     </td>
                     <td>
-                      <AvatarStack users={(task.assignees ?? []).map((id) => dir.get(id) ?? { id, name: '?', email: '?' })} max={3} size={22} />
+                      <AvatarStack users={(task.assignees ?? []).map((id) => dir.get(id) ?? otherUsers.get(id) ?? { id, name: '?', email: '?' })} max={3} size={22} />
                     </td>
                     <td className="lt-date">{fmtDate(task.createdAt, t)}</td>
                     <td className={`lt-date${due ? ` due-${due.tone}` : ''}`}>

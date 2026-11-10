@@ -88,8 +88,8 @@ export async function removeFriend(id: string) {
   set(await api.removeFriend(id));
 }
 
-export async function createProject(name: string, boardName: string) {
-  const { project } = await api.createProject(name, boardName);
+export async function createProject(name: string, kind: 'personal' | 'team') {
+  const { project } = await api.createProject(name, kind);
   await loadProjects();
   return project;
 }

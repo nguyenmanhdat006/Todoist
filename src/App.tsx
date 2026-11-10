@@ -15,7 +15,9 @@ import { FriendsButton, SidebarToggle } from './components/Social';
 import { boardInfo, projectOfBoard, refreshPeople, usePeople } from './sync/people';
 import { TitleClock } from './components/Clock';
 import { HeroAside } from './components/HeroAside';
-import { useSession } from './sync/session';
+import { switchBoard, useSession } from './sync/session';
+import { loadOverview, useOverview, useScopedEntries } from './sync/overview';
+import { ScopeSelect } from './components/Social';
 import { FilterEditor, filterName } from './components/FilterEditor';
 
 export default function App() {
@@ -23,7 +25,6 @@ export default function App() {
   const tasks = useBoard((s) => s.tasks);
   const theme = useBoard((s) => s.theme);
   const view = useBoard((s) => s.view);
-  const setView = useBoard((s) => s.setView);
   const filters = useBoard((s) => s.filters);
   const t = useT();
 
@@ -58,11 +59,26 @@ export default function App() {
     const id = setInterval(() => void refreshPeople(), 60_000);
     return () => clearInterval(id);
   }, [board]);
+  // Danh sách và Lịch hiển thị việc của mọi bảng; Bảng chỉ hiện bảng đang mở
+  const scope = useOverview((s) => s.scope);
+  const aggregate = view !== 'kanban';
   // Tiêu đề trang: "Dự án · Bảng" khi đang ở bảng dự án
   const projects = usePeople((s) => s.projects);
-  const curProject = projectOfBoard(board, projects);
-  const curBoard = boardInfo(board, projects);
-  const projectName = curProject ? (curProject.boards.length > 1 && curBoard ? `${curProject.name} · ${curBoard.name}` : curProject.name) : undefined;
+  // Chưa chọn bảng = bảng cá nhân mặc định (id = id người dùng), nằm trong dự án cá nhân
+  const me = useSession((s) => s.user);
+  const activeBoard = board ?? me?.id ?? null;
+  const curProject = projectOfBoard(activeBoard, projects);
+  const curBoard = boardInfo(activeBoard, projects);
+  const boardTitle = curProject ? (curProject.boards.length > 1 && curBoard ? `${curProject.name} · ${curBoard.name}` : curProject.name) : undefined;
+  const scopeProject = scope.startsWith('p:') ? projects.find((p) => p.id === scope.slice(2)) : undefined;
+  const scopeBoard = scope.startsWith('b:') ? projects.flatMap((p) => p.boards.map((b) => ({ p, b }))).find((x) => x.b.id === scope.slice(2)) : undefined;
+  const projectName = aggregate
+    ? scopeBoard
+      ? `${scopeBoard.p.name} · ${scopeBoard.b.name}`
+      : scopeProject
+        ? scopeProject.name
+        : t('scope.allTitle')
+    : boardTitle;
 
   // Theme
   useEffect(() => {
@@ -99,36 +115,70 @@ export default function App() {
     if (filter !== 'all' && !activeFilter) setFilter('all');
   }, [filter, activeFilter]);
 
+  // done / colId: dùng cho việc ở bảng khác (không có trong dữ liệu bảng đang mở)
   const inFilter = useCallback(
-    (task: Task, f: SavedFilter | undefined) =>
-      !f || matchesFilter(task, f, doneIds.has(task.id), columnOfTask.get(task.id)),
+    (task: Task, f: SavedFilter | undefined, done?: boolean, colId?: string) =>
+      !f || matchesFilter(task, f, done ?? doneIds.has(task.id), colId ?? columnOfTask.get(task.id)),
     [doneIds, columnOfTask],
   );
 
   const matches = useMemo(() => {
     const q = fold(query.trim());
-    return (task: Task) => {
-      if (!inFilter(task, activeFilter)) return false;
+    return (task: Task, done?: boolean, colId?: string) => {
+      if (!inFilter(task, activeFilter, done, colId)) return false;
       if (!q) return true;
       return fold(`${task.title} ${task.note} ${task.tags.join(' ')}`).includes(q);
     };
   }, [query, activeFilter, inFilter]);
 
-  const filterCounts = useMemo(() => {
-    const all = Object.values(tasks);
-    return new Map(filters.map((f) => [f.id, all.filter((x) => inFilter(x, f)).length]));
-  }, [tasks, filters, inFilter]);
+  // Danh sách và Lịch hiển thị việc của mọi bảng (theo phạm vi chọn); Bảng chỉ hiện bảng đang mở
+  const scoped = useScopedEntries();
+  const pool = useMemo(
+    () =>
+      aggregate
+        ? scoped.map((e) => ({ task: e.task, done: e.col.isDone, colId: e.col.id }))
+        : Object.values(tasks).map((t) => ({ task: t, done: doneIds.has(t.id), colId: columnOfTask.get(t.id) })),
+    [aggregate, scoped, tasks, doneIds, columnOfTask],
+  );
 
-  const stats = useMemo(() => {
-    const all = Object.values(tasks);
-    return {
-      total: all.length,
-      done: all.filter((t) => doneIds.has(t.id)).length,
-      open: all.filter((t) => !doneIds.has(t.id)).length,
-      overdue: all.filter((t) => isOverdue(t.dueDate, doneIds.has(t.id))).length,
-    };
-  }, [tasks, doneIds]);
+  const filterCounts = useMemo(
+    () => new Map(filters.map((f) => [f.id, pool.filter((x) => inFilter(x.task, f, x.done, x.colId)).length])),
+    [pool, filters, inFilter],
+  );
 
+  const stats = useMemo(
+    () => ({
+      total: pool.length,
+      done: pool.filter((x) => x.done).length,
+      open: pool.filter((x) => !x.done).length,
+      overdue: pool.filter((x) => isOverdue(x.task.dueDate, x.done)).length,
+    }),
+    [pool],
+  );
+
+  // Nạp việc của các bảng khác khi xem Danh sách / Lịch; làm mới mỗi phút và khi đổi bảng
+  useEffect(() => {
+    if (!aggregate) return;
+    void loadOverview();
+    const id = setInterval(() => void loadOverview(), 60_000);
+    return () => clearInterval(id);
+  }, [aggregate, board]);
+
+
+  // Bấm việc ở trang Danh sách / Lịch: việc ở bảng khác thì mở bảng đó trước (để sửa được), rồi mở việc
+  const openTaskIn = useCallback(
+    async (id: string, boardId?: string) => {
+      const st = useSession.getState();
+      const current = st.board ?? st.user?.id ?? null;
+      if (boardId && boardId !== current) {
+        const ok = await switchBoard(boardId, () => window.confirm(t('sync.logoutConfirm')));
+        if (!ok) return;
+        void refreshPeople();
+      }
+      setModal({ taskId: id, columnId: '' });
+    },
+    [t],
+  );
 
   const openCreate = useCallback((defaults?: TaskDefaults) => {
     const cols = useBoard.getState().columns;
@@ -200,17 +250,6 @@ export default function App() {
               {t('app.name')}
             </span>
           </div>
-          <nav className="nav" aria-label={t('nav.label')}>
-            <button type="button" className={view === 'kanban' ? 'on' : ''} aria-current={view === 'kanban' ? 'page' : undefined} onClick={() => setView('kanban')}>
-              {t('nav.board')}
-            </button>
-            <button type="button" className={view === 'list' ? 'on' : ''} aria-current={view === 'list' ? 'page' : undefined} onClick={() => setView('list')}>
-              {t('nav.list')}
-            </button>
-            <button type="button" className={view === 'calendar' ? 'on' : ''} aria-current={view === 'calendar' ? 'page' : undefined} onClick={() => setView('calendar')}>
-              {t('nav.calendar')}
-            </button>
-          </nav>
           <div className="topbar-right">
             <ProgressRing done={stats.done} total={stats.total} />
             <LangSwitch />
@@ -275,6 +314,7 @@ export default function App() {
             />
             <kbd className="search-kbd">/</kbd>
           </div>
+          {aggregate && <ScopeSelect />}
           <div className="seg-filter" role="group" aria-label={t('filter.label')}>
             <button
               type="button"
@@ -354,11 +394,11 @@ export default function App() {
         ) : view === 'calendar' ? (
           <CalendarView
             matches={matches}
-            onOpenTask={(id) => setModal({ taskId: id, columnId: '' })}
+            onOpenTask={(id, boardId) => void openTaskIn(id, boardId)}
             onCreateAt={(date, time) => openCreate({ dueDate: date, startTime: time })}
           />
         ) : (
-          <ListView matches={matches} filtering={!!query.trim() || filter !== 'all'} onOpenTask={(id) => setModal({ taskId: id, columnId: '' })} />
+          <ListView matches={matches} filtering={!!query.trim() || filter !== 'all'} onOpenTask={(id, boardId) => void openTaskIn(id, boardId)} />
         )}
       </main>
 

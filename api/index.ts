@@ -17,10 +17,12 @@ import {
   type User,
 } from './_lib/auth.js';
 import { readBoard, writeBoard } from './_lib/board.js';
+import { readOverview } from './_lib/overview.js';
 import { db } from './_lib/db.js';
 import {
   acceptFriend,
   createBoard,
+  createPersonalSpace,
   deleteBoard,
   listNotifications,
   readNotifications,
@@ -110,7 +112,7 @@ app.post(
       await logAttempt(email, ip, false);
       throw new HttpError(409, 'email_taken');
     }
-    await db().query('insert into boards (board_id) values ($1) on conflict do nothing', [rows[0].id]);
+    await createPersonalSpace(rows[0].id);
     await startSession(req, res, rows[0].id);
     res.status(201).json({ user: publicUser(rows[0]) });
   }),
@@ -176,6 +178,15 @@ app.put(
   }),
 );
 
+// Việc từ mọi bảng truy cập được, cho trang Danh sách và Lịch
+app.get(
+  '/api/overview',
+  requireUser,
+  route(async (req, res) => {
+    res.json(await readOverview(req.user!.id));
+  }),
+);
+
 /* ---------- bạn bè ---------- */
 
 app.get(
@@ -228,8 +239,8 @@ app.post(
   '/api/projects',
   requireUser,
   route(async (req, res) => {
-    const b = (req.body ?? {}) as { name?: unknown; boardName?: unknown };
-    res.status(201).json({ project: await createProject(req.user!.id, b.name, b.boardName) });
+    const b = (req.body ?? {}) as { name?: unknown; kind?: unknown };
+    res.status(201).json({ project: await createProject(req.user!.id, b.name, b.kind) });
   }),
 );
 

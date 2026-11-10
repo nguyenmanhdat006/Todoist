@@ -17,6 +17,42 @@ export interface BoardResponse {
 const iso = (v: Date | string | null) => (v == null ? null : new Date(v).toISOString());
 const hm = (v: string | null) => (v ? v.slice(0, 5) : null);
 
+/** Dòng bảng board_columns → cột trong file xuất */
+export function mapColumnRow(c: Record<string, any>) {
+  return {
+    id: c.id as string,
+    title: c.title as string,
+    color: c.color as string,
+    isDone: c.is_done as boolean,
+    builtin: c.builtin ?? null,
+    position: c.position as number,
+    cardColor: (c.card_color ?? 'status') as string,
+  };
+}
+
+/** Dòng bảng tasks → việc trong file xuất */
+export function mapTaskRow(t: Record<string, any>) {
+  return {
+    id: t.id as string,
+    columnId: t.column_id as string,
+    position: t.position as number,
+    title: t.title as string,
+    note: t.note as string,
+    priority: t.priority,
+    dueDate: t.due_date as string | null,
+    startTime: hm(t.start_time),
+    endTime: hm(t.end_time),
+    tags: t.tags as string[],
+    createdAt: iso(t.created_at)!,
+    updatedAt: iso(t.updated_at)!,
+    completedAt: iso(t.completed_at),
+    autoOverdueFor: (t.auto_overdue_for ?? null) as string | null,
+    prevColumnId: (t.prev_column_id ?? null) as string | null,
+    progress: (t.progress ?? 0) as number,
+    assignees: (t.assignees ?? []) as string[],
+  };
+}
+
 function validTimezone(tz: unknown): string {
   if (typeof tz !== 'string' || !tz || tz.length > 64) return 'UTC';
   try {
@@ -47,35 +83,9 @@ export async function readBoard(boardId: string): Promise<BoardResponse> {
     timezone: b?.timezone ?? 'UTC',
     settings: { lang: 'vi', theme: 'dark', view: 'kanban', calendarMode: 'week', calendarHiddenTags: [] },
     counts: { columns: cols.rows.length, tags: 0, tasks: tasks.rows.length, filters: filters.rows.length, reminders: reminders.rows.length },
-    columns: cols.rows.map((c) => ({
-      id: c.id,
-      title: c.title,
-      color: c.color,
-      isDone: c.is_done,
-      builtin: c.builtin,
-      position: c.position,
-      cardColor: c.card_color ?? 'status',
-    })),
+    columns: cols.rows.map(mapColumnRow),
     tags: [],
-    tasks: tasks.rows.map((t) => ({
-      id: t.id,
-      columnId: t.column_id,
-      position: t.position,
-      title: t.title,
-      note: t.note,
-      priority: t.priority,
-      dueDate: t.due_date,
-      startTime: hm(t.start_time),
-      endTime: hm(t.end_time),
-      tags: t.tags,
-      createdAt: iso(t.created_at)!,
-      updatedAt: iso(t.updated_at)!,
-      completedAt: iso(t.completed_at),
-      autoOverdueFor: t.auto_overdue_for,
-      prevColumnId: t.prev_column_id,
-      progress: t.progress ?? 0,
-      assignees: t.assignees ?? [],
-    })),
+    tasks: tasks.rows.map(mapTaskRow),
     filters: filters.rows.map((f) => ({
       id: f.id,
       name: f.name,

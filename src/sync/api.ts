@@ -1,5 +1,5 @@
 /** Gọi API (/api/*). Lỗi được chuẩn hoá thành ApiError để màn hình hiển thị đúng thông báo. */
-import type { ExportFile } from '../data/exchange';
+import type { ExportColumn, ExportFile, ExportTask } from '../data/exchange';
 
 export interface ApiUser {
   id: string;
@@ -24,8 +24,21 @@ export interface ProjectInfo {
   name: string;
   ownerId: string;
   role: 'host' | 'member';
+  /** personal = dự án riêng (chỉ mình), team = dự án nhóm */
+  kind: 'personal' | 'team';
   memberCount?: number;
   boards: BoardInfo[];
+}
+
+/** Một bảng cùng cột và việc, dùng cho trang Danh sách / Lịch gộp nhiều bảng */
+export interface OverviewBoard {
+  id: string;
+  name: string;
+  projectId: string;
+  projectName: string;
+  kind: 'personal' | 'team';
+  columns: ExportColumn[];
+  tasks: ExportTask[];
 }
 
 export interface ServerNotice {
@@ -97,10 +110,11 @@ export const api = {
 
   // dự án
   projects: () => call<{ projects: ProjectInfo[] }>('GET', '/api/projects'),
-  createProject: (name: string, boardName: string) => call<{ project: ProjectInfo }>('POST', '/api/projects', { name, boardName }),
+  createProject: (name: string, kind: 'personal' | 'team') => call<{ project: ProjectInfo }>('POST', '/api/projects', { name, kind }),
   createBoard: (projectId: string, name: string) => call<{ board: BoardInfo }>('POST', `/api/projects/${projectId}/boards`, { name }),
   renameBoard: (id: string, name: string) => call<{ board: BoardInfo }>('PATCH', `/api/boards/${id}`, { name }),
   deleteBoard: (id: string) => call<{ ok: true }>('DELETE', `/api/boards/${id}`),
+  overview: () => call<{ boards: OverviewBoard[]; users: ApiUser[] }>('GET', '/api/overview'),
   notifications: () => call<{ items: ServerNotice[] }>('GET', '/api/notifications'),
   readNotifications: (ids?: string[]) => call<{ items: ServerNotice[] }>('POST', '/api/notifications/read', ids ? { ids } : {}),
   project: (id: string) => call<{ project: ProjectInfo; members: Member[] }>('GET', `/api/projects/${id}`),
