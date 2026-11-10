@@ -107,7 +107,7 @@ export function ListView({ matches, onOpenTask }: Props) {
             <tr>
               <th aria-label={t('list.done')} />
               {head('title', t('list.task'), 'is-left')}
-              {head('board', t('list.board'))}
+              {head('board', t('list.board'), 'is-left')}
               {head('stage', t('list.stage'))}
               {head('priority', t('list.priority'))}
               <th>{t('list.tags')}</th>
@@ -115,7 +115,7 @@ export function ListView({ matches, onOpenTask }: Props) {
               {head('created', t('list.created'))}
               {head('due', t('list.due'))}
               {head('finished', t('list.finished'))}
-              {head('progress', t('list.progress'))}
+              {head('progress', t('list.progress'), 'is-left')}
             </tr>
           </thead>
           <tbody>
