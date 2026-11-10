@@ -37,7 +37,14 @@ Kiểm tra API: `GET /api/health` trả `{ "ok": true }` khi đã kết nối đ
 | POST | `/api/auth/logout` | xoá phiên |
 | GET | `/api/auth/me` | người dùng hiện tại (401 nếu chưa đăng nhập) |
 | GET | `/api/board` | `{ revision, file }` — `file` theo định dạng xuất JSON v2, `null` nếu chưa có dữ liệu |
-| PUT | `/api/board` | `{ baseRevision, file }` → lưu toàn bộ; 409 nếu thiết bị khác đã lưu trước |
+| PUT | `/api/board` | `{ baseRevision, file, board? }` → lưu toàn bộ; 409 nếu thiết bị khác đã lưu trước |
+| GET/POST/DELETE | `/api/friends…` | danh sách bạn bè, gửi lời mời qua email, đồng ý, huỷ |
+| GET/POST/PATCH/DELETE | `/api/projects…` | dự án: tạo (người tạo là host), đổi tên, xoá, thêm/bớt thành viên |
+| POST / PATCH / DELETE | `/api/projects/:id/boards`, `/api/boards/:id` | tạo bảng trong dự án (thành viên), đổi tên / xoá (host) |
+| GET / POST | `/api/notifications`, `/api/notifications/read` | thông báo (ví dụ: được thêm vào dự án), đánh dấu đã đọc |
+
+`GET /api/board?board=<id>` mở một bảng trong dự án; không có `board` là bảng cá nhân. Bảng cá nhân chỉ gắn được chính mình;
+bảng dự án gắn được mọi thành viên.
 
 Bảo mật: mật khẩu băm bằng scrypt; phiên là token ngẫu nhiên trong cookie `httpOnly`, `SameSite=Lax` (DB chỉ lưu sha256);
 request ghi dữ liệu phải là JSON và cùng nguồn; khoá tạm sau 8 lần sai mật khẩu trong 15 phút.
@@ -56,6 +63,9 @@ request ghi dữ liệu phải là JSON và cùng nguồn; khoá tạm sau 8 l�
 - Giao diện sáng và tối.
 - Chuyển ngôn ngữ Tiếng Việt / English (nút VI | EN trên thanh trên cùng). Chuỗi giao diện nằm trong `src/i18n.ts`.
 - Tài khoản riêng, dữ liệu lưu trên máy chủ và đồng bộ giữa các thiết bị; vẫn dùng được khi mất mạng.
+- Kết bạn qua email; dự án dùng chung có host và thành viên, mỗi dự án có nhiều bảng; người được thêm vào dự án nhận thông báo.
+- Thanh bên (nút góc trái): kiểu xem, Bảng của tôi, dự án và các bảng trong dự án.
+- Gắn người liên quan vào việc (avatar tròn góc phải thẻ).
 - Xuất/nhập file JSON để sao lưu hoặc chuyển dữ liệu. Khi nhập, app kiểm tra file và hiện tóm tắt trước khi thay dữ liệu. Định dạng file và gợi ý bảng PostgreSQL: [docs/export-format.md](docs/export-format.md).
 - Phím tắt: `N` thêm việc, `/` tìm kiếm.
 

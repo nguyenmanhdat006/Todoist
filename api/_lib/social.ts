@@ -111,6 +111,27 @@ function readName(v: unknown) {
   return name;
 }
 
+export interface BoardInfo {
+  id: string;
+  name: string;
+  position: number;
+}
+
+async function boardsOf(projectIds: string[]): Promise<Map<string, BoardInfo[]>> {
+  const out = new Map<string, BoardInfo[]>();
+  if (!projectIds.length) return out;
+  const { rows } = await db().query<BoardInfo & { project_id: string }>(
+    'select id, name, position, project_id from project_boards where project_id = any($1::uuid[]) order by position, created_at',
+    [projectIds],
+  );
+  for (const r of rows) {
+    const list = out.get(r.project_id) ?? [];
+    list.push({ id: r.id, name: r.name, position: r.position });
+    out.set(r.project_id, list);
+  }
+  return out;
+}
+
 export async function listProjects(me: string) {
   const { rows } = await db().query(
     `select p.id, p.name, p.owner_id as "ownerId", pm.role,
@@ -119,7 +140,8 @@ export async function listProjects(me: string) {
       order by p.created_at`,
     [me],
   );
-  return rows;
+  const boards = await boardsOf(rows.map((r) => r.id));
+  return rows.map((r) => ({ ...r, boards: boards.get(r.id) ?? [] }));
 }
 
 /** Vai trò của me trong dự án; báo 404 nếu không phải thành viên (không lộ dự án của người khác) */
@@ -152,17 +174,24 @@ export async function getProject(me: string, projectId: string) {
   const { rows } = await db().query('select id, name, owner_id as "ownerId", created_at as "createdAt" from projects where id = $1', [
     projectId,
   ]);
-  return { project: { ...rows[0], role }, members: await projectMembers(projectId) };
+  const boards = (await boardsOf([projectId])).get(projectId) ?? [];
+  return { project: { ...rows[0], role, boards }, members: await projectMembers(projectId) };
 }
 
-export async function createProject(me: string, rawName: unknown) {
+/** Tạo dự án kèm bảng đầu tiên; người tạo là host */
+export async function createProject(me: string, rawName: unknown, rawBoardName: unknown) {
   const name = readName(rawName);
+  const boardName = typeof rawBoardName === 'string' && rawBoardName.trim() ? readName(rawBoardName) : 'Bảng chính';
   return tx(async (c) => {
     const { rows } = await c.query<{ id: string }>('insert into projects (name, owner_id) values ($1, $2) returning id', [name, me]);
     const id = rows[0].id;
     await c.query(`insert into project_members (project_id, user_id, role) values ($1, $2, 'host')`, [id, me]);
-    await c.query('insert into boards (board_id) values ($1)', [id]);
-    return { id, name, ownerId: me, role: 'host', memberCount: 1 };
+    const b = await c.query<{ id: string }>('insert into project_boards (project_id, name, position) values ($1, $2, 0) returning id', [
+      id,
+      boardName,
+    ]);
+    await c.query('insert into boards (board_id) values ($1)', [b.rows[0].id]);
+    return { id, name, ownerId: me, role: 'host', memberCount: 1, boards: [{ id: b.rows[0].id, name: boardName, position: 0 }] };
   });
 }
 
@@ -173,22 +202,81 @@ export async function renameProject(me: string, projectId: string, rawName: unkn
   return { id: projectId, name };
 }
 
+const BOARD_TABLES = ['reminders', 'saved_filters', 'tasks', 'board_columns', 'boards'];
+
 export async function deleteProject(me: string, projectId: string) {
   await requireHost(me, projectId);
   await tx(async (c) => {
-    for (const table of ['reminders', 'saved_filters', 'tasks', 'board_columns', 'boards'])
-      await c.query(`delete from ${table} where board_id = $1`, [projectId]);
+    const { rows } = await c.query<{ id: string }>('select id from project_boards where project_id = $1', [projectId]);
+    const ids = [projectId, ...rows.map((r) => r.id)];
+    for (const table of BOARD_TABLES) await c.query(`delete from ${table} where board_id = any($1::uuid[])`, [ids]);
     await c.query('delete from projects where id = $1', [projectId]);
   });
 }
 
+/* ---------- bảng trong dự án ---------- */
+
+/** Thành viên nào cũng tạo được bảng mới trong dự án */
+export async function createBoard(me: string, projectId: string, rawName: unknown) {
+  await projectRole(me, projectId);
+  const name = readName(rawName);
+  return tx(async (c) => {
+    const { rows } = await c.query<{ id: string; position: number }>(
+      `insert into project_boards (project_id, name, position)
+       values ($1, $2, coalesce((select max(position) + 1 from project_boards where project_id = $1), 0))
+       returning id, position`,
+      [projectId, name],
+    );
+    await c.query('insert into boards (board_id) values ($1)', [rows[0].id]);
+    return { id: rows[0].id, name, position: rows[0].position };
+  });
+}
+
+async function boardProject(boardId: string): Promise<string> {
+  const { rows } = await db().query<{ project_id: string }>('select project_id from project_boards where id = $1', [boardId]);
+  if (!rows[0]) throw new HttpError(404, 'board_not_found');
+  return rows[0].project_id;
+}
+
+/** Đổi tên bảng: chỉ host */
+export async function renameBoard(me: string, boardId: string, rawName: unknown) {
+  const projectId = await boardProject(boardId);
+  await requireHost(me, projectId);
+  const name = readName(rawName);
+  await db().query('update project_boards set name = $2 where id = $1', [boardId, name]);
+  return { id: boardId, name };
+}
+
+/** Xoá bảng: chỉ host, và dự án phải còn ít nhất một bảng */
+export async function deleteBoard(me: string, boardId: string) {
+  const projectId = await boardProject(boardId);
+  await requireHost(me, projectId);
+  await tx(async (c) => {
+    const { rows } = await c.query<{ n: number }>('select count(*)::int as n from project_boards where project_id = $1', [projectId]);
+    if (rows[0].n <= 1) throw new HttpError(400, 'last_board');
+    for (const table of BOARD_TABLES) await c.query(`delete from ${table} where board_id = $1`, [boardId]);
+    await c.query('delete from project_boards where id = $1', [boardId]);
+  });
+}
+
+/* ---------- thành viên ---------- */
+
 export async function addMember(me: string, projectId: string, memberId: string) {
   await requireHost(me, projectId);
   if (!(await areFriends(me, memberId))) throw new HttpError(400, 'not_friend');
-  await db().query(
+  const { rowCount } = await db().query(
     `insert into project_members (project_id, user_id, role) values ($1, $2, 'member') on conflict do nothing`,
     [projectId, memberId],
   );
+  if (rowCount) {
+    // Báo cho người vừa được thêm
+    const { rows } = await db().query<{ project: string; host: string }>(
+      `select p.name as project, coalesce(nullif(u.name, ''), u.email) as host
+         from projects p, users u where p.id = $1 and u.id = $2`,
+      [projectId, me],
+    );
+    await notify(memberId, 'project_added', { projectId, projectName: rows[0]?.project, by: rows[0]?.host });
+  }
   return projectMembers(projectId);
 }
 
@@ -204,13 +292,53 @@ export async function removeMember(me: string, projectId: string, memberId: stri
   return memberId === me ? [] : projectMembers(projectId);
 }
 
-/** Bảng nào được đọc/ghi và những ai được gắn vào việc trên bảng đó */
-export async function boardAccess(me: string, project: unknown) {
-  if (project === undefined || project === null || project === '') {
-    return { boardId: me, allowed: new Set([me, ...(await friendIds(me))]) };
+/* ---------- thông báo ---------- */
+
+export async function notify(userId: string, type: string, data: Record<string, unknown>) {
+  await db().query('insert into notifications (user_id, type, data) values ($1, $2, $3)', [userId, type, JSON.stringify(data)]);
+}
+
+export async function listNotifications(me: string) {
+  const { rows } = await db().query(
+    `select id::text, type, data, created_at as "createdAt", read_at is not null as read
+       from notifications where user_id = $1 order by created_at desc limit 30`,
+    [me],
+  );
+  return rows;
+}
+
+/** Đánh dấu đã đọc theo danh sách id; không truyền thì đánh dấu tất cả */
+export async function readNotifications(me: string, ids: unknown) {
+  if (Array.isArray(ids)) {
+    const list = ids.filter((x): x is string => typeof x === 'string' && /^\d+$/.test(x)).slice(0, 100);
+    if (list.length)
+      await db().query('update notifications set read_at = now() where user_id = $1 and id = any($2::bigint[]) and read_at is null', [
+        me,
+        list,
+      ]);
+  } else {
+    await db().query('update notifications set read_at = now() where user_id = $1 and read_at is null', [me]);
   }
-  const projectId = requireUuid(project, 'bad_project');
-  await projectRole(me, projectId);
-  const members = await projectMembers(projectId);
-  return { boardId: projectId, allowed: new Set(members.map((m) => m.id)) };
+  return listNotifications(me);
+}
+
+/**
+ * Bảng nào được đọc/ghi và những ai được gắn vào việc trên bảng đó.
+ *  - không truyền board: bảng cá nhân, chỉ gắn được chính mình
+ *  - board = id bảng trong dự án: phải là thành viên dự án, gắn được mọi thành viên
+ */
+export async function boardAccess(me: string, board: unknown) {
+  if (board === undefined || board === null || board === '') {
+    return { boardId: me, allowed: new Set([me]) };
+  }
+  const boardId = requireUuid(board, 'bad_board');
+  const { rows } = await db().query<{ project_id: string }>(
+    `select pb.project_id from project_boards pb
+       join project_members pm on pm.project_id = pb.project_id and pm.user_id = $2
+      where pb.id = $1`,
+    [boardId, me],
+  );
+  if (!rows[0]) throw new HttpError(404, 'board_not_found');
+  const members = await projectMembers(rows[0].project_id);
+  return { boardId, allowed: new Set(members.map((m) => m.id)) };
 }

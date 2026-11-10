@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useBoard } from '../store/board';
+import { readNotices, refreshPeople, usePeople } from '../sync/people';
+import { switchBoard } from '../sync/session';
+import type { ServerNotice } from '../sync/api';
 import '../notifications.css';
 import type { Reminder } from '../types';
 import { tagColor } from '../types';
@@ -37,7 +40,20 @@ export function NotificationBell({ onOpenTask, onToast }: Props) {
   const [now, setNow] = useState(() => Date.now());
   const [perm, setPerm] = useState<NotificationPermission | 'unsupported'>(() => (canNotify() ? Notification.permission : 'unsupported'));
   const ref = useRef<HTMLDivElement>(null);
-  const unread = reminders.filter((r) => !r.read && tasks[r.taskId]).length;
+  // Thông báo từ máy chủ (được thêm vào dự án) gộp chung số chưa đọc
+  const notices = usePeople((s) => s.notices);
+  const projects = usePeople((s) => s.projects);
+  const unreadNotices = notices.filter((n) => !n.read).length;
+  const unread = reminders.filter((r) => !r.read && tasks[r.taskId]).length + unreadNotices;
+  const openNotice = async (n: ServerNotice) => {
+    if (!n.read) await readNotices([n.id]);
+    const p = projects.find((x) => x.id === n.data.projectId);
+    if (p?.boards[0]) {
+      setOpen(false);
+      const ok = await switchBoard(p.boards[0].id, () => window.confirm(t('sync.logoutConfirm')));
+      if (ok) await refreshPeople();
+    }
+  };
 
   // Báo ra ngoài: thông báo trên máy (nếu được phép) và thông báo nhỏ trong app
   const announce = useCallback(
@@ -148,12 +164,15 @@ export function NotificationBell({ onOpenTask, onToast }: Props) {
               {unread > 0 && <span className="notif-count">{t('notif.unread', { n: unread })}</span>}
             </span>
             <span className="notif-actions">
-              {items.length > 0 && (
+              {(items.length > 0 || notices.length > 0) && (
                 <button
                   type="button"
                   className="notif-link is-primary"
                   disabled={unread === 0}
-                  onClick={() => useBoard.getState().markRemindersRead()}
+                  onClick={() => {
+                    useBoard.getState().markRemindersRead();
+                    if (unreadNotices) void readNotices();
+                  }}
                 >
                   <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M1.5 8.5l3 3 6-7M7.5 11.5l1 0.2 6-7.2" />
@@ -169,8 +188,30 @@ export function NotificationBell({ onOpenTask, onToast }: Props) {
             </span>
           </div>
 
+          {notices.length > 0 && (
+            <ul className="notif-list">
+              {notices.slice(0, 5).map((n) => (
+                <li key={n.id} className="notif-row">
+                  <button type="button" className={`notif-item${n.read ? '' : ' is-new'}`} onClick={() => void openNotice(n)}>
+                    <span className="notif-icon is-project" aria-hidden="true">
+                      <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5">
+                        <path d="M2 4.5h4l1.5 1.5H14v6.5H2z" />
+                      </svg>
+                    </span>
+                    <span className="notif-body">
+                      <span className="notif-task">{t('notif.projectAdded', { by: n.data.by ?? '', name: n.data.projectName ?? '' })}</span>
+                      <span className="notif-meta">
+                        {new Intl.DateTimeFormat(t.locale, { dateStyle: 'short', timeStyle: 'short' }).format(new Date(n.createdAt))}
+                      </span>
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+
           {items.length === 0 ? (
-            <p className="notif-empty">{t('notif.empty')}</p>
+            notices.length === 0 && <p className="notif-empty">{t('notif.empty')}</p>
           ) : (
             <ul className="notif-list">
               {items.map(({ r, task }) => {

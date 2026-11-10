@@ -11,8 +11,8 @@ import { SettingsMenu, Toast, type ToastData } from './components/Extras';
 import { HelpButton, LangSwitch, ProgressRing, ThemeSwitch } from './components/TopbarWidgets';
 import { NotificationBell } from './components/NotificationBell';
 import { AccountMenu } from './components/AccountMenu';
-import { FriendsButton, ProjectSwitcher } from './components/Social';
-import { refreshPeople, usePeople } from './sync/people';
+import { FriendsButton, SidebarToggle } from './components/Social';
+import { boardInfo, projectOfBoard, refreshPeople, usePeople } from './sync/people';
 import { TitleClock } from './components/Clock';
 import { HeroAside } from './components/HeroAside';
 import { useSession } from './sync/session';
@@ -52,13 +52,17 @@ export default function App() {
   }, [notice]);
 
   // Bạn bè, dự án, thành viên: tải khi mở app, khi đổi bảng và mỗi phút
-  const project = useSession((s) => s.project);
+  const board = useSession((s) => s.board);
   useEffect(() => {
     void refreshPeople();
     const id = setInterval(() => void refreshPeople(), 60_000);
     return () => clearInterval(id);
-  }, [project]);
-  const projectName = usePeople((s) => s.projects.find((p) => p.id === project)?.name);
+  }, [board]);
+  // Tiêu đề trang: "Dự án · Bảng" khi đang ở bảng dự án
+  const projects = usePeople((s) => s.projects);
+  const curProject = projectOfBoard(board, projects);
+  const curBoard = boardInfo(board, projects);
+  const projectName = curProject ? (curProject.boards.length > 1 && curBoard ? `${curProject.name} · ${curBoard.name}` : curProject.name) : undefined;
 
   // Theme
   useEffect(() => {
@@ -183,6 +187,7 @@ export default function App() {
     <div className={`app view-${view}`}>
       <header className="topbar">
         <div className="topbar-inner">
+          <SidebarToggle />
           <div className="brand">
             <span className="brand-mark" aria-hidden="true">
               <svg viewBox="0 0 20 20" width="16" height="16">
@@ -195,7 +200,6 @@ export default function App() {
               {t('app.name')}
             </span>
           </div>
-          <ProjectSwitcher />
           <nav className="nav" aria-label={t('nav.label')}>
             <button type="button" className={view === 'kanban' ? 'on' : ''} aria-current={view === 'kanban' ? 'page' : undefined} onClick={() => setView('kanban')}>
               {t('nav.board')}

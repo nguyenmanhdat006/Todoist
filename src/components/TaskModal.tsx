@@ -317,17 +317,18 @@ function ProgressField({ column, value, onChange }: { column: Column | undefined
   );
 }
 
-/** Chọn người liên quan: thành viên dự án, hoặc mình + bạn bè ở bảng cá nhân */
-function AssigneePicker({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
+/** Chọn người liên quan: thành viên dự án ở bảng dự án; bảng cá nhân chỉ có chính mình */
+function AssigneePicker({ value, onChange }: { value: string[]; onChange: (v: (prev: string[]) => string[]) => void }) {
   const t = useT();
   const me = useSession((s) => s.user);
-  const project = useSession((s) => s.project);
+  const board = useSession((s) => s.board);
   const people = usePeople();
-  const options = assignableUsers(me, project, people);
+  const options = assignableUsers(me, board, people);
   // Giữ cả người đã gắn trước đây dù giờ không còn trong danh sách (để có thể bỏ ra)
   const known = new Map(options.map((u) => [u.id, u]));
   const extra = value.filter((id) => !known.has(id));
-  const toggle = (id: string) => onChange(value.includes(id) ? value.filter((x) => x !== id) : [...value, id]);
+  // Cập nhật theo giá trị mới nhất để bấm nhanh nhiều người liền vẫn đúng
+  const toggle = (id: string) => onChange((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   return (
     <div className="field">
       <span>{t('modal.assignees')}</span>
@@ -354,7 +355,7 @@ function AssigneePicker({ value, onChange }: { value: string[]; onChange: (v: st
           ))}
         </div>
       )}
-      {options.length > 0 && <small className="hint">{project ? t('modal.assigneesHintProject') : t('modal.assigneesHintPersonal')}</small>}
+      {options.length > 0 && <small className="hint">{board ? t('modal.assigneesHintProject') : t('modal.assigneesHintPersonal')}</small>}
     </div>
   );
 }

@@ -20,6 +20,11 @@ import { readBoard, writeBoard } from './_lib/board.js';
 import { db } from './_lib/db.js';
 import {
   acceptFriend,
+  createBoard,
+  deleteBoard,
+  listNotifications,
+  readNotifications,
+  renameBoard,
   addMember,
   boardAccess,
   createProject,
@@ -154,7 +159,8 @@ app.get(
   '/api/board',
   requireUser,
   route(async (req, res) => {
-    const { boardId } = await boardAccess(req.user!.id, req.query.project);
+    // ?board=<id bảng dự án>; ?project= là tên cũ, vẫn nhận (bảng đầu tiên của dự án cũ có id = id dự án)
+    const { boardId } = await boardAccess(req.user!.id, req.query.board ?? req.query.project);
     res.json(await readBoard(boardId));
   }),
 );
@@ -163,9 +169,9 @@ app.put(
   '/api/board',
   requireUser,
   route(async (req, res) => {
-    const body = (req.body ?? {}) as { baseRevision?: unknown; file?: unknown; project?: unknown };
+    const body = (req.body ?? {}) as { baseRevision?: unknown; file?: unknown; board?: unknown; project?: unknown };
     if (typeof body.baseRevision !== 'number' || !Number.isInteger(body.baseRevision)) throw new HttpError(400, 'bad_revision');
-    const { boardId, allowed } = await boardAccess(req.user!.id, body.project);
+    const { boardId, allowed } = await boardAccess(req.user!.id, body.board ?? body.project);
     res.json(await writeBoard(boardId, body.baseRevision, body.file, allowed));
   }),
 );
@@ -222,7 +228,8 @@ app.post(
   '/api/projects',
   requireUser,
   route(async (req, res) => {
-    res.status(201).json({ project: await createProject(req.user!.id, (req.body as { name?: unknown })?.name) });
+    const b = (req.body ?? {}) as { name?: unknown; boardName?: unknown };
+    res.status(201).json({ project: await createProject(req.user!.id, b.name, b.boardName) });
   }),
 );
 
@@ -248,6 +255,52 @@ app.delete(
   route(async (req, res) => {
     await deleteProject(req.user!.id, requireUuid(req.params.id));
     res.json({ ok: true });
+  }),
+);
+
+/* ---------- bảng trong dự án ---------- */
+
+app.post(
+  '/api/projects/:id/boards',
+  requireUser,
+  route(async (req, res) => {
+    res.status(201).json({ board: await createBoard(req.user!.id, requireUuid(req.params.id), (req.body as { name?: unknown })?.name) });
+  }),
+);
+
+app.patch(
+  '/api/boards/:id',
+  requireUser,
+  route(async (req, res) => {
+    res.json({ board: await renameBoard(req.user!.id, requireUuid(req.params.id), (req.body as { name?: unknown })?.name) });
+  }),
+);
+
+app.delete(
+  '/api/boards/:id',
+  requireUser,
+  route(async (req, res) => {
+    await deleteBoard(req.user!.id, requireUuid(req.params.id));
+    res.json({ ok: true });
+  }),
+);
+
+/* ---------- thông báo ---------- */
+
+app.get(
+  '/api/notifications',
+  requireUser,
+  route(async (req, res) => {
+    res.json({ items: await listNotifications(req.user!.id) });
+  }),
+);
+
+// { ids: ['12', '13'] } hoặc {} để đánh dấu tất cả
+app.post(
+  '/api/notifications/read',
+  requireUser,
+  route(async (req, res) => {
+    res.json({ items: await readNotifications(req.user!.id, (req.body as { ids?: unknown })?.ids) });
   }),
 );
 

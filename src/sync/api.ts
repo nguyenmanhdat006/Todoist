@@ -13,12 +13,27 @@ export interface FriendLists {
   outgoing: ApiUser[];
 }
 
+export interface BoardInfo {
+  id: string;
+  name: string;
+  position: number;
+}
+
 export interface ProjectInfo {
   id: string;
   name: string;
   ownerId: string;
   role: 'host' | 'member';
   memberCount?: number;
+  boards: BoardInfo[];
+}
+
+export interface ServerNotice {
+  id: string;
+  type: 'project_added' | string;
+  data: { projectId?: string; projectName?: string; by?: string };
+  createdAt: string;
+  read: boolean;
 }
 
 export interface Member extends ApiUser {
@@ -68,10 +83,11 @@ export const api = {
   register: (email: string, password: string, name: string) =>
     call<{ user: ApiUser }>('POST', '/api/auth/register', { email, password, name }),
   logout: () => call<{ ok: true }>('POST', '/api/auth/logout', {}),
-  getBoard: (project: string | null) =>
-    call<{ revision: number; file: ExportFile | null }>('GET', project ? `/api/board?project=${encodeURIComponent(project)}` : '/api/board'),
-  putBoard: (baseRevision: number, file: ExportFile, project: string | null) =>
-    call<{ revision: number; warnings: number }>('PUT', '/api/board', { baseRevision, file, ...(project ? { project } : {}) }),
+  /** board = id bảng trong dự án; null = bảng cá nhân */
+  getBoard: (board: string | null) =>
+    call<{ revision: number; file: ExportFile | null }>('GET', board ? `/api/board?board=${encodeURIComponent(board)}` : '/api/board'),
+  putBoard: (baseRevision: number, file: ExportFile, board: string | null) =>
+    call<{ revision: number; warnings: number }>('PUT', '/api/board', { baseRevision, file, ...(board ? { board } : {}) }),
 
   // bạn bè
   friends: () => call<FriendLists>('GET', '/api/friends'),
@@ -81,7 +97,12 @@ export const api = {
 
   // dự án
   projects: () => call<{ projects: ProjectInfo[] }>('GET', '/api/projects'),
-  createProject: (name: string) => call<{ project: ProjectInfo }>('POST', '/api/projects', { name }),
+  createProject: (name: string, boardName: string) => call<{ project: ProjectInfo }>('POST', '/api/projects', { name, boardName }),
+  createBoard: (projectId: string, name: string) => call<{ board: BoardInfo }>('POST', `/api/projects/${projectId}/boards`, { name }),
+  renameBoard: (id: string, name: string) => call<{ board: BoardInfo }>('PATCH', `/api/boards/${id}`, { name }),
+  deleteBoard: (id: string) => call<{ ok: true }>('DELETE', `/api/boards/${id}`),
+  notifications: () => call<{ items: ServerNotice[] }>('GET', '/api/notifications'),
+  readNotifications: (ids?: string[]) => call<{ items: ServerNotice[] }>('POST', '/api/notifications/read', ids ? { ids } : {}),
   project: (id: string) => call<{ project: ProjectInfo; members: Member[] }>('GET', `/api/projects/${id}`),
   renameProject: (id: string, name: string) => call<{ project: { id: string; name: string } }>('PATCH', `/api/projects/${id}`, { name }),
   deleteProject: (id: string) => call<{ ok: true }>('DELETE', `/api/projects/${id}`),

@@ -98,3 +98,7 @@
 @media (hover: none) {
   .notif-mark.is-read svg { opacity: 1; }
 }
+
+/* thông báo được thêm vào dự án */
+.notif-icon.is-project { color: var(--orange); background: color-mix(in srgb, var(--orange) 16%, transparent); }
+.notif-item.is-new .notif-task { white-space: normal; }

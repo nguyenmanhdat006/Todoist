@@ -34,7 +34,12 @@ export function TaskCardBody({ task, done, color, overlay }: BodyProps) {
       className={`card${tint ? ` is-tinted status-${status}` : ''}${done ? ' is-done' : ''}${overlay ? ' is-overlay' : ''}`}
       style={{ '--col': color, ...(tint ? { '--st': tint } : {}) } as CSSProperties}
     >
-      <div className="card-head">
+      {assigned.length > 0 && (
+        <span className="card-assignees">
+          <AvatarStack users={assigned} max={3} size={24} />
+        </span>
+      )}
+      <div className={`card-head${assigned.length > 0 ? ` has-avatars av-${Math.min(assigned.length, 4)}` : ''}`}>
         <input
           type="checkbox"
           className="card-check"
@@ -67,9 +72,8 @@ export function TaskCardBody({ task, done, color, overlay }: BodyProps) {
           <span className="card-progress-value">{pct === 0 ? t('progress.notSet') : `${pct}%`}</span>
         </div>
       )}
-      {(due || assigned.length > 0) && (
+      {due && (
         <div className="card-foot">
-          {assigned.length > 0 && <AvatarStack users={assigned} max={3} size={22} />}
           {due && (
             <span className={`due due-${due.tone}`}>
               {due.label}

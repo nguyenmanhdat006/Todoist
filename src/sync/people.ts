@@ -1,12 +1,14 @@
 /** Bạn bè, dự án và thành viên dự án đang mở (lấy từ API, không lưu offline) */
 import { create } from 'zustand';
-import { api, type ApiUser, type FriendLists, type Member, type ProjectInfo } from './api';
+import { api, type ApiUser, type BoardInfo, type FriendLists, type Member, type ProjectInfo, type ServerNotice } from './api';
 import { useSession } from './session';
 
 interface PeopleState extends FriendLists {
   projects: ProjectInfo[];
   /** Thành viên của dự án đang mở */
   members: Member[];
+  /** Thông báo từ máy chủ (ví dụ: được thêm vào dự án) */
+  notices: ServerNotice[];
   loaded: boolean;
 }
 
@@ -16,6 +18,7 @@ export const usePeople = create<PeopleState>(() => ({
   outgoing: [],
   projects: [],
   members: [],
+  notices: [],
   loaded: false,
 }));
 
@@ -39,11 +42,32 @@ export async function loadMembers(projectId: string | null) {
   set({ members });
 }
 
+/** Dự án chứa bảng đang mở (null nếu đang ở bảng cá nhân) */
+export function projectOfBoard(board: string | null, projects: ProjectInfo[]): ProjectInfo | undefined {
+  if (!board) return undefined;
+  return projects.find((p) => p.boards.some((b) => b.id === board));
+}
+
+export function boardInfo(board: string | null, projects: ProjectInfo[]): BoardInfo | undefined {
+  return projectOfBoard(board, projects)?.boards.find((b) => b.id === board);
+}
+
+export async function loadNotices() {
+  const { items } = await api.notifications();
+  set({ notices: items });
+}
+
+export async function readNotices(ids?: string[]) {
+  const { items } = await api.readNotifications(ids);
+  set({ notices: items });
+}
+
 /** Tải lại mọi thứ (sau khi đăng nhập, khi chuyển bảng, hoặc định kỳ) */
 export async function refreshPeople() {
-  const project = useSession.getState().project;
   try {
-    await Promise.all([loadFriends(), loadProjects(), loadMembers(project)]);
+    await Promise.all([loadFriends(), loadProjects(), loadNotices()]);
+    const board = useSession.getState().board;
+    await loadMembers(projectOfBoard(board, usePeople.getState().projects)?.id ?? null);
     set({ loaded: true });
   } catch {
     /* mất mạng: giữ dữ liệu cũ */
@@ -64,8 +88,8 @@ export async function removeFriend(id: string) {
   set(await api.removeFriend(id));
 }
 
-export async function createProject(name: string) {
-  const { project } = await api.createProject(name);
+export async function createProject(name: string, boardName: string) {
+  const { project } = await api.createProject(name, boardName);
   await loadProjects();
   return project;
 }
@@ -82,20 +106,36 @@ export async function deleteProject(id: string) {
 
 export async function addMember(projectId: string, userId: string) {
   const { members } = await api.addMember(projectId, userId);
-  set({ members });
-  await loadProjects();
+  await refreshPeople();
+  return members;
 }
 
 export async function removeMember(projectId: string, userId: string) {
   const { members } = await api.removeMember(projectId, userId);
-  set({ members });
+  await refreshPeople();
+  return members;
+}
+
+export async function createBoard(projectId: string, name: string) {
+  const { board } = await api.createBoard(projectId, name);
+  await loadProjects();
+  return board;
+}
+
+export async function renameBoard(id: string, name: string) {
+  await api.renameBoard(id, name);
   await loadProjects();
 }
 
-/** Những người có thể gắn vào việc trên bảng đang mở: thành viên dự án, hoặc mình + bạn bè ở bảng cá nhân */
-export function assignableUsers(me: ApiUser | null, project: string | null, s: PeopleState): ApiUser[] {
-  if (project) return s.members;
-  return me ? [me, ...s.friends] : s.friends;
+export async function deleteBoard(id: string) {
+  await api.deleteBoard(id);
+  await loadProjects();
+}
+
+/** Người có thể gắn vào việc: thành viên dự án ở bảng dự án; bảng cá nhân chỉ có chính mình */
+export function assignableUsers(me: ApiUser | null, board: string | null, s: PeopleState): ApiUser[] {
+  if (board) return s.members;
+  return me ? [me] : [];
 }
 
 /** Tra thông tin người dùng theo id (để hiện avatar) */
