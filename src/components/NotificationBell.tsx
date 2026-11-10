@@ -1,3 +1,4 @@
+import { askConfirm } from '../confirm';
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useBoard } from '../store/board';
 import { readNotices, refreshPeople, usePeople } from '../sync/people';
@@ -50,7 +51,7 @@ export function NotificationBell({ onOpenTask, onToast }: Props) {
     const p = projects.find((x) => x.id === n.data.projectId);
     if (p?.boards[0]) {
       setOpen(false);
-      const ok = await switchBoard(p.boards[0].id, () => window.confirm(t('sync.logoutConfirm')));
+      const ok = await switchBoard(p.boards[0].id, () => askConfirm({ message: t('sync.logoutConfirm'), danger: true }));
       if (ok) await refreshPeople();
     }
   };

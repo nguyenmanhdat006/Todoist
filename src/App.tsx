@@ -9,6 +9,7 @@ import { TaskModal, type TaskDefaults } from './components/TaskModal';
 import { CalendarView } from './components/CalendarView';
 import { SettingsMenu, type ToastData } from './components/Extras';
 import { showToast as showToastMsg } from './toast';
+import { askConfirm } from './confirm';
 import { findSampleTaskIds } from './data/legacySample';
 import { HelpButton, LangSwitch, ProgressRing, ThemeSwitch } from './components/TopbarWidgets';
 import { NotificationBell } from './components/NotificationBell';
@@ -197,7 +198,7 @@ export default function App() {
       const st = useSession.getState();
       const current = st.board ?? st.user?.id ?? null;
       if (boardId && boardId !== current) {
-        const ok = await switchBoard(boardId, () => window.confirm(t('sync.logoutConfirm')));
+        const ok = await switchBoard(boardId, () => askConfirm({ message: t('sync.logoutConfirm'), danger: true }));
         if (!ok) return;
         void refreshPeople();
       }

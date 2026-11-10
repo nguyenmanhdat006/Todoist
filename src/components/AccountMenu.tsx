@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useT } from '../i18n';
+import { askConfirm } from '../confirm';
 import { logout, useSession } from '../sync/session';
 import { LangSwitch, ThemeSwitch } from './TopbarWidgets';
 import { AdminDialog, ProfileDialog, RoleBadge } from './Profile';
@@ -53,10 +54,12 @@ export function AccountMenu() {
               {initial}
             </span>
             <span className="account-id">
-              {user.name && <strong>{user.name}</strong>}
-              <span>{user.email}</span>
+              <strong>{user.name || user.email.split('@')[0]}</strong>
+              <span className="account-mail" title={user.email}>
+                {user.email}
+              </span>
+              <RoleBadge role={user.role} />
             </span>
-            <RoleBadge role={user.role} />
           </div>
           {/* Màn hình hẹp: ngôn ngữ và giao diện nằm trong menu này thay vì trên thanh trên cùng */}
           <div className="account-prefs">
@@ -66,34 +69,46 @@ export function AccountMenu() {
           <div className="menu-sep" />
           <button
             type="button"
-            className="menu-item"
+            className="menu-item with-icon"
             onClick={() => {
               setDialog('profile');
               setOpen(false);
             }}
           >
+            <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="10" cy="7" r="3.2" />
+              <path d="M3.8 16.5c.7-3 3-4.6 6.2-4.6s5.5 1.6 6.2 4.6" />
+            </svg>
             {t('profile.menu')}
           </button>
           {user.role === 'admin' && (
             <button
               type="button"
-              className="menu-item"
+              className="menu-item with-icon"
               onClick={() => {
                 setDialog('admin');
                 setOpen(false);
               }}
             >
+              <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M10 2.5l6 2.3v4.4c0 3.6-2.5 6.3-6 8-3.5-1.7-6-4.4-6-8V4.8z" />
+                <path d="M7.4 10l1.9 1.9 3.4-3.7" />
+              </svg>
               {t('admin.menu')}
             </button>
           )}
+          <div className="menu-sep" />
           <button
             type="button"
-            className="menu-item"
+            className="menu-item with-icon is-signout"
             onClick={async () => {
-              const ok = await logout(() => window.confirm(t('sync.logoutConfirm')));
+              const ok = await logout(() => askConfirm({ message: t('sync.logoutConfirm'), confirmLabel: t('sync.logout'), danger: true }));
               if (ok) setOpen(false);
             }}
           >
+            <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M8 3.5H4.5v13H8M12.5 6.5L16 10l-3.5 3.5M16 10H8" />
+            </svg>
             {t('sync.logout')}
           </button>
         </div>

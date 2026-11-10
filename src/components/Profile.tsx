@@ -3,6 +3,7 @@ import { useT, type TKey } from '../i18n';
 import { api, ApiError, type AdminUser, type Role } from '../sync/api';
 import { applyUser, useSession } from '../sync/session';
 import { toast } from '../toast';
+import { askConfirm } from '../confirm';
 import { Avatar } from './Avatar';
 import { Dialog } from './Social';
 import '../profile.css';
@@ -248,8 +249,8 @@ export function AdminDialog({ onClose }: { onClose: () => void }) {
                 type="button"
                 className={`btn sm ${u.disabled ? 'ghost' : 'danger-ghost'}`}
                 disabled={self || busy === u.id}
-                onClick={() => {
-                  if (!u.disabled && !window.confirm(t('admin.lockConfirm', { name: who }))) return;
+                onClick={async () => {
+                  if (!u.disabled && !(await askConfirm({ message: t('admin.lockConfirm', { name: who }), confirmLabel: t('admin.lock'), danger: true }))) return;
                   void update(u, { disabled: !u.disabled });
                 }}
               >

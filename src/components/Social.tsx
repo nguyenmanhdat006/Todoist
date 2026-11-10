@@ -4,6 +4,7 @@
  *  - SidebarToggle: thanh bên kiểu Jira — kiểu xem, bảng của tôi, dự án và các bảng trong dự án
  *  - ProjectDialog: tạo dự án, đổi tên, thêm/bớt thành viên (host), rời / xoá dự án
  */
+import { askConfirm } from '../confirm';
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useT, type TKey } from '../i18n';
@@ -208,7 +209,7 @@ export function FriendsButton() {
                       title={t('social.unfriend')}
                       aria-label={`${t('social.unfriend')}: ${u.email}`}
                       onClick={act(async () => {
-                        if (window.confirm(t('social.unfriendConfirm', { name: u.name || u.email }))) await removeFriend(u.id);
+                        if (await askConfirm({ message: t('social.unfriendConfirm', { name: u.name || u.email }), confirmLabel: t('social.unfriend'), danger: true })) await removeFriend(u.id);
                       })}
                     >
                       ×
@@ -315,7 +316,7 @@ function Sidebar({ onClose: closeNow }: { onClose: () => void }) {
 
   const open = async (id: string | null, v?: 'kanban' | 'list' | 'calendar') => {
     if (v) setView(v);
-    const ok = await switchBoard(id, () => window.confirm(t('sync.logoutConfirm')));
+    const ok = await switchBoard(id, () => askConfirm({ message: t('sync.logoutConfirm'), danger: true }));
     // Thanh bên giữ nguyên: chỉ đóng khi bấm vùng trống, nút ✕ hoặc Esc
     if (ok) await refreshPeople();
   };
@@ -805,7 +806,7 @@ function ManageProjectDialog({ projectId, onClose, onLeft }: { projectId: string
                             aria-label={`${t('side.deleteBoard')}: ${b.name}`}
                             onClick={() =>
                               void run(async () => {
-                                if (!window.confirm(t('side.deleteBoardConfirm', { name: b.name }))) return;
+                                if (!(await askConfirm({ message: t('side.deleteBoardConfirm', { name: b.name }), confirmLabel: t('side.deleteBoard'), danger: true }))) return;
                                 if (useSession.getState().board === b.id) await switchBoard(null, () => true);
                                 await deleteBoard(b.id);
                               })
@@ -865,7 +866,7 @@ function ManageProjectDialog({ projectId, onClose, onLeft }: { projectId: string
               className="btn danger-ghost"
               onClick={() =>
                 void run(async () => {
-                  if (!window.confirm(t('social.deleteConfirm', { name: project?.name ?? '' }))) return;
+                  if (!(await askConfirm({ message: t('social.deleteConfirm', { name: project?.name ?? '' }), confirmLabel: t('social.deleteProject'), danger: true }))) return;
                   await deleteProject(projectId);
                   onClose();
                   onLeft();
@@ -880,7 +881,7 @@ function ManageProjectDialog({ projectId, onClose, onLeft }: { projectId: string
               className="btn danger-ghost"
               onClick={() =>
                 void run(async () => {
-                  if (!me || !window.confirm(t('social.leaveConfirm', { name: project?.name ?? '' }))) return;
+                  if (!me || !(await askConfirm({ message: t('social.leaveConfirm', { name: project?.name ?? '' }), confirmLabel: t('social.leave'), danger: true }))) return;
                   await removeMember(projectId, me.id);
                   onClose();
                   onLeft();

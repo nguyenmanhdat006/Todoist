@@ -308,10 +308,10 @@ export async function register(email: string, password: string, name: string) {
 }
 
 /** Đăng xuất: gửi nốt thay đổi rồi xoá dữ liệu trên máy. Trả false nếu người dùng huỷ vì còn dữ liệu chưa lưu. */
-export async function logout(confirmLoss: () => boolean): Promise<boolean> {
+export async function logout(confirmLoss: () => boolean | Promise<boolean>): Promise<boolean> {
   clearTimeout(timer);
   if (meta.dirty) await push();
-  if (meta.dirty && !confirmLoss()) return false;
+  if (meta.dirty && !(await confirmLoss())) return false;
   try {
     await api.logout();
   } catch {
@@ -330,11 +330,11 @@ export async function logout(confirmLoss: () => boolean): Promise<boolean> {
  * Mở bảng khác: gửi nốt thay đổi của bảng hiện tại, rồi tải bảng mới từ máy chủ.
  * Trả false nếu không chuyển được (mất mạng mà còn thay đổi chưa lưu và người dùng huỷ).
  */
-export async function switchBoard(board: string | null, confirmLoss: () => boolean): Promise<boolean> {
+export async function switchBoard(board: string | null, confirmLoss: () => boolean | Promise<boolean>): Promise<boolean> {
   if (board === meta.board) return true;
   clearTimeout(timer);
   if (meta.dirty) await push();
-  if (meta.dirty && !confirmLoss()) return false;
+  if (meta.dirty && !(await confirmLoss())) return false;
   set({ switching: true });
   try {
     const { revision, file } = await api.getBoard(board);

@@ -78,3 +78,19 @@
 @media (prefers-reduced-motion: reduce) {
   .auth-spinner, .sync-saving .sync-dot { animation: none; }
 }
+
+/* ---------- menu tài khoản: gọn, thẳng hàng ---------- */
+.popover.account-menu { width: 300px; padding: 0; gap: 0; overflow: hidden; }
+.account-head { align-items: center; gap: 12px; padding: 16px 16px 14px; }
+.account-avatar { width: 44px; height: 44px; font-size: 18px; }
+.account-id { flex: 1; align-items: flex-start; gap: 3px; }
+.account-id strong { font-size: 15px; line-height: 1.25; letter-spacing: -0.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.account-id .account-mail { font-size: 12.5px; max-width: 100%; }
+.account-id .role-chip { margin-top: 4px; padding: 2px 8px; font-size: 10.5px; }
+.account-menu .account-prefs { padding: 0 16px 12px; }
+.account-menu .menu-sep { margin: 0; }
+.account-menu .menu-item { display: flex; align-items: center; gap: 12px; padding: 11px 16px; font-size: 14px; color: var(--fg); transition: background-color 0.15s, color 0.15s; }
+.account-menu .menu-item svg { flex: none; color: var(--muted); transition: color 0.15s; }
+.account-menu .menu-item:hover svg { color: var(--blue); }
+.account-menu .menu-item.is-signout:hover { color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, transparent); }
+.account-menu .menu-item.is-signout:hover svg { color: var(--danger); }

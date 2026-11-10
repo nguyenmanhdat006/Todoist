@@ -5,6 +5,8 @@ import type { Lang } from './types';
 const vi = {
   'app.name': 'Quản lý công việc',
   'footer.rights': 'Bảo lưu mọi quyền',
+  'confirm.title': 'Bạn chắc chắn chứ?',
+  'confirm.ok': 'Đồng ý',
   'err.account_disabled': 'Tài khoản này đã bị khoá. Hãy liên hệ quản trị viên.',
   'profile.menu': 'Chỉnh sửa hồ sơ',
   'profile.title': 'Hồ sơ của tôi',
@@ -431,6 +433,8 @@ export type TKey = keyof typeof vi;
 const en: Record<TKey, string> = {
   'app.name': 'Task management',
   'footer.rights': 'All rights reserved',
+  'confirm.title': 'Are you sure?',
+  'confirm.ok': 'Confirm',
   'err.account_disabled': 'This account has been locked. Contact an administrator.',
   'profile.menu': 'Edit profile',
   'profile.title': 'My profile',
