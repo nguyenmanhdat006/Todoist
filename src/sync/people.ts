@@ -2,6 +2,7 @@
 import { create } from 'zustand';
 import { api, type ApiUser, type BoardInfo, type FriendLists, type Member, type ProjectInfo, type ServerNotice } from './api';
 import { useSession } from './session';
+import { toast } from '../toast';
 
 interface PeopleState extends FriendLists {
   projects: ProjectInfo[];
@@ -82,54 +83,64 @@ export async function requestFriend(email: string) {
 
 export async function acceptFriend(id: string) {
   set(await api.acceptFriend(id));
+  toast.success('toast.friendAccepted');
 }
 
 export async function removeFriend(id: string) {
   set(await api.removeFriend(id));
+  toast.success('toast.friendRemoved');
 }
 
 export async function createProject(name: string, kind: 'personal' | 'team') {
   const { project } = await api.createProject(name, kind);
   await loadProjects();
+  toast.success('toast.projectCreated', { name: name.trim() });
   return project;
 }
 
 export async function renameProject(id: string, name: string) {
   await api.renameProject(id, name);
   await loadProjects();
+  toast.success('toast.projectRenamed', { name: name.trim() });
 }
 
 export async function deleteProject(id: string) {
   await api.deleteProject(id);
   await loadProjects();
+  toast.success('toast.projectDeleted');
 }
 
 export async function addMember(projectId: string, userId: string) {
   const { members } = await api.addMember(projectId, userId);
   await refreshPeople();
+  toast.success('toast.memberAdded');
   return members;
 }
 
 export async function removeMember(projectId: string, userId: string) {
   const { members } = await api.removeMember(projectId, userId);
   await refreshPeople();
+  toast.success('toast.memberRemoved');
   return members;
 }
 
 export async function createBoard(projectId: string, name: string) {
   const { board } = await api.createBoard(projectId, name);
   await loadProjects();
+  toast.success('toast.boardCreated', { name: name.trim() });
   return board;
 }
 
 export async function renameBoard(id: string, name: string) {
   await api.renameBoard(id, name);
   await loadProjects();
+  toast.success('toast.boardRenamed', { name: name.trim() });
 }
 
 export async function deleteBoard(id: string) {
   await api.deleteBoard(id);
   await loadProjects();
+  toast.success('toast.boardDeleted');
 }
 
 /** Người có thể gắn vào việc: thành viên dự án ở bảng dự án; bảng cá nhân chỉ có chính mình */

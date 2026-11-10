@@ -1,3 +1,4 @@
+import { toast } from '../toast';
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useBoard } from '../store/board';
 import type { Column, Priority } from '../types';
@@ -114,12 +115,14 @@ export function TaskModal({ taskId, defaultColumnId, defaults, onClose, onDelete
     };
     if (task) {
       s.updateTask(task.id, data);
+      toast.success('toast.taskUpdated', { title: data.title });
       if (columnId !== currentColumnId) {
         const target = s.columns.find((c) => c.id === columnId);
         s.moveTask(task.id, columnId, target ? target.taskIds.length : 0);
       }
     } else {
       s.addTask(columnId, data);
+      toast.success('toast.taskAdded', { title: data.title });
     }
     onClose();
   };

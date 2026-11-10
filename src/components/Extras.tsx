@@ -12,33 +12,6 @@ export interface ToastData {
   actionLabel?: string;
 }
 
-export function Toast({ toast, onClose }: { toast: ToastData | null; onClose: () => void }) {
-  const t = useT();
-  useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(onClose, 5000);
-    return () => clearTimeout(t);
-  }, [toast, onClose]);
-  if (!toast) return null;
-  return (
-    <div className="toast" role="status" key={toast.id}>
-      <span>{toast.message}</span>
-      {toast.onUndo && (
-        <button
-          type="button"
-          className="toast-undo"
-          onClick={() => {
-            toast.onUndo?.();
-            onClose();
-          }}
-        >
-          {toast.actionLabel ?? t('toast.undo')}
-        </button>
-      )}
-    </div>
-  );
-}
-
 export function SettingsMenu({ onToast }: { onToast: (t: Omit<ToastData, 'id'>) => void }) {
   const [open, setOpen] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);

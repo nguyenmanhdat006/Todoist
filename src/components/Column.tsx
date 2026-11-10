@@ -1,3 +1,4 @@
+import { toast } from '../toast';
 import { useEffect, useRef, useState } from 'react';
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -79,7 +80,10 @@ function ColumnMenu({ column, onClose, onDelete }: { column: Column; onClose: ()
 
   const saveTitle = () => {
     const t = title.trim();
-    if (t && t !== column.title) updateColumn(column.id, { title: t });
+    if (t && t !== column.title) {
+      updateColumn(column.id, { title: t });
+      toast.success('toast.columnRenamed', { title: t });
+    }
   };
 
   return (

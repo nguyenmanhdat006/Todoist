@@ -6,6 +6,7 @@
  * - Mỗi thay đổi được gửi lên sau ~0,8 giây (cả bảng một lần, dạng file xuất JSON).
  * - revision tăng mỗi lần lưu; nếu thiết bị khác đã lưu trước (409), tải bản mới về và cho chọn giữ bản trên máy này.
  */
+import { toast } from '../toast';
 import { create } from 'zustand';
 import { buildExport, parseImport, type ExportFile } from '../data/exchange';
 import { defaultFilters, emptyBoard, useBoard, type Snapshot } from '../store/board';
@@ -99,6 +100,7 @@ function saveMeta(patch: Partial<Meta>) {
 }
 
 let noticeId = 0;
+
 const notify = (n: Omit<Notice, 'id'>) => set({ notice: { ...n, id: ++noticeId } });
 
 /* ---------- áp dữ liệu vào store mà không kích hoạt gửi lên ---------- */
@@ -153,7 +155,9 @@ export async function push(): Promise<void> {
     const st = useBoard.getState();
     const { revision } = await api.putBoard(meta.revision, buildExport(st), meta.board);
     saveMeta({ revision, dirty: localVersion !== started });
+    const wasDown = useSession.getState().sync === 'offline' || useSession.getState().sync === 'error';
     set({ sync: meta.dirty ? 'pending' : 'saved' });
+    if (wasDown) toast.success('toast.online');
     if (meta.dirty) schedule(0);
   } catch (e) {
     await handlePushError(e);
@@ -165,6 +169,7 @@ export async function push(): Promise<void> {
 async function handlePushError(e: unknown) {
   const err = e instanceof ApiError ? e : new ApiError(0, 'network');
   if (err.offline) {
+    if (useSession.getState().sync !== 'offline') toast.info('toast.offline');
     set({ sync: 'offline' });
     schedule(RETRY_DELAY);
   } else if (err.status === 401) {
@@ -173,6 +178,7 @@ async function handlePushError(e: unknown) {
   } else if (err.status === 409) {
     await resolveConflict();
   } else {
+    if (useSession.getState().sync !== 'error') toast.error('toast.syncError');
     set({ sync: 'error' });
   }
 }
@@ -331,11 +337,13 @@ function retryBoot() {
 export async function login(email: string, password: string) {
   const { user } = await api.login(email, password);
   await enter(user);
+  toast.success('toast.signedIn', { name: user.name || user.email });
 }
 
 export async function register(email: string, password: string, name: string) {
   const { user } = await api.register(email, password, name);
   await enter(user);
+  toast.success('toast.signedUp', { name: user.name || user.email });
 }
 
 /** Đăng xuất: gửi nốt thay đổi rồi xoá dữ liệu trên máy. Trả false nếu người dùng huỷ vì còn dữ liệu chưa lưu. */
@@ -351,6 +359,7 @@ export async function logout(confirmLoss: () => boolean): Promise<boolean> {
   resetLocal();
   saveMeta({ userId: null, email: '', name: '', revision: 0, dirty: false, board: null });
   set({ status: 'anon', user: null, sync: 'saved', choice: null, board: null });
+  toast.success('toast.signedOut');
   return true;
 }
 

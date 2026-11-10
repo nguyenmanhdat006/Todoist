@@ -7,7 +7,8 @@ import { Board } from './components/Board';
 import { ListView } from './components/ListView';
 import { TaskModal, type TaskDefaults } from './components/TaskModal';
 import { CalendarView } from './components/CalendarView';
-import { SettingsMenu, Toast, type ToastData } from './components/Extras';
+import { SettingsMenu, type ToastData } from './components/Extras';
+import { showToast as showToastMsg } from './toast';
 import { HelpButton, LangSwitch, ProgressRing, ThemeSwitch } from './components/TopbarWidgets';
 import { NotificationBell } from './components/NotificationBell';
 import { AccountMenu } from './components/AccountMenu';
@@ -34,20 +35,21 @@ export default function App() {
   /** undefined = đóng, null = tạo mới, SavedFilter = đang sửa */
   const [editing, setEditing] = useState<SavedFilter | null | undefined>(undefined);
   const [modal, setModal] = useState<{ taskId: string | null; columnId: string; defaults?: TaskDefaults } | null>(null);
-  const [toast, setToast] = useState<ToastData | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
-  const showToast = useCallback((t: Omit<ToastData, 'id'>) => setToast({ ...t, id: Date.now() }), []);
-  const closeToast = useCallback(() => setToast(null), []);
+  const showToast = useCallback(
+    (x: Omit<ToastData, 'id'>) => showToastMsg(x.message, x.onUndo ? { onAction: x.onUndo, ...(x.actionLabel ? { actionLabel: x.actionLabel } : {}) } : {}),
+    [],
+  );
   const closeModal = useCallback(() => setModal(null), []);
 
   // Thông báo từ phần đồng bộ (xung đột, hết phiên...) hiện bằng toast
   const notice = useSession((s) => s.notice);
   useEffect(() => {
     if (!notice) return;
-    showToast({
-      message: t(notice.key),
-      ...(notice.onAction && notice.actionKey ? { actionLabel: t(notice.actionKey), onUndo: notice.onAction } : {}),
+    showToastMsg(t(notice.key), {
+      kind: notice.key === 'sync.sessionExpired' ? 'error' : 'info',
+      ...(notice.onAction && notice.actionKey ? { actionLabel: t(notice.actionKey), onAction: notice.onAction } : {}),
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [notice]);
@@ -424,7 +426,6 @@ export default function App() {
           onDelete={deleteFilter}
         />
       )}
-      <Toast toast={toast} onClose={closeToast} />
     </div>
   );
 }

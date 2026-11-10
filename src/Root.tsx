@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import App from './App';
 import { useBoard } from './store/board';
 import { boot, useSession } from './sync/session';
+import { ToastHost } from './components/ToastHost';
 import { AuthScreen, ChooseScreen, SplashScreen } from './components/AuthScreen';
 
 let booted = false;
@@ -29,8 +30,12 @@ export default function Root() {
     document.documentElement.lang = lang;
   }, [lang]);
 
-  if (status === 'checking') return <SplashScreen />;
-  if (status === 'anon') return <AuthScreen />;
-  if (status === 'choose') return <ChooseScreen />;
-  return <App />;
+  const screen =
+    status === 'checking' ? <SplashScreen /> : status === 'anon' ? <AuthScreen /> : status === 'choose' ? <ChooseScreen /> : <App />;
+  return (
+    <>
+      {screen}
+      <ToastHost />
+    </>
+  );
 }

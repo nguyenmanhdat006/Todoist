@@ -1,3 +1,4 @@
+import { toast } from '../toast';
 import { useRef, useState } from 'react';
 import {
   DndContext,
@@ -166,6 +167,7 @@ export function Board({ matches, onOpenTask, onDeleteColumn }: Props) {
                 e.preventDefault();
                 if (!newCol.trim()) return;
                 addColumn(newCol, COLUMN_COLORS[columns.length % COLUMN_COLORS.length].hex);
+                toast.success('toast.columnAdded', { title: newCol.trim() });
                 setNewCol(null);
               }}
             >
