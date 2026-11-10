@@ -72,9 +72,10 @@ export default function App() {
     if (switching) return;
     const key = board ?? 'personal';
     if (purgedBoards.has(key)) return;
+    // Dữ liệu có thể tải về sau khi đăng nhập: chỉ đánh dấu đã dọn khi thật sự có việc mẫu
     const ids = findSampleTaskIds(allTasks);
-    purgedBoards.add(key);
     if (ids.length === 0) return;
+    purgedBoards.add(key);
     const st = useBoard.getState();
     const prev = st.snapshot();
     ids.forEach((id) => st.deleteTask(id));
