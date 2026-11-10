@@ -264,7 +264,7 @@ export function demoData(lang: Lang = detectLang()): BoardData {
 export const useBoard = create<BoardState>()(
   persist(
     (set, get) => ({
-      ...demoData(),
+      ...emptyBoard(),
       theme: 'dark',
       view: 'kanban',
       calMode: 'week',

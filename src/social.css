@@ -172,3 +172,8 @@
 .side-board-menu .side-newboard { background: none; color: var(--muted); }
 .side-board-menu .side-newboard:hover { color: var(--blue); background: var(--surface-2); }
 .side-project-boards .side-empty { margin: 2px 6px; }
+
+/* ô chọn bạn trong hộp thoại quản lý dự án: đủ cao để không cắt chữ */
+.field .social-add-row { align-items: stretch; }
+.field .social-add-row select { width: auto; height: 38px; min-height: 38px; padding: 0 10px; line-height: 36px; }
+.field .social-add-row .btn { height: 38px; padding-top: 0; padding-bottom: 0; }
