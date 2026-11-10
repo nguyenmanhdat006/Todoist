@@ -23,24 +23,23 @@
 }
 /* dải màu đậm hơn ở đáy */
 .hero-banner-band {
-  position: absolute; left: 0; right: 0; bottom: 0; height: 28%; pointer-events: none;
+  position: absolute; left: 0; right: 0; bottom: 0; height: 28px; pointer-events: none;
   background: linear-gradient(90deg, color-mix(in srgb, var(--ban) 24%, transparent), color-mix(in srgb, var(--ban) 12%, transparent));
 }
 .hero-banner-content { position: relative; display: flex; align-items: flex-end; gap: 14px; height: 100%; padding-top: 6px; }
 .hero-banner-text {
   min-width: 0; white-space: nowrap;
-  margin: 0 0 22px; display: flex; flex-direction: column; gap: 2px;
+  margin: 0 0 40px; display: flex; flex-direction: column; gap: 2px;
   font-size: 20px; font-weight: 800; line-height: 1.2; letter-spacing: -0.01em;
   color: color-mix(in srgb, var(--ban) 85%, var(--fg));
 }
 .hero-banner-text span:last-child { font-weight: 700; }
 
-.hero-hand { flex: none; overflow: visible; }
+.hero-hand { flex: none; overflow: visible; margin-bottom: 27px; }
 .hero-hand .skin { fill: #fbc7a4; stroke: #c9805e; stroke-width: 1.4; }
 .hero-hand .fold { fill: #f6b48f; }
 .hero-hand .blush { fill: #e9967a; }
-.hero-hand .sleeve { fill: #9a3412; }
-.hero-hand .cuff { fill: #7c2d12; }
+.hero-hand .sleeve { fill: #a3290f; }
 .hero-hand-wave { transform-origin: 32px 62px; animation: hero-wave 2.6s ease-in-out infinite; }
 /* Vẫy vài nhịp rồi nghỉ, lặp lại */
 @keyframes hero-wave {

@@ -4,7 +4,7 @@
  *  - SidebarToggle: thanh bên kiểu Jira — kiểu xem, bảng của tôi, dự án và các bảng trong dự án
  *  - ProjectDialog: tạo dự án, đổi tên, thêm/bớt thành viên (host), rời / xoá dự án
  */
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useT, type TKey } from '../i18n';
 import { api, ApiError, type ApiUser, type Member, type ProjectInfo } from '../sync/api';
@@ -68,6 +68,14 @@ function usePopover(open: boolean, close: () => void) {
     };
   }, [open, close]);
   return ref;
+}
+
+function TrashIcon() {
+  return (
+    <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5M7 7v4M9 7v4" />
+    </svg>
+  );
 }
 
 function PersonRow({ user, children, badge }: { user: ApiUser; children?: ReactNode; badge?: ReactNode }) {
@@ -271,8 +279,17 @@ type DialogState =
   | { kind: 'manage'; projectId: string }
   | null;
 
-function Sidebar({ onClose }: { onClose: () => void }) {
+function Sidebar({ onClose: closeNow }: { onClose: () => void }) {
   const t = useT();
+  // Thu về có hiệu ứng trượt ra rồi mới gỡ khỏi trang
+  const [closing, setClosing] = useState(false);
+  const closingRef = useRef(false);
+  const onClose = useCallback(() => {
+    if (closingRef.current) return;
+    closingRef.current = true;
+    setClosing(true);
+    setTimeout(closeNow, 240);
+  }, [closeNow]);
   const board = useSession((s) => s.board);
   const me = useSession((s) => s.user);
   const view = useBoard((s) => s.view);
@@ -299,10 +316,8 @@ function Sidebar({ onClose }: { onClose: () => void }) {
   const open = async (id: string | null, v?: 'kanban' | 'list' | 'calendar') => {
     if (v) setView(v);
     const ok = await switchBoard(id, () => window.confirm(t('sync.logoutConfirm')));
-    if (ok) {
-      await refreshPeople();
-      onClose();
-    }
+    // Thanh bên giữ nguyên: chỉ đóng khi bấm vùng trống, nút ✕ hoặc Esc
+    if (ok) await refreshPeople();
   };
 
   // Bấm tên dự án: xổ / thu danh sách bảng của dự án, và đánh dấu đã xem thông báo "được thêm vào dự án"
@@ -333,10 +348,19 @@ function Sidebar({ onClose }: { onClose: () => void }) {
   ];
 
   return createPortal(
-    <div className="side-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <aside className="sidebar" role="dialog" aria-modal="true" aria-label={t('side.title')}>
+    <div className={`side-backdrop${closing ? ' is-closing' : ''}`} onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <aside className={`sidebar${closing ? ' is-closing' : ''}`} role="dialog" aria-modal="true" aria-label={t('side.title')}>
         <header className="side-head">
-          <span className="side-title">{t('app.name')}</span>
+          <span className="side-brand">
+            <span className="brand-mark" aria-hidden="true">
+              <svg viewBox="0 0 20 20" width="16" height="16">
+                <rect x="2.5" y="3" width="4" height="14" rx="1.2" fill="currentColor" />
+                <rect x="8" y="3" width="4" height="9" rx="1.2" fill="currentColor" opacity=".8" />
+                <rect x="13.5" y="3" width="4" height="11.5" rx="1.2" fill="currentColor" opacity=".6" />
+              </svg>
+            </span>
+            <span className="side-title">{t('app.name')}</span>
+          </span>
           <button type="button" className="icon-btn" aria-label={t('modal.close')} onClick={onClose}>
             ✕
           </button>
@@ -651,6 +675,8 @@ function ManageProjectDialog({ projectId, onClose, onLeft }: { projectId: string
   const [pick, setPick] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
+  // Đang đổi tên bảng ngay trên dòng (thay cho hộp nhập của trình duyệt)
+  const [editing, setEditing] = useState<{ id: string; name: string } | null>(null);
 
   // Thành viên của dự án đang quản lý (có thể khác dự án của bảng đang mở)
   useEffect(() => {
@@ -691,7 +717,7 @@ function ManageProjectDialog({ projectId, onClose, onLeft }: { projectId: string
         </label>
 
         {!isPersonal && (
-        <div className="field">
+        <div className="field dlg-section">
           <span>
             {t('social.members')} · {members.length}
           </span>
@@ -710,7 +736,7 @@ function ManageProjectDialog({ projectId, onClose, onLeft }: { projectId: string
                     aria-label={`${t('social.removeMember')}: ${m.email}`}
                     onClick={() => void run(async () => setMembers(await removeMember(projectId, m.id)))}
                   >
-                    ×
+                    <TrashIcon />
                   </button>
                 )}
               </PersonRow>
@@ -720,46 +746,76 @@ function ManageProjectDialog({ projectId, onClose, onLeft }: { projectId: string
         )}
 
         {project && (
-          <div className="field">
+          <div className="field dlg-section">
             <span>
               {t('side.boards')} · {project.boards.length}
             </span>
             <ul className="people">
               {project.boards.map((b) => (
-                <li key={b.id} className="person">
-                  <span className="person-id">
-                    <strong>{b.name}</strong>
+                <li key={b.id} className="person board-row">
+                  <span className="board-ico" aria-hidden="true">
+                    <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <path d="M3 3.5h4v13H3zM8 3.5h4v8H8zM13 3.5h4v10h-4z" />
+                    </svg>
                   </span>
-                  {isHost && (
-                    <span className="person-actions">
-                      <button
-                        type="button"
-                        className="btn ghost sm"
-                        onClick={() =>
-                          void run(async () => {
-                            const n = window.prompt(t('side.boardName'), b.name);
-                            if (n && n.trim() && n.trim() !== b.name) await renameBoard(b.id, n);
-                          })
-                        }
-                      >
-                        {t('side.rename')}
+                  {editing?.id === b.id ? (
+                    <form
+                      className="board-edit"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        const n = editing.name.trim();
+                        setEditing(null);
+                        if (n && n !== b.name) void run(() => renameBoard(b.id, n));
+                      }}
+                    >
+                      <input
+                        autoFocus
+                        value={editing.name}
+                        maxLength={80}
+                        aria-label={t('side.boardName')}
+                        onChange={(e) => setEditing({ id: b.id, name: e.target.value })}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Escape') {
+                            e.stopPropagation();
+                            setEditing(null);
+                          }
+                        }}
+                      />
+                      <button type="submit" className="btn primary sm" disabled={!editing.name.trim()}>
+                        {t('modal.save')}
                       </button>
-                      <button
-                        type="button"
-                        className="person-x"
-                        title={t('side.deleteBoard')}
-                        aria-label={`${t('side.deleteBoard')}: ${b.name}`}
-                        onClick={() =>
-                          void run(async () => {
-                            if (!window.confirm(t('side.deleteBoardConfirm', { name: b.name }))) return;
-                            if (useSession.getState().board === b.id) await switchBoard(null, () => true);
-                            await deleteBoard(b.id);
-                          })
-                        }
-                      >
-                        ×
+                      <button type="button" className="btn ghost sm" onClick={() => setEditing(null)}>
+                        {t('modal.cancel')}
                       </button>
-                    </span>
+                    </form>
+                  ) : (
+                    <>
+                      <span className="person-id">
+                        <strong>{b.name}</strong>
+                      </span>
+                      {isHost && (
+                        <span className="person-actions">
+                          <button type="button" className="btn ghost sm" onClick={() => setEditing({ id: b.id, name: b.name })}>
+                            {t('side.rename')}
+                          </button>
+                          <button
+                            type="button"
+                            className="person-x"
+                            title={t('side.deleteBoard')}
+                            aria-label={`${t('side.deleteBoard')}: ${b.name}`}
+                            onClick={() =>
+                              void run(async () => {
+                                if (!window.confirm(t('side.deleteBoardConfirm', { name: b.name }))) return;
+                                if (useSession.getState().board === b.id) await switchBoard(null, () => true);
+                                await deleteBoard(b.id);
+                              })
+                            }
+                          >
+                            <TrashIcon />
+                          </button>
+                        </span>
+                      )}
+                    </>
                   )}
                 </li>
               ))}
@@ -768,7 +824,7 @@ function ManageProjectDialog({ projectId, onClose, onLeft }: { projectId: string
         )}
 
         {isHost && !isPersonal && (
-          <div className="field">
+          <div className="field dlg-section">
             <span>{t('social.addMember')}</span>
             {candidates.length === 0 ? (
               <p className="hint">{t('social.noCandidates')}</p>

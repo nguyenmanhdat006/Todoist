@@ -4,6 +4,7 @@ import type { Lang } from './types';
 
 const vi = {
   'app.name': 'Quản lý công việc',
+  'footer.rights': 'Bảo lưu mọi quyền',
   'clock.label': 'Bây giờ là',
   'side.open': 'Mở thanh điều hướng',
   'side.title': 'Điều hướng',
@@ -402,6 +403,7 @@ export type TKey = keyof typeof vi;
 
 const en: Record<TKey, string> = {
   'app.name': 'Task management',
+  'footer.rights': 'All rights reserved',
   'clock.label': 'Current time',
   'side.open': 'Open navigation',
   'side.title': 'Navigation',

@@ -428,6 +428,13 @@ export default function App() {
         )}
       </main>
 
+      <footer className="app-footer">
+        <span className="app-footer-name">{t('app.name')}</span>
+        <span className="app-footer-copy">
+          © {new Date().getFullYear()} {t('app.name')} · {t('footer.rights')}
+        </span>
+      </footer>
+
       {modal && (
         <TaskModal
           key={modal.taskId ?? 'new'}

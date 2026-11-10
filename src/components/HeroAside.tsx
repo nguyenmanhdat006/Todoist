@@ -22,24 +22,25 @@ const NO_TAG = '#94a3b8';
 /** Bàn tay giơ chữ V trên ống tay áo, vẫy qua lại */
 function WavingHand() {
   return (
-    <svg className="hero-hand" viewBox="0 0 64 88" width="56" height="77" aria-hidden="true">
+    <svg className="hero-hand" viewBox="0 0 64 88" width="50" height="69" aria-hidden="true">
       <g className="hero-hand-wave">
         {/* ngón trỏ và ngón giữa giơ lên */}
-        <rect x="18" y="5" width="9" height="36" rx="4.5" transform="rotate(-14 22 40)" className="skin" />
-        <rect x="31" y="3" width="9" height="38" rx="4.5" transform="rotate(10 35 40)" className="skin" />
+        <rect x="16" y="4" width="11" height="38" rx="5.5" transform="rotate(-14 22 40)" className="skin" />
+        <rect x="31" y="2" width="11" height="40" rx="5.5" transform="rotate(10 35 40)" className="skin" />
+        {/* cổ tay: hẹp hơn lòng bàn tay */}
+        <rect x="22" y="54" width="20" height="14" rx="3" className="skin" />
         {/* lòng bàn tay */}
-        <rect x="15" y="34" width="34" height="30" rx="12" className="skin" />
+        <rect x="12" y="34" width="40" height="27" rx="13" className="skin" />
         {/* ngón áp út, ngón út gập lại */}
-        <rect x="35" y="36" width="15" height="8" rx="4" className="skin fold" />
-        <rect x="36" y="44" width="13" height="8" rx="4" className="skin fold" />
+        <rect x="37" y="36" width="17" height="9" rx="4.5" className="skin fold" />
+        <rect x="38" y="45" width="15" height="9" rx="4.5" className="skin fold" />
         {/* ngón cái gập ngang */}
-        <rect x="12" y="44" width="22" height="9" rx="4.5" transform="rotate(-8 22 48)" className="skin fold" />
-        <circle cx="25" cy="57" r="1.6" className="blush" />
-        <circle cx="39" cy="57" r="1.6" className="blush" />
+        <rect x="9" y="44" width="24" height="10" rx="5" transform="rotate(-8 22 48)" className="skin fold" />
+        <circle cx="24" cy="55" r="1.7" className="blush" />
+        <circle cx="40" cy="55" r="1.7" className="blush" />
       </g>
-      {/* ống tay áo */}
-      <rect x="20" y="66" width="24" height="22" rx="3" className="sleeve" />
-      <rect x="17" y="62" width="30" height="7" rx="3" className="cuff" />
+      {/* cổ tay áo: một khối phẳng nối liền với bàn tay */}
+      <rect x="18" y="66" width="28" height="22" className="sleeve" />
     </svg>
   );
 }
