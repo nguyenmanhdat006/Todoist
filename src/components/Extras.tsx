@@ -163,18 +163,6 @@ export function SettingsMenu({ onToast }: { onToast: (t: Omit<ToastData, 'id'>) 
                 </div>
               </div>
             ))}
-          <button
-            type="button"
-            className="menu-item"
-            onClick={() => {
-              const prev = useBoard.getState().snapshot();
-              useBoard.getState().loadDemo();
-              onToast({ message: t('toast.demo'), onUndo: () => useBoard.getState().restore(prev) });
-              setOpen(false);
-            }}
-          >
-            {t('data.demo')}
-          </button>
           {confirmClear ? (
             <div className="confirm">
               <span>{t('data.clearConfirm')}</span>

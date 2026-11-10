@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import type { BoardData, BuiltinColumn, CalMode, Reminder, Column, Lang, Priority, SavedFilter, Task, ThemeMode, ViewMode } from '../types';
 import { BUILTIN_COLUMNS, PRESET_TAGS } from '../types';
-import { addDaysISO, todayISO, uid } from '../utils';
+import { todayISO, uid } from '../utils';
 import type { ImportData } from '../data/exchange';
 
 export interface TaskInput {
@@ -51,7 +51,6 @@ interface BoardState extends BoardData {
   /** Chuyển việc quá hạn vào cột Quá hạn; việc đã hết quá hạn thì trả về cột cũ */
   syncOverdue: () => void;
   clearAll: () => void;
-  loadDemo: () => void;
 
   setTheme: (t: ThemeMode) => void;
   setView: (v: ViewMode) => void;
@@ -98,44 +97,22 @@ export function detectLang(): Lang {
 
 const DEMO = {
   vi: {
-    tasks: [
-      ['Kéo thẻ này sang cột khác thử xem', 'Đây là dữ liệu mẫu. Bấm vào thẻ để sửa, tick ô vuông để đánh dấu xong.'],
-      ['Nộp báo cáo tuần', ''],
-      ['Đặt lịch khám răng', ''],
-      ['Học 15 từ tiếng Nhật', 'Bài 12 – Minna no Nihongo'],
-      ['Làm slide thuyết trình', ''],
-      ['Sửa CV gửi HR', ''],
-      ['Thanh toán tiền điện', ''],
-    ],
     tags: { work: 'Công việc', personal: 'Cá nhân', study: 'Học tập' },
     columns: ['Quá hạn', 'Cần làm', 'Đang làm', 'Chờ xem lại', 'Hoàn thành'],
   },
   en: {
-    tasks: [
-      ['Try dragging this card to another column', 'This is sample data. Click a card to edit it, tick the box to mark it done.'],
-      ['Send the weekly report', ''],
-      ['Book a dentist appointment', ''],
-      ['Learn 15 Japanese words', 'Lesson 12 – Minna no Nihongo'],
-      ['Finish the presentation slides', ''],
-      ['Update CV for HR', ''],
-      ['Pay the electricity bill', ''],
-    ],
     tags: { work: 'Work', personal: 'Personal', study: 'Study' },
     columns: ['Overdue', 'To do', 'In progress', 'In review', 'Done'],
   },
 } as const;
 
-/** Bảng dịch chữ mặc định (cột, nhãn, việc mẫu) của mọi ngôn ngữ khác sang `to` */
+/** Bảng dịch chữ mặc định (cột, nhãn) của mọi ngôn ngữ khác sang `to` */
 function defaultTextTranslator(to: Lang) {
   const map = new Map<string, string>();
   const B = DEMO[to];
   for (const from of Object.keys(DEMO) as Lang[]) {
     if (from === to) continue;
     const A = DEMO[from];
-    A.tasks.forEach(([title, note], i) => {
-      map.set(title, B.tasks[i][0]);
-      if (note) map.set(note, B.tasks[i][1]);
-    });
     (Object.keys(A.tags) as (keyof typeof A.tags)[]).forEach((k) => map.set(A.tags[k], B.tags[k]));
     PRESET_TAGS.forEach((p) => map.set(p[from], p[to]));
     A.columns.forEach((c, i) => map.set(c, B.columns[i]));
@@ -144,7 +121,7 @@ function defaultTextTranslator(to: Lang) {
 }
 
 /**
- * Đưa tên cột, nhãn, việc mẫu còn giữ chữ mặc định về ngôn ngữ `lang`.
+ * Đưa tên cột, nhãn còn giữ chữ mặc định về ngôn ngữ `lang`.
  * Chữ người dùng tự đặt không nằm trong bảng dịch nên giữ nguyên.
  */
 function localizeDefaults(
@@ -232,33 +209,9 @@ function placeTask(columns: Column[], taskId: string, toId: string, index: numbe
   });
 }
 
-export function demoData(lang: Lang = detectLang()): BoardData {
-  const L = DEMO[lang];
-  const t = (i: number, extra: Omit<TaskInput, 'title' | 'note'> = {}, done = false): Task => ({
-    ...makeTask({ title: L.tasks[i][0], note: L.tasks[i][1], ...extra }),
-    completedAt: done ? new Date(Date.now() - 86_400_000).toISOString() : null,
-  });
-  const { work, personal, study } = L.tags;
-  const tasks = [
-    t(0, { priority: 'low' }),
-    t(1, { priority: 'high', dueDate: addDaysISO(0), startTime: '09:00', endTime: '10:30', tags: [work] }),
-    t(2, { dueDate: addDaysISO(3), tags: [personal] }),
-    t(3, { tags: [study] }),
-    t(4, { priority: 'high', dueDate: addDaysISO(1), startTime: '14:00', endTime: '15:30', tags: [work] }),
-    t(5, { dueDate: addDaysISO(-1), tags: [personal] }),
-    t(6, { priority: 'low', tags: [personal] }, true),
-  ];
-  const ids = tasks.map((x) => x.id);
-  return {
-    tasks: Object.fromEntries(tasks.map((x) => [x.id, x])),
-    columns: [
-      builtinColumn('overdue', lang),
-      { ...builtinColumn('todo', lang), taskIds: ids.slice(0, 3) },
-      { ...builtinColumn('doing', lang), taskIds: ids.slice(3, 5) },
-      { ...builtinColumn('review', lang), taskIds: ids.slice(5, 6) },
-      { ...builtinColumn('done', lang), taskIds: ids.slice(6) },
-    ],
-  };
+/** Bảng trống với các cột mặc định */
+export function emptyBoard(lang: Lang = detectLang()): BoardData {
+  return { tasks: {}, columns: (['overdue', 'todo', 'doing', 'review', 'done'] as const).map((k) => builtinColumn(k, lang)) };
 }
 
 export const useBoard = create<BoardState>()(
@@ -436,7 +389,6 @@ export const useBoard = create<BoardState>()(
         }),
 
       clearAll: () => set(emptyBoard(get().lang)),
-      loadDemo: () => set(demoData(get().lang)),
 
       setTheme: (theme) => set({ theme }),
       setView: (view) => set({ view }),
@@ -501,9 +453,4 @@ export function defaultFilters(): SavedFilter[] {
     { id: 'f_urgent', name: null, labelKey: 'prio.high', priorities: ['high'], tags: [], columnIds: [], due: 'any', hideDone: true },
     { id: 'f_overdue', name: null, labelKey: 'filter.overdue', priorities: [], tags: [], columnIds: [], due: 'overdue', hideDone: true },
   ];
-}
-
-export function emptyBoard(lang: Lang = detectLang()): BoardData {
-  const d = demoData(lang);
-  return { tasks: {}, columns: d.columns.map((c) => ({ ...c, taskIds: [] })) };
 }
