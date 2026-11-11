@@ -1,3 +1,4 @@
+import { quietly } from './activity';
 /**
  * Đăng nhập và đồng bộ dữ liệu với máy chủ.
  *
@@ -142,7 +143,7 @@ export async function push(): Promise<void> {
   set({ sync: 'saving' });
   try {
     const st = useBoard.getState();
-    const { revision } = await api.putBoard(meta.revision, buildExport(st), meta.board);
+    const { revision } = await quietly(() => api.putBoard(meta.revision, buildExport(st), meta.board));
     saveMeta({ revision, dirty: localVersion !== started });
     const wasDown = useSession.getState().sync === 'offline' || useSession.getState().sync === 'error';
     set({ sync: meta.dirty ? 'pending' : 'saved' });
@@ -361,7 +362,7 @@ async function pull() {
   const s = useSession.getState();
   if (s.status !== 'ready' || s.switching || pushing || meta.dirty) return;
   try {
-    const { revision, file } = await api.getBoard(meta.board);
+    const { revision, file } = await quietly(() => api.getBoard(meta.board));
     if (revision > meta.revision && !meta.dirty && file) {
       applyFile(file);
       saveMeta({ revision });

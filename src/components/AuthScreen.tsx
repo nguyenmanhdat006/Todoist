@@ -1,3 +1,4 @@
+import { useSlow } from '../useSlow';
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { useT, type TKey } from '../i18n';
 import { ApiError } from '../sync/api';
@@ -54,12 +55,14 @@ function Shell({ children }: { children: ReactNode }) {
 
 export function SplashScreen() {
   const t = useT();
+  const slow = useSlow(true);
   return (
     <Shell>
       <p className="auth-checking" role="status">
         <span className="auth-spinner" aria-hidden="true" />
         {t('auth.checking')}
       </p>
+      {slow && <p className="auth-slow">{t('auth.waking')}</p>}
     </Shell>
   );
 }
@@ -74,6 +77,7 @@ export function AuthScreen() {
   const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(bootError);
+  const slow = useSlow(busy);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -161,9 +165,11 @@ export function AuthScreen() {
           </div>
         )}
 
-        <button type="submit" className="btn primary auth-submit" disabled={busy}>
+        <button type="submit" className={`btn primary auth-submit${busy ? ' is-busy' : ''}`} disabled={busy} aria-busy={busy}>
+          {busy && <span className="btn-spinner" aria-hidden="true" />}
           {busy ? t('auth.working') : t(mode === 'login' ? 'auth.submitLogin' : 'auth.submitRegister')}
         </button>
+        {busy && slow && <p className="auth-slow" role="status">{t('auth.waking')}</p>}
       </form>
 
       <p className="auth-switch">

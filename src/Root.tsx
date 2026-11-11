@@ -4,6 +4,7 @@ import { useBoard } from './store/board';
 import { boot, useSession } from './sync/session';
 import { ToastHost } from './components/ToastHost';
 import { ConfirmHost } from './components/ConfirmHost';
+import { TopProgress } from './components/TopProgress';
 import { AuthScreen, SplashScreen } from './components/AuthScreen';
 
 let booted = false;
@@ -36,6 +37,7 @@ export default function Root() {
   return (
     <>
       {screen}
+      <TopProgress />
       <ToastHost />
       <ConfirmHost />
     </>

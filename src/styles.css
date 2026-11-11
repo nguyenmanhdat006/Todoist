@@ -846,3 +846,46 @@ button.stat-tile:disabled { cursor: default; }
 .btn.danger-solid { background: var(--danger); color: var(--on-danger, #fff); border-color: transparent; }
 .btn.danger-solid:hover { filter: brightness(1.08); }
 .btn:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+/* ---------- cảm giác mượt khi mạng chậm ---------- */
+.top-progress {
+  position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: 400; pointer-events: none; transform-origin: left;
+  background: linear-gradient(90deg, var(--blue), var(--orange)); box-shadow: 0 0 10px color-mix(in srgb, var(--blue) 60%, transparent);
+}
+.top-progress.is-run { animation: tp-run 12s cubic-bezier(0.1, 0.6, 0.2, 1) forwards; }
+.top-progress.is-done { animation: tp-done 0.45s ease-out forwards; }
+@keyframes tp-run { from { transform: scaleX(0.04); } to { transform: scaleX(0.92); } }
+@keyframes tp-done { from { transform: scaleX(0.92); opacity: 1; } 60% { transform: scaleX(1); opacity: 1; } to { transform: scaleX(1); opacity: 0; } }
+
+.view-fade { flex: 1; min-height: 0; display: flex; flex-direction: column; animation: view-in 0.3s ease-out both; }
+@keyframes view-in { from { opacity: 0; transform: translateY(6px); } }
+
+.btn-spinner {
+  display: inline-block; width: 14px; height: 14px; margin-right: 8px; vertical-align: -2px; border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.35); border-top-color: #fff; animation: auth-spin 0.8s linear infinite;
+}
+.auth-slow { margin: 10px 0 0; padding: 10px 12px; font-size: 12.5px; line-height: 1.5; color: var(--fg-2); background: var(--panel); border-left: 3px solid var(--orange); animation: fade 0.3s ease-out; }
+
+/* khung xương của bảng */
+.skeleton-board { flex: 1; min-height: 0; display: flex; gap: 12px; align-items: stretch; overflow: hidden; padding: 0 2px; }
+.skeleton-col {
+  flex: 1 0 var(--col-w); width: var(--col-w); max-width: 420px; display: flex; flex-direction: column; gap: 10px; padding: 10px;
+  background: var(--panel); border: 1px solid var(--line); animation: fade 0.35s ease-out both;
+}
+.skeleton-head { display: flex; align-items: center; gap: 10px; padding: 4px 2px 8px; }
+.skeleton-card { display: flex; flex-direction: column; gap: 9px; padding: 14px; background: var(--surface); border: 1px solid var(--line); }
+.sk {
+  display: block; background: linear-gradient(90deg, var(--surface-2) 25%, color-mix(in srgb, var(--surface-2) 55%, var(--surface)) 50%, var(--surface-2) 75%);
+  background-size: 200% 100%; animation: sk-shimmer 1.3s ease-in-out infinite;
+}
+.sk-dot { width: 10px; height: 10px; }
+.sk-title { width: 90px; height: 12px; }
+.sk-line { height: 12px; }
+.sk-line.w80 { width: 80%; }
+.sk-line.w50 { width: 50%; }
+.sk-tag { width: 54px; height: 18px; }
+@keyframes sk-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .top-progress, .view-fade, .sk, .skeleton-col, .btn-spinner, .auth-slow { animation: none !important; }
+  .top-progress.is-run { transform: scaleX(0.6); }
+}

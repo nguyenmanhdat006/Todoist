@@ -1,3 +1,4 @@
+import { trackStart } from './activity';
 /** Gọi API (/api/*). Lỗi được chuẩn hoá thành ApiError để màn hình hiển thị đúng thông báo. */
 import type { ExportColumn, ExportFile, ExportTask } from '../data/exchange';
 
@@ -81,6 +82,15 @@ export class ApiError extends Error {
 }
 
 async function call<T>(method: string, path: string, body?: unknown): Promise<T> {
+  const finish = trackStart();
+  try {
+    return await request<T>(method, path, body);
+  } finally {
+    finish();
+  }
+}
+
+async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   let res: Response;
   try {
     res = await fetch(path, {

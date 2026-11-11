@@ -10,6 +10,7 @@ import { CalendarView } from './components/CalendarView';
 import { SettingsMenu, type ToastData } from './components/Extras';
 import { showToast as showToastMsg } from './toast';
 import { askConfirm } from './confirm';
+import { BoardSkeleton } from './components/Skeleton';
 import { findSampleTaskIds } from './data/legacySample';
 import { HelpButton, LangSwitch, ProgressRing, ThemeSwitch } from './components/TopbarWidgets';
 import { NotificationBell } from './components/NotificationBell';
@@ -187,7 +188,7 @@ export default function App() {
   useEffect(() => {
     if (!aggregate) return;
     void loadOverview();
-    const id = setInterval(() => void loadOverview(), 60_000);
+    const id = setInterval(() => void loadOverview(true), 60_000);
     return () => clearInterval(id);
   }, [aggregate, board]);
 
@@ -412,7 +413,10 @@ export default function App() {
       </div>
 
       <main className="main">
-        {view === 'kanban' ? (
+        <div className="view-fade" key={`${view}:${switching ? 'loading' : board ?? 'me'}`}>
+        {switching ? (
+          <BoardSkeleton />
+        ) : view === 'kanban' ? (
           <Board
             matches={matches}
             onOpenTask={(id) => setModal({ taskId: id, columnId: '' })}
@@ -427,6 +431,7 @@ export default function App() {
         ) : (
           <ListView matches={matches} filtering={!!query.trim() || filter !== 'all'} onOpenTask={(id, boardId) => void openTaskIn(id, boardId)} />
         )}
+        </div>
       </main>
 
       <footer className="app-footer">

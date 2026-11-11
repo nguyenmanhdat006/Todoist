@@ -7,6 +7,7 @@ import { create } from 'zustand';
 import { useBoard } from '../store/board';
 import type { Column, Task } from '../types';
 import { api, type ApiUser, type OverviewBoard } from './api';
+import { quietly } from './activity';
 import { projectOfBoard, usePeople } from './people';
 import { useSession } from './session';
 
@@ -25,9 +26,9 @@ export const useOverview = create<OverviewState>((set) => ({
   setScope: (scope) => set({ scope }),
 }));
 
-export async function loadOverview() {
+export async function loadOverview(background = false) {
   try {
-    const r = await api.overview();
+    const r = await (background ? quietly(() => api.overview()) : api.overview());
     useOverview.setState({ boards: r.boards, users: r.users });
   } catch {
     /* mất mạng: giữ dữ liệu cũ */

@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import { api, type ApiUser, type BoardInfo, type FriendLists, type Member, type ProjectInfo, type ServerNotice } from './api';
 import { useSession } from './session';
 import { toast } from '../toast';
+import { quietly } from './activity';
 
 interface PeopleState extends FriendLists {
   projects: ProjectInfo[];
@@ -66,9 +67,11 @@ export async function readNotices(ids?: string[]) {
 /** Tải lại mọi thứ (sau khi đăng nhập, khi chuyển bảng, hoặc định kỳ) */
 export async function refreshPeople() {
   try {
-    await Promise.all([loadFriends(), loadProjects(), loadNotices()]);
-    const board = useSession.getState().board;
-    await loadMembers(projectOfBoard(board, usePeople.getState().projects)?.id ?? null);
+    await quietly(async () => {
+      await Promise.all([loadFriends(), loadProjects(), loadNotices()]);
+      const board = useSession.getState().board;
+      await loadMembers(projectOfBoard(board, usePeople.getState().projects)?.id ?? null);
+    });
     set({ loaded: true });
   } catch {
     /* mất mạng: giữ dữ liệu cũ */
