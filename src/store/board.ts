@@ -13,6 +13,7 @@ export interface TaskInput {
   startTime?: string | null;
   endTime?: string | null;
   tags?: string[];
+  assigneeId?: string | null;
 }
 
 /** Bản chụp để hoàn tác */
@@ -44,8 +45,11 @@ interface BoardState extends BoardData {
 
   snapshot: () => Snapshot;
   restore: (data: Snapshot) => void;
-  /** Thay toàn bộ cột/việc (và bộ lọc, lời nhắc nếu file có) bằng dữ liệu đã kiểm tra */
-  applyImport: (data: ImportData) => void;
+  /** Thay toàn bộ cột/việc (và bộ lọc, lời nhắc nếu file có) bằng dữ liệu đã kiểm tra.
+   *  keepTicket: dữ liệu từ máy chủ, giữ số ticket và người tạo; file người dùng nhập thì bỏ (máy chủ sẽ cấp lại) */
+  applyImport: (data: ImportData, keepTicket?: boolean) => void;
+  /** Ghi số ticket và người tạo do máy chủ cấp (không tính là thay đổi của người dùng) */
+  applyTicketInfo: (info: Record<string, { number: number | null; creatorId: string | null }>) => void;
   /** Tick hoàn thành: chuyển sang cột Hoàn thành, bỏ tick: về đầu cột mở đầu tiên */
   toggleDone: (taskId: string) => void;
   /** Chuyển việc quá hạn vào cột Quá hạn; việc đã hết quá hạn thì trả về cột cũ */
@@ -87,6 +91,9 @@ function makeTask(input: TaskInput): Task {
     updatedAt: now,
     completedAt: null,
     progress: 0,
+    number: null,
+    creatorId: null,
+    assigneeId: input.assigneeId ?? null,
   };
 }
 
@@ -378,14 +385,30 @@ export const useBoard = create<BoardState>()(
           ...(data.reminders ? { reminders: data.reminders } : {}),
         }),
 
-      applyImport: (data) =>
+      applyImport: (data, keepTicket = false) =>
         set((s) => {
           const lang = s.lang;
+          const incoming = keepTicket
+            ? data.tasks
+            : Object.fromEntries(Object.entries(data.tasks).map(([id, x]) => [id, { ...x, number: null, creatorId: null }]));
           const localized = localizeDefaults(
-            { tasks: data.tasks, columns: ensureBuiltins(data.columns, lang), filters: data.filters ?? s.filters },
+            { tasks: incoming, columns: ensureBuiltins(data.columns, lang), filters: data.filters ?? s.filters },
             lang,
           );
           return { ...localized, reminders: data.reminders ?? s.reminders };
+        }),
+
+      applyTicketInfo: (info) =>
+        set((s) => {
+          let changed = false;
+          const tasks = { ...s.tasks };
+          for (const [id, v] of Object.entries(info)) {
+            const x = tasks[id];
+            if (!x || (x.number === v.number && x.creatorId === v.creatorId)) continue;
+            tasks[id] = { ...x, number: v.number, creatorId: v.creatorId };
+            changed = true;
+          }
+          return changed ? { tasks } : s;
         }),
 
       clearAll: () => set(emptyBoard(get().lang)),

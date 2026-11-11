@@ -101,8 +101,8 @@ export async function createProject(name: string, kind: 'personal' | 'team') {
   return project;
 }
 
-export async function renameProject(id: string, name: string) {
-  await api.renameProject(id, name);
+export async function renameProject(id: string, name: string, key?: string) {
+  await api.renameProject(id, name, key);
   await loadProjects();
   toast.success('toast.projectRenamed', { name: name.trim() });
 }
@@ -157,4 +157,12 @@ export function userDirectory(me: ApiUser | null, s: PeopleState): Map<string, A
   const m = new Map<string, ApiUser>();
   for (const u of [...s.friends, ...s.members, ...(me ? [me] : [])]) m.set(u.id, u);
   return m;
+}
+
+/** Mã dự án của bảng đang mở (tiền tố mã ticket); chưa tải xong thì rỗng */
+export function useCurrentProjectKey(): string {
+  const projects = usePeople((s) => s.projects);
+  const board = useSession((s) => s.board);
+  const me = useSession((s) => s.user);
+  return projectOfBoard(board ?? me?.id ?? null, projects)?.key ?? '';
 }

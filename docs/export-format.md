@@ -63,6 +63,9 @@ Dữ liệu được tổ chức thành các danh sách phẳng giống các b�
 | `prevColumnId` | string \| null | nội bộ: cột trước khi bị chuyển vào Quá hạn |
 | `progress` | integer 0–100 | tiến độ hoàn thành (%); thiếu thì coi là 0 |
 | `assignees` | string[] (uuid) | người liên quan (id người dùng); khi lưu lên server chỉ giữ thành viên dự án / bạn bè |
+| `assigneeId` | string \| null (uuid) | người phụ trách (một người); server chỉ giữ nếu là thành viên dự án |
+| `number` | integer \| null | số thứ tự trong dự án, mã ticket = `KEY-số`. Server cấp khi lưu lần đầu, client gửi lên bị bỏ qua; số của việc đã xoá không dùng lại |
+| `creatorId` | string \| null (uuid) | người tạo; server ghi theo người lưu lần đầu, client gửi lên bị bỏ qua |
 
 Thời điểm bắt đầu tuyệt đối = `dueDate` + `startTime` theo `timezone`. Ví dụ trong PostgreSQL:
 `(due_date + start_time) AT TIME ZONE 'Asia/Ho_Chi_Minh'`.

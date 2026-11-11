@@ -172,3 +172,8 @@ export function matchesFilter(task: Task, f: SavedFilter, done: boolean, columnI
       return true;
   }
 }
+
+/** Mã ticket dạng KEY-12; null nếu chưa có mã (việc mới chưa lưu lên máy chủ) */
+export function ticketLabel(task: { number?: number | null }, projectKey: string | undefined): string | null {
+  return projectKey && task.number ? `${projectKey}-${task.number}` : null;
+}

@@ -38,6 +38,8 @@ export interface ProjectInfo {
   name: string;
   ownerId: string;
   role: 'host' | 'member';
+  /** Mã dự án dùng làm tiền tố mã ticket (ví dụ STU-12) */
+  key: string;
   /** personal = dự án riêng (chỉ mình), team = dự án nhóm */
   kind: 'personal' | 'team';
   memberCount?: number;
@@ -50,6 +52,7 @@ export interface OverviewBoard {
   name: string;
   projectId: string;
   projectName: string;
+  projectKey: string;
   kind: 'personal' | 'team';
   columns: ExportColumn[];
   tasks: ExportTask[];
@@ -128,7 +131,7 @@ export const api = {
   getBoard: (board: string | null) =>
     call<{ revision: number; file: ExportFile | null }>('GET', board ? `/api/board?board=${encodeURIComponent(board)}` : '/api/board'),
   putBoard: (baseRevision: number, file: ExportFile, board: string | null) =>
-    call<{ revision: number; warnings: number }>('PUT', '/api/board', { baseRevision, file, ...(board ? { board } : {}) }),
+    call<{ revision: number; warnings: number; assigned?: Record<string, { number: number | null; creatorId: string | null }> }>('PUT', '/api/board', { baseRevision, file, ...(board ? { board } : {}) }),
 
   // bạn bè
   friends: () => call<FriendLists>('GET', '/api/friends'),
@@ -146,7 +149,8 @@ export const api = {
   notifications: () => call<{ items: ServerNotice[] }>('GET', '/api/notifications'),
   readNotifications: (ids?: string[]) => call<{ items: ServerNotice[] }>('POST', '/api/notifications/read', ids ? { ids } : {}),
   project: (id: string) => call<{ project: ProjectInfo; members: Member[] }>('GET', `/api/projects/${id}`),
-  renameProject: (id: string, name: string) => call<{ project: { id: string; name: string } }>('PATCH', `/api/projects/${id}`, { name }),
+  renameProject: (id: string, name: string, key?: string) =>
+    call<{ project: { id: string; name: string; key: string } }>('PATCH', `/api/projects/${id}`, key ? { name, key } : { name }),
   deleteProject: (id: string) => call<{ ok: true }>('DELETE', `/api/projects/${id}`),
   addMember: (id: string, userId: string) => call<{ members: Member[] }>('POST', `/api/projects/${id}/members`, { userId }),
   removeMember: (id: string, userId: string) => call<{ members: Member[] }>('DELETE', `/api/projects/${id}/members/${userId}`),

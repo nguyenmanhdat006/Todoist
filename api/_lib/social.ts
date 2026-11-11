@@ -105,6 +105,32 @@ export async function removeFriend(me: string, otherId: string) {
 
 /* ---------------- dự án ---------------- */
 
+/** Mã dự án: 2–6 ký tự, chữ in hoa hoặc số, bắt đầu bằng chữ */
+export const KEY_RE = /^[A-Z][A-Z0-9]{1,5}$/;
+
+const VI_FROM = 'àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ';
+const VI_TO = 'aaaaaaaaaaaaaaaaaeeeeeeeeeeeiiiiiooooooooooooooooouuuuuuuuuuuyyyyyd';
+
+/** Chữ cái đầu của tên người dùng (Đạt Nguyễn → "Đ N"), dùng làm mã dự án cá nhân */
+async function initialsOf(c: { query: (sql: string, args?: unknown[]) => Promise<{ rows: unknown[] }> }, userId: string): Promise<string> {
+  const { rows } = await c.query('select name, email from users where id = $1', [userId]);
+  const u = rows[0] as { name: string; email: string } | undefined;
+  const words = (u?.name?.trim() || u?.email?.split('@')[0] || '').split(/\s+/).filter(Boolean);
+  return words.map((w) => w[0]).join('');
+}
+
+/** Mã mặc định từ tên dự án (tối đa 3 chữ cái, bỏ dấu), thêm số nếu đã có dự án khác dùng */
+async function freeKey(c: { query: (sql: string, args?: unknown[]) => Promise<{ rows: unknown[] }> }, name: string): Promise<string> {
+  const letters = [...name.toLowerCase()].map((ch) => { const i = VI_FROM.indexOf(ch); return i >= 0 ? VI_TO[i] : ch; }).join('').toUpperCase().replace(/[^A-Z]/g, '');
+  const base = (letters.slice(0, 3) || 'PRJ').padEnd(2, 'X');
+  for (let n = 1; n < 1000; n++) {
+    const key = n === 1 ? base : `${base}${n}`.slice(0, 6);
+    const { rows } = await c.query('select 1 from projects where key = $1', [key]);
+    if (!rows[0]) return key;
+  }
+  throw new HttpError(500, 'server_error');
+}
+
 function readName(v: unknown) {
   const name = typeof v === 'string' ? v.trim().replace(/\s+/g, ' ') : '';
   if (!name || name.length > 80) throw new HttpError(400, 'invalid_name');
@@ -134,7 +160,7 @@ async function boardsOf(projectIds: string[]): Promise<Map<string, BoardInfo[]>>
 
 export async function listProjects(me: string) {
   const { rows } = await db().query(
-    `select p.id, p.name, p.owner_id as "ownerId", p.kind, pm.role,
+    `select p.id, p.name, p.key, p.owner_id as "ownerId", p.kind, pm.role,
             (select count(*)::int from project_members x where x.project_id = p.id) as "memberCount"
        from projects p join project_members pm on pm.project_id = p.id and pm.user_id = $1
       order by p.created_at`,
@@ -171,7 +197,7 @@ export async function projectMembers(projectId: string) {
 
 export async function getProject(me: string, projectId: string) {
   const role = await projectRole(me, projectId);
-  const { rows } = await db().query('select id, name, owner_id as "ownerId", kind, created_at as "createdAt" from projects where id = $1', [
+  const { rows } = await db().query('select id, name, key, owner_id as "ownerId", kind, created_at as "createdAt" from projects where id = $1', [
     projectId,
   ]);
   const boards = (await boardsOf([projectId])).get(projectId) ?? [];
@@ -188,14 +214,16 @@ export async function createProject(me: string, rawName: unknown, rawKind: unkno
   const name = readName(rawName);
   const kind: ProjectKind = rawKind === 'personal' ? 'personal' : 'team';
   return tx(async (c) => {
-    const { rows } = await c.query<{ id: string }>('insert into projects (name, owner_id, kind) values ($1, $2, $3) returning id', [
+    const key = await freeKey(c, name);
+    const { rows } = await c.query<{ id: string }>('insert into projects (name, key, owner_id, kind) values ($1, $2, $3, $4) returning id', [
       name,
+      key,
       me,
       kind,
     ]);
     const id = rows[0].id;
     await c.query(`insert into project_members (project_id, user_id, role) values ($1, $2, 'host')`, [id, me]);
-    return { id, name, ownerId: me, kind, role: 'host', memberCount: 1, boards: [] as BoardInfo[] };
+    return { id, name, key, ownerId: me, kind, role: 'host', memberCount: 1, boards: [] as BoardInfo[] };
   });
 }
 
@@ -207,19 +235,26 @@ export async function createPersonalSpace(userId: string) {
   await tx(async (c) => {
     await c.query('insert into boards (board_id) values ($1) on conflict do nothing', [userId]);
     const { rows } = await c.query<{ id: string }>(
-      `insert into projects (name, owner_id, kind) values ('Cá nhân', $1, 'personal') returning id`,
-      [userId],
+      `insert into projects (name, key, owner_id, kind) values ('Cá nhân', $2, $1, 'personal') returning id`,
+      [userId, await freeKey(c, await initialsOf(c, userId))],
     );
     await c.query(`insert into project_members (project_id, user_id, role) values ($1, $2, 'host')`, [rows[0].id, userId]);
     await c.query(`insert into project_boards (id, project_id, name, position) values ($1, $2, 'Bảng của tôi', 0)`, [userId, rows[0].id]);
   });
 }
 
-export async function renameProject(me: string, projectId: string, rawName: unknown) {
+export async function renameProject(me: string, projectId: string, rawName: unknown, rawKey?: unknown) {
   await requireHost(me, projectId);
   const name = readName(rawName);
-  await db().query('update projects set name = $2 where id = $1', [projectId, name]);
-  return { id: projectId, name };
+  let key: string | null = null;
+  if (rawKey !== undefined && rawKey !== null && rawKey !== '') {
+    key = typeof rawKey === 'string' ? rawKey.trim().toUpperCase() : '';
+    if (!KEY_RE.test(key)) throw new HttpError(400, 'invalid_key');
+    const { rows } = await db().query('select 1 from projects where key = $1 and id <> $2', [key, projectId]);
+    if (rows[0]) throw new HttpError(409, 'key_taken');
+  }
+  const { rows } = await db().query<{ key: string }>('update projects set name = $2, key = coalesce($3, key) where id = $1 returning key', [projectId, name, key]);
+  return { id: projectId, name, key: rows[0].key };
 }
 
 const BOARD_TABLES = ['reminders', 'saved_filters', 'tasks', 'board_columns', 'boards'];

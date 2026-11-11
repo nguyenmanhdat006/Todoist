@@ -10,6 +10,7 @@ import { CalendarView } from './components/CalendarView';
 import { SettingsMenu, type ToastData } from './components/Extras';
 import { showToast as showToastMsg } from './toast';
 import { askConfirm } from './confirm';
+import { GlobalSearch } from './components/GlobalSearch';
 import { BoardSkeleton } from './components/Skeleton';
 import { findSampleTaskIds } from './data/legacySample';
 import { HelpButton, LangSwitch, ProgressRing, ThemeSwitch } from './components/TopbarWidgets';
@@ -278,6 +279,7 @@ export default function App() {
               {t('app.name')}
             </span>
           </div>
+          <GlobalSearch onOpenTask={(id, boardId) => void openTaskIn(id, boardId)} />
           <div className="topbar-right">
             <ProgressRing done={stats.done} total={stats.total} />
             <LangSwitch />

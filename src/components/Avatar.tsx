@@ -31,14 +31,28 @@ export function Avatar({ user, size = 24, title }: { user: Pick<ApiUser, 'id' | 
 }
 
 /** Dãy avatar chồng nhau, quá `max` thì hiện +N */
-export function AvatarStack({ users, max = 3, size = 24 }: { users: Pick<ApiUser, 'id' | 'name' | 'email'>[]; max?: number; size?: number }) {
+export function AvatarStack({
+  users,
+  max = 3,
+  size = 24,
+  leadId,
+}: {
+  users: Pick<ApiUser, 'id' | 'name' | 'email'>[];
+  max?: number;
+  size?: number;
+  /** Người phụ trách: đứng đầu và có viền nổi bật */
+  leadId?: string | null;
+}) {
   if (users.length === 0) return null;
-  const shown = users.slice(0, max);
-  const more = users.length - shown.length;
+  const ordered = leadId ? [...users.filter((u) => u.id === leadId), ...users.filter((u) => u.id !== leadId)] : users;
+  const shown = ordered.slice(0, max);
+  const more = ordered.length - shown.length;
   return (
     <span className="avatar-stack" aria-label={users.map((u) => u.name || u.email).join(', ')}>
       {shown.map((u) => (
-        <Avatar key={u.id} user={u} size={size} />
+        <span key={u.id} className={u.id === leadId ? 'avatar-lead' : undefined}>
+          <Avatar user={u} size={size} />
+        </span>
       ))}
       {more > 0 && (
         <span className="avatar avatar-more" style={{ width: size, height: size, fontSize: Math.round(size * 0.4) }}>

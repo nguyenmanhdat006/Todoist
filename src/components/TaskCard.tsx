@@ -7,7 +7,8 @@ import { useBoard } from '../store/board';
 import { AvatarStack } from './Avatar';
 import { userDirectory, usePeople } from '../sync/people';
 import { useSession } from '../sync/session';
-import { canTrackProgress, cardColorOf, dueInfo, progressOf, taskStatus, timeRange, tagStyle } from '../utils';
+import { useCurrentProjectKey } from '../sync/people';
+import { ticketLabel, canTrackProgress, cardColorOf, dueInfo, progressOf, taskStatus, timeRange, tagStyle } from '../utils';
 
 interface BodyProps {
   task: Task;
@@ -28,7 +29,11 @@ export function TaskCardBody({ task, done, color, overlay }: BodyProps) {
   const me = useSession((s) => s.user);
   const people = usePeople();
   const dir = userDirectory(me, people);
-  const assigned = (task.assignees ?? []).map((id) => dir.get(id) ?? { id, name: '?', email: '?' });
+  const projectKey = useCurrentProjectKey();
+  const ticket = ticketLabel(task, projectKey);
+  // Người phụ trách và người liên quan (không trùng)
+  const ids = [...new Set([...(task.assigneeId ? [task.assigneeId] : []), ...(task.assignees ?? [])])];
+  const assigned = ids.map((id) => dir.get(id) ?? { id, name: '?', email: '?' });
   return (
     <div
       className={`card${tint ? ` is-tinted status-${status}` : ''}${done ? ' is-done' : ''}${overlay ? ' is-overlay' : ''}`}
@@ -36,8 +41,15 @@ export function TaskCardBody({ task, done, color, overlay }: BodyProps) {
     >
       {assigned.length > 0 && (
         <span className="card-assignees">
-          <AvatarStack users={assigned} max={3} size={24} />
+          <AvatarStack users={assigned} max={3} size={24} leadId={task.assigneeId ?? null} />
         </span>
+      )}
+      {(ticket || projectKey) && (
+        <div className="card-key-row">
+          <span className={`ticket-key${ticket ? '' : ' is-pending'}`} title={ticket ? t('ticket.key') : t('ticket.pending')}>
+            {ticket ?? `${projectKey}-…`}
+          </span>
+        </div>
       )}
       <div className={`card-head${assigned.length > 0 ? ` has-avatars av-${Math.min(assigned.length, 4)}` : ''}`}>
         <input

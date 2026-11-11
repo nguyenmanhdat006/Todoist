@@ -46,6 +46,7 @@ export interface Entry {
   boardName: string;
   projectId: string;
   projectName: string;
+  projectKey: string;
   kind: 'personal' | 'team';
   /** Thuộc bảng khác bảng đang mở: xem được, muốn sửa phải mở bảng đó */
   foreign: boolean;
@@ -73,7 +74,7 @@ export function useAllEntries(): Entry[] {
         if (task)
           push({
             task, col, colIndex, position, boardId: active, boardName: curBoard?.name ?? '',
-            projectId: cur?.id ?? '', projectName: cur?.name ?? '', kind: cur?.kind ?? 'personal', foreign: false,
+            projectId: cur?.id ?? '', projectName: cur?.name ?? '', projectKey: cur?.key ?? '', kind: cur?.kind ?? 'personal', foreign: false,
           });
       }),
     );
@@ -90,7 +91,7 @@ export function useAllEntries(): Entry[] {
         if (!c) continue;
         push({
           task: t as Task, col: c.col, colIndex: c.index, position: t.position, boardId: b.id, boardName: b.name,
-          projectId: b.projectId, projectName: b.projectName, kind: b.kind, foreign: true,
+          projectId: b.projectId, projectName: b.projectName, projectKey: b.projectKey, kind: b.kind, foreign: true,
         });
       }
     }

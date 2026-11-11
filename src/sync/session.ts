@@ -109,7 +109,7 @@ function withoutPush(fn: () => void) {
 function applyFile(file: ExportFile) {
   const parsed = parseImport(file);
   if (!parsed.ok) throw new ApiError(500, 'bad_board');
-  withoutPush(() => useBoard.getState().applyImport(parsed.data));
+  withoutPush(() => useBoard.getState().applyImport(parsed.data, true));
 }
 
 function resetLocal() {
@@ -143,7 +143,9 @@ export async function push(): Promise<void> {
   set({ sync: 'saving' });
   try {
     const st = useBoard.getState();
-    const { revision } = await quietly(() => api.putBoard(meta.revision, buildExport(st), meta.board));
+    const { revision, assigned } = await quietly(() => api.putBoard(meta.revision, buildExport(st), meta.board));
+    // Số ticket và người tạo do máy chủ cấp cho việc mới
+    if (assigned && Object.keys(assigned).length) withoutPush(() => useBoard.getState().applyTicketInfo(assigned));
     saveMeta({ revision, dirty: localVersion !== started });
     const wasDown = useSession.getState().sync === 'offline' || useSession.getState().sync === 'error';
     set({ sync: meta.dirty ? 'pending' : 'saved' });

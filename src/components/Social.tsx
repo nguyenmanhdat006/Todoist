@@ -45,6 +45,8 @@ const ERRORS = [
   'project_not_found',
   'personal_project',
   'board_not_found',
+  'invalid_key',
+  'key_taken',
   'network',
 ] as const;
 function errKey(e: unknown): TKey {
@@ -673,6 +675,7 @@ function ManageProjectDialog({ projectId, onClose, onLeft }: { projectId: string
   const isHost = project?.role === 'host';
   const isPersonal = project?.kind === 'personal';
   const [name, setName] = useState(project?.name ?? '');
+  const [key, setKey] = useState(project?.key ?? '');
   const [pick, setPick] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
@@ -707,14 +710,30 @@ function ManageProjectDialog({ projectId, onClose, onLeft }: { projectId: string
             {isHost && (
               <button
                 type="button"
-                className="btn ghost sm"
-                disabled={!name.trim() || name.trim() === project?.name}
-                onClick={() => void run(() => renameProject(projectId, name))}
+                className="btn primary sm"
+                disabled={!name.trim() || !/^[A-Z][A-Z0-9]{1,5}$/.test(key) || (name.trim() === project?.name && key === project?.key)}
+                onClick={() => void run(() => renameProject(projectId, name, key !== project?.key ? key : undefined))}
               >
                 {t('modal.save')}
               </button>
             )}
           </div>
+        </label>
+        <label className="field">
+          <span>{t('ticket.projectKey')}</span>
+          <input
+            id="project-key"
+            className="project-key-input"
+            value={key}
+            disabled={!isHost}
+            maxLength={6}
+            spellCheck={false}
+            autoCapitalize="characters"
+            onChange={(e) => setKey(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
+          />
+          <small className={`hint${key && !/^[A-Z][A-Z0-9]{1,5}$/.test(key) ? ' error' : ''}`}>
+            {t('ticket.projectKeyHint', { example: `${key || 'KEY'}-12` })}
+          </small>
         </label>
 
         {!isPersonal && (

@@ -4,14 +4,14 @@
  */
 import { useMemo, useState, type CSSProperties } from 'react';
 import { useBoard } from '../store/board';
-import { AvatarStack } from './Avatar';
+import { Avatar, AvatarStack } from './Avatar';
 import { userDirectory, usePeople } from '../sync/people';
 import { useScopedEntries, useOverviewUsers, type Entry } from '../sync/overview';
 import { useSession } from '../sync/session';
 import type { Priority, Task } from '../types';
 import { PRIORITIES } from '../types';
 import { useT, type T } from '../i18n';
-import { canTrackProgress, dueInfo, parseISO, progressOf, tagStyle, timeRange } from '../utils';
+import { canTrackProgress, dueInfo, parseISO, progressOf, tagStyle, ticketLabel, timeRange } from '../utils';
 
 interface Props {
   matches: (t: Task, done?: boolean, colId?: string) => boolean;
@@ -21,7 +21,7 @@ interface Props {
   onOpenTask: (id: string, boardId?: string) => void;
 }
 
-type SortKey = 'order' | 'title' | 'board' | 'stage' | 'priority' | 'created' | 'due' | 'finished' | 'progress';
+type SortKey = 'order' | 'key' | 'title' | 'board' | 'stage' | 'priority' | 'created' | 'due' | 'finished' | 'progress';
 
 interface Row extends Entry {
   pct: number;
@@ -57,6 +57,7 @@ export function ListView({ matches, onOpenTask }: Props) {
     for (const e of entries) if (matches(e.task, e.col.isDone, e.col.id)) out.push({ ...e, pct: progressOf(e.task, e.col) });
     const cmp: Record<SortKey, (a: Row, b: Row) => number> = {
       order: (a, b) => (boardRank.get(a.boardId) ?? 0) - (boardRank.get(b.boardId) ?? 0) || a.colIndex - b.colIndex || a.position - b.position,
+      key: (a, b) => a.projectKey.localeCompare(b.projectKey) || (a.task.number ?? 1e9) - (b.task.number ?? 1e9),
       title: (a, b) => a.task.title.localeCompare(b.task.title, t.locale),
       board: (a, b) => (boardRank.get(a.boardId) ?? 0) - (boardRank.get(b.boardId) ?? 0),
       stage: (a, b) => a.colIndex - b.colIndex,
@@ -70,6 +71,19 @@ export function ListView({ matches, onOpenTask }: Props) {
     const base = cmp.order;
     return out.sort((a, b) => sort.dir * cmp[sort.key](a, b) || base(a, b));
   }, [entries, matches, sort, boardRank, t.locale]);
+
+  // Người (avatar + tên) cho cột Phụ trách / Người tạo
+  const person = (id: string | null | undefined) => {
+    if (!id) return <span className="lt-none">—</span>;
+    const u = dir.get(id) ?? otherUsers.get(id);
+    if (!u) return <span className="lt-none">?</span>;
+    return (
+      <span className="lt-who" title={u.email}>
+        <Avatar user={u} size={22} />
+        <span>{u.name || u.email.split('@')[0]}</span>
+      </span>
+    );
+  };
 
   const head = (key: SortKey, label: string, className = '') => (
     <th className={className} aria-sort={sort.key === key ? (sort.dir === 1 ? 'ascending' : 'descending') : undefined}>
@@ -92,12 +106,15 @@ export function ListView({ matches, onOpenTask }: Props) {
         <table className="lt">
           <colgroup>
             <col style={{ width: 40 }} />
+            <col style={{ width: 96 }} />
             <col />
             <col style={{ width: 170 }} />
             <col style={{ width: 150 }} />
             <col style={{ width: 120 }} />
             <col style={{ width: 190 }} />
+            <col style={{ width: 150 }} />
             <col style={{ width: 110 }} />
+            <col style={{ width: 150 }} />
             <col style={{ width: 130 }} />
             <col style={{ width: 170 }} />
             <col style={{ width: 140 }} />
@@ -106,12 +123,15 @@ export function ListView({ matches, onOpenTask }: Props) {
           <thead>
             <tr>
               <th aria-label={t('list.done')} />
+              {head('key', t('ticket.key'))}
               {head('title', t('list.task'), 'is-left')}
               {head('board', t('list.board'), 'is-left')}
               {head('stage', t('list.stage'))}
               {head('priority', t('list.priority'))}
               <th>{t('list.tags')}</th>
+              <th>{t('ticket.assignee')}</th>
               <th>{t('list.assignees')}</th>
+              <th>{t('ticket.reporter')}</th>
               {head('created', t('list.created'))}
               {head('due', t('list.due'))}
               {head('finished', t('list.finished'))}
@@ -121,12 +141,12 @@ export function ListView({ matches, onOpenTask }: Props) {
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={11} className="lt-empty">
+                <td colSpan={14} className="lt-empty">
                   {t('list.empty')}
                 </td>
               </tr>
             ) : (
-              rows.map(({ key, task, col, pct, boardId, boardName, projectName, kind, foreign }) => {
+              rows.map(({ key, task, col, pct, boardId, boardName, projectName, projectKey, kind, foreign }) => {
                 const done = col.isDone;
                 const due = dueInfo(task.dueDate, done, t);
                 // Việc ở bảng khác chỉ xem; muốn sửa nhanh thì mở bảng đó (bấm tên việc)
@@ -144,6 +164,9 @@ export function ListView({ matches, onOpenTask }: Props) {
                         title={lock}
                         onChange={() => toggleDone(task.id)}
                       />
+                    </td>
+                    <td>
+                      {ticketLabel(task, projectKey) ? <span className="ticket-key">{ticketLabel(task, projectKey)}</span> : <span className="ticket-key is-pending">{projectKey ? `${projectKey}-…` : '—'}</span>}
                     </td>
                     <td className="is-left">
                       <button type="button" className="lt-title" onClick={() => onOpenTask(task.id, boardId)} title={task.note || task.title}>
@@ -196,9 +219,11 @@ export function ListView({ matches, onOpenTask }: Props) {
                         </span>
                       ))}
                     </td>
+                    <td className="lt-person">{person(task.assigneeId)}</td>
                     <td>
                       <AvatarStack users={(task.assignees ?? []).map((id) => dir.get(id) ?? otherUsers.get(id) ?? { id, name: '?', email: '?' })} max={3} size={22} />
                     </td>
+                    <td className="lt-person">{person(task.creatorId)}</td>
                     <td className="lt-date">{fmtDate(task.createdAt, t)}</td>
                     <td className={`lt-date${due ? ` due-${due.tone}` : ''}`}>
                       {task.dueDate && (

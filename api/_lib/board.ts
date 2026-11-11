@@ -50,6 +50,9 @@ export function mapTaskRow(t: Record<string, any>) {
     prevColumnId: (t.prev_column_id ?? null) as string | null,
     progress: (t.progress ?? 0) as number,
     assignees: (t.assignees ?? []) as string[],
+    number: (t.number ?? null) as number | null,
+    creatorId: (t.creator_id ?? null) as string | null,
+    assigneeId: (t.assignee_id ?? null) as string | null,
   };
 }
 
@@ -115,7 +118,7 @@ export async function readBoard(boardId: string): Promise<BoardResponse> {
  * allowedAssignees: id người được phép gắn vào việc (thành viên dự án, hoặc bạn bè + chính mình ở bảng cá nhân).
  * Id lạ bị bỏ đi để không gắn được người ngoài.
  */
-export async function writeBoard(boardId: string, baseRevision: number, raw: unknown, allowedAssignees: Set<string>) {
+export async function writeBoard(boardId: string, baseRevision: number, raw: unknown, allowedAssignees: Set<string>, writerId: string) {
   const parsed = parseImport(raw);
   if (!parsed.ok) throw new HttpError(400, 'invalid_board', { issues: parsed.errors });
   const { columns, tasks, filters = [], reminders = [] } = parsed.data;
@@ -151,6 +154,10 @@ export async function writeBoard(boardId: string, baseRevision: number, raw: unk
         prev_column_id: t.prevColumnId ?? null,
         progress: t.progress ?? 0,
         assignees: (t.assignees ?? []).filter((id) => allowedAssignees.has(id)),
+        assignee_id: t.assigneeId && allowedAssignees.has(t.assigneeId) ? t.assigneeId : null,
+        // số và người tạo do máy chủ quyết định ở bên dưới
+        number: null as number | null,
+        creator_id: null as string | null,
       };
     }),
   );
@@ -179,6 +186,39 @@ export async function writeBoard(boardId: string, baseRevision: number, raw: unk
     const current = rows[0].revision;
     if (current !== baseRevision) throw new HttpError(409, 'conflict', { revision: current });
 
+    // Việc đã có giữ nguyên số và người tạo (client không được tự đặt); việc mới được cấp số tiếp theo của dự án
+    const existing = new Map(
+      (await c.query<{ id: string; number: number | null; creator_id: string | null }>('select id, number, creator_id from tasks where board_id = $1', [boardId])).rows.map((r) => [
+        r.id,
+        r,
+      ]),
+    );
+    const fresh = taskRows.filter((r) => !existing.has(r.id));
+    const proj = await c.query<{ project_id: string }>('select project_id from project_boards where id = $1', [boardId]);
+    let nextNumber = 0;
+    if (proj.rows[0] && fresh.length) {
+      const seq = await c.query<{ ticket_seq: number }>('update projects set ticket_seq = ticket_seq + $2 where id = $1 returning ticket_seq', [
+        proj.rows[0].project_id,
+        fresh.length,
+      ]);
+      nextNumber = seq.rows[0].ticket_seq - fresh.length + 1;
+    }
+    const assigned: Record<string, { number: number | null; creatorId: string | null }> = {};
+    // Việc mới đánh số theo thứ tự tạo
+    const order = [...fresh].sort((a, z) => (a.created_at < z.created_at ? -1 : a.created_at > z.created_at ? 1 : 0));
+    const numberOf = new Map(order.map((r, i) => [r.id, proj.rows[0] ? nextNumber + i : null]));
+    for (const r of taskRows) {
+      const ex = existing.get(r.id);
+      if (ex) {
+        r.number = ex.number;
+        r.creator_id = ex.creator_id;
+      } else {
+        r.number = numberOf.get(r.id) ?? null;
+        r.creator_id = writerId;
+        assigned[r.id] = { number: r.number, creatorId: r.creator_id };
+      }
+    }
+
     await c.query('delete from reminders where board_id = $1', [boardId]);
     await c.query('delete from saved_filters where board_id = $1', [boardId]);
     await c.query('delete from tasks where board_id = $1', [boardId]);
@@ -193,12 +233,15 @@ export async function writeBoard(boardId: string, baseRevision: number, raw: unk
     if (taskRows.length)
       await c.query(
         `insert into tasks (board_id, id, column_id, position, title, note, priority, due_date, start_time, end_time, tags,
-                            created_at, updated_at, completed_at, auto_overdue_for, prev_column_id, progress, assignees)
+                            created_at, updated_at, completed_at, auto_overdue_for, prev_column_id, progress, assignees,
+                            number, creator_id, assignee_id)
          select $1, x.id, x.column_id, x.position, x.title, x.note, x.priority, x.due_date, x.start_time, x.end_time, x.tags,
-                x.created_at, x.updated_at, x.completed_at, x.auto_overdue_for, x.prev_column_id, x.progress, x.assignees
+                x.created_at, x.updated_at, x.completed_at, x.auto_overdue_for, x.prev_column_id, x.progress, x.assignees,
+                x.number, x.creator_id, x.assignee_id
          from jsonb_to_recordset($2::jsonb) as x(id text, column_id text, position int, title text, note text, priority text,
               due_date date, start_time time, end_time time, tags text[], created_at timestamptz, updated_at timestamptz,
-              completed_at timestamptz, auto_overdue_for date, prev_column_id text, progress smallint, assignees uuid[])`,
+              completed_at timestamptz, auto_overdue_for date, prev_column_id text, progress smallint, assignees uuid[],
+              number int, creator_id uuid, assignee_id uuid)`,
         [boardId, JSON.stringify(taskRows)],
       );
     if (filterRows.length)
@@ -221,6 +264,6 @@ export async function writeBoard(boardId: string, baseRevision: number, raw: unk
       'update boards set revision = revision + 1, timezone = $2, updated_at = now() where board_id = $1 returning revision',
       [boardId, timezone],
     );
-    return { revision: next.rows[0].revision, warnings: parsed.warnings.length };
+    return { revision: next.rows[0].revision, warnings: parsed.warnings.length, assigned };
   });
 }

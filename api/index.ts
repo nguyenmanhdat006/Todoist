@@ -256,7 +256,7 @@ app.put(
     const body = (req.body ?? {}) as { baseRevision?: unknown; file?: unknown; board?: unknown; project?: unknown };
     if (typeof body.baseRevision !== 'number' || !Number.isInteger(body.baseRevision)) throw new HttpError(400, 'bad_revision');
     const { boardId, allowed } = await boardAccess(req.user!.id, body.board ?? body.project);
-    res.json(await writeBoard(boardId, body.baseRevision, body.file, allowed));
+    res.json(await writeBoard(boardId, body.baseRevision, body.file, allowed, req.user!.id));
   }),
 );
 
@@ -338,7 +338,8 @@ app.patch(
   '/api/projects/:id',
   requireUser,
   route(async (req, res) => {
-    res.json({ project: await renameProject(req.user!.id, requireUuid(req.params.id), (req.body as { name?: unknown })?.name) });
+    const b = (req.body ?? {}) as { name?: unknown; key?: unknown };
+    res.json({ project: await renameProject(req.user!.id, requireUuid(req.params.id), b.name, b.key) });
   }),
 );
 

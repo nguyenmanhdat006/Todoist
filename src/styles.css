@@ -588,7 +588,7 @@ button.stat-tile:disabled { cursor: default; }
   overflow-x: auto; background: var(--surface); border: 1px solid color-mix(in srgb, var(--line-strong) 55%, var(--line));
   box-shadow: var(--shadow);
 }
-.lt { width: 100%; min-width: 1460px; border-collapse: collapse; table-layout: fixed; font-size: 13.5px; }
+.lt { width: 100%; min-width: 2000px; border-collapse: collapse; table-layout: fixed; font-size: 13.5px; }
 .lt th, .lt td { height: 40px; padding: 0 10px; text-align: center; vertical-align: middle; border-bottom: 1px solid var(--line); }
 .lt th.is-left, .lt td.is-left { text-align: left; }
 .lt thead th {

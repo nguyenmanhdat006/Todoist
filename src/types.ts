@@ -24,6 +24,12 @@ export interface Task {
   progress?: number;
   /** Người liên quan (id người dùng) */
   assignees?: string[];
+  /** Số thứ tự trong dự án; mã ticket = KEY-số. Do máy chủ cấp khi lưu lần đầu */
+  number?: number | null;
+  /** Người tạo (id người dùng), do máy chủ ghi */
+  creatorId?: string | null;
+  /** Người phụ trách (id người dùng) */
+  assigneeId?: string | null;
 }
 
 /** Lời nhắc: tạo ra khi một việc có giờ còn ≤ 1 tiếng nữa là bắt đầu */

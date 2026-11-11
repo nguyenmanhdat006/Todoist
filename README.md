@@ -36,6 +36,7 @@ Kiểm tra API: `GET /api/health` trả `{ "ok": true }` khi đã kết nối đ
 | POST | `/api/auth/login` | `{ email, password }` |
 | POST | `/api/auth/logout` | xoá phiên |
 | GET | `/api/auth/me` | người dùng hiện tại (401 nếu chưa đăng nhập) |
+| PATCH | `/api/projects/:id` | `{ name, key? }` → đổi tên và mã dự án (mã ticket `KEY-số`, 2–6 ký tự, duy nhất; chỉ host) |
 | PATCH | `/api/me` | `{ name }` → sửa tên hiển thị |
 | POST | `/api/me/password` | `{ current, password }` → đổi mật khẩu, đăng xuất các thiết bị khác |
 | GET | `/api/admin/users` | danh sách tài khoản (chỉ admin) |

@@ -65,6 +65,12 @@ export interface ExportTask {
   prevColumnId: string | null;
   progress: number;
   assignees: string[];
+  /** Số thứ tự trong dự án (mã ticket = KEY-số); do máy chủ cấp, null nếu chưa lưu */
+  number: number | null;
+  /** Người tạo (id người dùng); do máy chủ ghi */
+  creatorId: string | null;
+  /** Người phụ trách (id người dùng) */
+  assigneeId: string | null;
 }
 
 export interface ExportFile {
@@ -126,6 +132,9 @@ export function buildExport(s: ExportSource, now = new Date()): ExportFile {
         prevColumnId: x.prevColumnId ?? null,
         progress: clampProgress(x.progress),
         assignees: [...(x.assignees ?? [])],
+        number: x.number ?? null,
+        creatorId: x.creatorId ?? null,
+        assigneeId: x.assigneeId ?? null,
       });
     });
   }
@@ -332,6 +341,9 @@ function readTask(raw: unknown, path: string, warn: (key: TKey, vars?: Issue['va
     prevColumnId: prevColumnId || null,
     progress: clampProgress(raw.progress),
     assignees: readIds(raw.assignees),
+    number: typeof raw.number === 'number' && Number.isInteger(raw.number) && raw.number > 0 ? raw.number : null,
+    creatorId: readIds([raw.creatorId])[0] ?? null,
+    assigneeId: readIds([raw.assigneeId])[0] ?? null,
   };
 }
 

@@ -7,9 +7,9 @@ import { useT } from '../i18n';
 import { TagPicker, addTag } from './TagPicker';
 import { TimeSelect } from './TimeSelect';
 import { Avatar } from './Avatar';
-import { assignableUsers, usePeople } from '../sync/people';
+import { assignableUsers, userDirectory, useCurrentProjectKey, usePeople } from '../sync/people';
 import { useSession } from '../sync/session';
-import { canTrackProgress, fromMinutes, toMinutes, todayISO } from '../utils';
+import { canTrackProgress, fromMinutes, ticketLabel, toMinutes, todayISO } from '../utils';
 
 /** Giá trị điền sẵn khi tạo việc (ví dụ bấm vào một ô trên lịch) */
 export interface TaskDefaults {
@@ -83,6 +83,9 @@ export function TaskModal({ taskId, defaultColumnId, defaults, onClose, onDelete
   const [error, setError] = useState('');
   const [progress, setProgress] = useState(task?.progress ?? 0);
   const [assignees, setAssignees] = useState<string[]>(task?.assignees ?? []);
+  const [assigneeId, setAssigneeId] = useState<string | null>(task?.assigneeId ?? null);
+  const projectKey = useCurrentProjectKey();
+  const ticket = task ? ticketLabel(task, projectKey) : null;
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
@@ -110,6 +113,7 @@ export function TaskModal({ taskId, defaultColumnId, defaults, onClose, onDelete
       endTime: timed && endTime ? endTime : null,
       ...(canTrackProgress(columns.find((c) => c.id === columnId)) ? { progress } : {}),
       assignees,
+      assigneeId,
       // Lấy luôn nhãn đang gõ dở chưa nhấn Enter
       tags: addTag(tags, tagDraft, tags),
     };
@@ -143,7 +147,23 @@ export function TaskModal({ taskId, defaultColumnId, defaults, onClose, onDelete
         }}
       >
         <header className="modal-head">
-          <h2 id="task-modal-title">{task ? t('modal.edit') : t('modal.new')}</h2>
+          <h2 id="task-modal-title">
+            {task ? t('modal.edit') : t('modal.new')}
+            {task && projectKey && (
+              <button
+                type="button"
+                className={`ticket-key is-lg${ticket ? '' : ' is-pending'}`}
+                title={ticket ? t('ticket.copy') : t('ticket.pending')}
+                disabled={!ticket}
+                onClick={() => {
+                  if (!ticket) return;
+                  void navigator.clipboard?.writeText(ticket).then(() => toast.success('ticket.copied', { key: ticket }));
+                }}
+              >
+                {ticket ?? `${projectKey}-…`}
+              </button>
+            )}
+          </h2>
           <button type="button" className="icon-btn" onClick={onClose} aria-label={t('modal.close')}>
             ✕
           </button>
@@ -253,6 +273,8 @@ export function TaskModal({ taskId, defaultColumnId, defaults, onClose, onDelete
           </div>
         </div>
 
+        <TicketPeople task={task} assigneeId={assigneeId} onAssignee={setAssigneeId} />
+
         <AssigneePicker value={assignees} onChange={setAssignees} />
 
         <div className="field">
@@ -359,6 +381,62 @@ function AssigneePicker({ value, onChange }: { value: string[]; onChange: (v: (p
         </div>
       )}
       {options.length > 0 && <small className="hint">{board ? t('modal.assigneesHintProject') : t('modal.assigneesHintPersonal')}</small>}
+    </div>
+  );
+}
+
+/** Người phụ trách (chọn) và người tạo (chỉ xem) của ticket */
+function TicketPeople({ task, assigneeId, onAssignee }: { task: { creatorId?: string | null; createdAt: string } | undefined; assigneeId: string | null; onAssignee: (id: string | null) => void }) {
+  const t = useT();
+  const me = useSession((s) => s.user);
+  const board = useSession((s) => s.board);
+  const people = usePeople();
+  const options = assignableUsers(me, board, people);
+  const dir = userDirectory(me, people);
+  // Giữ cả người đang phụ trách dù giờ không còn trong danh sách
+  const list = assigneeId && !options.some((u) => u.id === assigneeId) ? [...options, dir.get(assigneeId) ?? { id: assigneeId, name: '?', email: '?' }] : options;
+  const creator = task ? (task.creatorId ? (dir.get(task.creatorId) ?? null) : null) : me;
+  const created = task ? new Date(task.createdAt) : null;
+  return (
+    <div className="field-row ticket-people">
+      <label className="field">
+        <span>{t('ticket.assignee')}</span>
+        <div className="assignee-select">
+          {assigneeId && <Avatar user={dir.get(assigneeId) ?? { id: assigneeId, name: '?', email: '?' }} size={26} />}
+          <select id="task-assignee" value={assigneeId ?? ''} onChange={(e) => onAssignee(e.target.value || null)}>
+            <option value="">{t('ticket.unassigned')}</option>
+            {list.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.name || u.email}
+              </option>
+            ))}
+          </select>
+        </div>
+        {me && assigneeId !== me.id && options.some((u) => u.id === me.id) && (
+          <button type="button" className="ticket-assign-me" onClick={() => onAssignee(me.id)}>
+            {t('ticket.assignMe')}
+          </button>
+        )}
+      </label>
+      <div className="field">
+        <span>{t('ticket.reporter')}</span>
+        <div className="reporter">
+          {creator ? (
+            <>
+              <Avatar user={creator} size={26} />
+              <span className="reporter-id">
+                <strong>{creator.name || creator.email}</strong>
+                {created && <small>{created.toLocaleDateString(t.locale)}</small>}
+              </span>
+            </>
+          ) : (
+            <span className="reporter-id">
+              <strong>—</strong>
+              {created && <small>{created.toLocaleDateString(t.locale)}</small>}
+            </span>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
