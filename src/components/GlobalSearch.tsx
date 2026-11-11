@@ -266,7 +266,10 @@ export function GlobalSearch({ onOpenTask }: Props) {
             <>
               {projectItems.length > 0 && (
                 <div className="gs-group">
-                  <div className="gs-label">{query.trim() ? t('gsearch.projects') : t('gsearch.yourProjects')}</div>
+                  <div className="gs-label">
+                    <span>{query.trim() ? t('gsearch.projects') : t('gsearch.yourProjects')}</span>
+                    <span className="gs-count">{projectItems.length}</span>
+                  </div>
                   {projectItems.map((it) => {
                     const i = indexOf(it);
                     const p = it.project;
@@ -282,7 +285,7 @@ export function GlobalSearch({ onOpenTask }: Props) {
                         onMouseEnter={() => setActive(i)}
                         onClick={() => void pick(it)}
                       >
-                        <span className="gs-ico" aria-hidden="true">
+                        <span className="gs-tile" aria-hidden="true">
                           <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5">
                             <path d="M2.5 5.5h5l1.6 1.8h8.4v8.2h-15z" />
                           </svg>
@@ -295,7 +298,9 @@ export function GlobalSearch({ onOpenTask }: Props) {
                             {t(p.kind === 'personal' ? 'gsearch.personal' : 'gsearch.team')} · {t('gsearch.boards', { n: p.boards.length })}
                           </span>
                         </span>
-                        <span className="ticket-key">{p.key}</span>
+                        <span className="gs-key-badge">
+                          <Highlight text={p.key} terms={terms} />
+                        </span>
                       </button>
                     );
                   })}
@@ -303,7 +308,10 @@ export function GlobalSearch({ onOpenTask }: Props) {
               )}
               {ticketItems.length > 0 && (
                 <div className="gs-group">
-                  <div className="gs-label">{query.trim() ? t('gsearch.tickets') : t('gsearch.recent')}</div>
+                  <div className="gs-label">
+                    <span>{query.trim() ? t('gsearch.tickets') : t('gsearch.recent')}</span>
+                    <span className="gs-count">{ticketItems.length}</span>
+                  </div>
                   {ticketItems.map((it) => {
                     const i = indexOf(it);
                     const { entry: e, label } = it;
@@ -320,22 +328,38 @@ export function GlobalSearch({ onOpenTask }: Props) {
                         onMouseEnter={() => setActive(i)}
                         onClick={() => void pick(it)}
                       >
-                        <span className={`ticket-key${label ? '' : ' is-pending'}`}>
-                          <Highlight text={label ?? `${e.projectKey || '—'}-…`} terms={terms} />
+                        <span className="gs-tile is-ticket" style={{ '--c': e.col.color } as React.CSSProperties} aria-hidden="true">
+                          {e.col.isDone ? (
+                            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M3.5 8.5l3 3 6-7" />
+                            </svg>
+                          ) : (
+                            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                              <rect x="2.5" y="3" width="11" height="10" />
+                              <path d="M5.5 6.5h5M5.5 9.5h3" />
+                            </svg>
+                          )}
                         </span>
                         <span className="gs-main">
                           <span className="gs-title">
                             <Highlight text={e.task.title} terms={terms} />
                           </span>
                           <span className="gs-sub">
-                            {e.projectName}
-                            {e.boardName && ` · ${e.boardName}`}
-                            <span className="gs-stage" style={{ '--c': e.col.color } as React.CSSProperties}>
-                              {e.col.title}
+                            <span className={`gs-key${label ? '' : ' is-pending'}`}>
+                              <Highlight text={label ?? `${e.projectKey || '—'}-…`} terms={terms} />
+                            </span>
+                            <span className="gs-where">
+                              {e.projectName}
+                              {e.boardName && ` · ${e.boardName}`}
                             </span>
                           </span>
                         </span>
-                        {assignee && <Avatar user={assignee} size={22} />}
+                        <span className="gs-right">
+                          <span className="gs-stage" style={{ '--c': e.col.color } as React.CSSProperties}>
+                            {e.col.title}
+                          </span>
+                          {assignee && <Avatar user={assignee} size={22} />}
+                        </span>
                       </button>
                     );
                   })}
