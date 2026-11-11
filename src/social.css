@@ -120,11 +120,39 @@
 .backdrop.over-side { z-index: 120; }
 
 /* chọn phạm vi cho Danh sách / Lịch */
-.scope-select select {
-  height: 36px; max-width: 260px; padding: 0 28px 0 10px; border: 1px solid var(--line-strong); background-color: var(--surface);
-  color: var(--fg); font-size: 13.5px; font-weight: 600; cursor: pointer;
+.scope-dd { position: relative; }
+.scope-trigger {
+  height: 36px; max-width: 300px; display: flex; align-items: center; gap: 8px; padding: 0 10px; border: 1px solid var(--line-strong);
+  background: var(--surface); color: var(--fg); font-size: 13.5px; font-weight: 600; cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
-.scope-select select:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
+.scope-trigger:hover { border-color: color-mix(in srgb, var(--blue) 40%, var(--line-strong)); }
+.scope-trigger.is-open, .scope-trigger:focus-visible { border-color: var(--blue); box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 18%, transparent); outline: 0; }
+.scope-trigger > svg:first-child { flex: none; color: var(--blue); }
+.scope-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.scope-caret { flex: none; color: var(--muted); transition: transform 0.15s; }
+.scope-trigger.is-open .scope-caret { transform: rotate(180deg); }
+.scope-panel {
+  position: absolute; left: 0; top: calc(100% + 6px); z-index: 60; min-width: 300px; max-width: min(380px, 92vw); max-height: min(60vh, 420px); overflow-y: auto;
+  padding: 6px 0; background: var(--surface); border: 1px solid var(--line-strong); box-shadow: 0 18px 48px -12px rgba(0, 0, 0, 0.45);
+  animation: pop-in 0.14s ease-out; transform-origin: top;
+}
+.scope-group { border-top: 1px solid var(--line); margin-top: 4px; padding-top: 4px; }
+.scope-opt {
+  width: 100%; display: flex; align-items: center; gap: 10px; padding: 8px 14px; border: 0; background: none; text-align: left; color: var(--fg-2); font-size: 13.5px; cursor: pointer;
+  transition: background-color 0.12s, color 0.12s;
+}
+.scope-opt:hover, .scope-opt:focus-visible { background: var(--surface-2); color: var(--fg); outline: 0; }
+.scope-opt.is-project { font-weight: 700; color: var(--fg); }
+.scope-opt.is-board { padding-left: 38px; }
+.scope-opt.on { color: var(--blue); background: color-mix(in srgb, var(--blue) 9%, var(--surface)); box-shadow: inset 3px 0 0 var(--blue); }
+.scope-ico { flex: none; width: 22px; height: 22px; display: grid; place-items: center; color: var(--muted); }
+.scope-opt.is-board .scope-ico { width: 18px; height: 18px; }
+.scope-opt.on .scope-ico { color: var(--blue); }
+.scope-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.scope-key { flex: none; padding: 0 6px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.04em; color: var(--blue); background: color-mix(in srgb, var(--blue) 12%, transparent); }
+.scope-count { flex: none; min-width: 22px; padding: 0 6px; text-align: center; font-size: 11px; font-weight: 600; color: var(--fg-2); background: var(--surface-2); font-variant-numeric: tabular-nums; }
+.scope-check { flex: none; color: var(--blue); }
 .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); border: 0; white-space: nowrap; }
 
 /* nút Board xổ danh sách bảng */

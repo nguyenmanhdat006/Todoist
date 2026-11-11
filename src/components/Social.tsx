@@ -5,7 +5,7 @@
  *  - ProjectDialog: tạo dự án, đổi tên, thêm/bớt thành viên (host), rời / xoá dự án
  */
 import { askConfirm } from '../confirm';
-import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useT, type TKey } from '../i18n';
 import { api, ApiError, type ApiUser, type Member, type ProjectInfo } from '../sync/api';
@@ -27,7 +27,7 @@ import {
   usePeople,
 } from '../sync/people';
 import { useBoard } from '../store/board';
-import { useOverview } from '../sync/overview';
+import { useAllEntries, useOverview } from '../sync/overview';
 import { switchBoard, useSession } from '../sync/session';
 import { Avatar } from './Avatar';
 import '../social.css';
@@ -931,22 +931,122 @@ export function ScopeSelect() {
   const projects = usePeople((s) => s.projects);
   const scope = useOverview((s) => s.scope);
   const setScope = useOverview((s) => s.setScope);
+  const entries = useAllEntries();
+  const [open, setOpen] = useState(false);
+  const ref = usePopover(open, () => setOpen(false));
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  // Số việc theo dự án và theo bảng
+  const counts = useMemo(() => {
+    const byProject = new Map<string, number>();
+    const byBoard = new Map<string, number>();
+    for (const e of entries) {
+      byProject.set(e.projectId, (byProject.get(e.projectId) ?? 0) + 1);
+      byBoard.set(e.boardId, (byBoard.get(e.boardId) ?? 0) + 1);
+    }
+    return { byProject, byBoard, all: entries.length };
+  }, [entries]);
+
+  const scopeProject = scope.startsWith('p:') ? projects.find((p) => p.id === scope.slice(2)) : undefined;
+  const scopeBoard = scope.startsWith('b:') ? projects.flatMap((p) => p.boards.map((b) => ({ p, b }))).find((x) => x.b.id === scope.slice(2)) : undefined;
+  const label = scopeBoard ? `${scopeBoard.p.name} · ${scopeBoard.b.name}` : scopeProject ? t('scope.allProject', { name: scopeProject.name }) : t('scope.all');
+
+  const choose = (value: string) => {
+    setScope(value);
+    setOpen(false);
+  };
+
+  // Mũi tên lên / xuống di chuyển giữa các mục
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+    e.preventDefault();
+    const items = [...(panelRef.current?.querySelectorAll<HTMLElement>('[role="option"]') ?? [])];
+    const i = items.indexOf(document.activeElement as HTMLElement);
+    items[Math.min(Math.max(i + (e.key === 'ArrowDown' ? 1 : -1), 0), items.length - 1)]?.focus();
+  };
+
+  useEffect(() => {
+    if (open) setTimeout(() => panelRef.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.focus(), 0);
+  }, [open]);
+
+  const Check = () => (
+    <svg className="scope-check" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+      <path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+
   return (
-    <label className="scope-select">
-      <span className="sr-only">{t('scope.label')}</span>
-      <select value={scope} aria-label={t('scope.label')} onChange={(e) => setScope(e.target.value)}>
-        <option value="all">{t('scope.all')}</option>
-        {projects.map((p) => (
-          <optgroup key={p.id} label={p.name}>
-            <option value={`p:${p.id}`}>{t('scope.allProject', { name: p.name })}</option>
-            {p.boards.map((b) => (
-              <option key={b.id} value={`b:${b.id}`}>
-                {p.name} · {b.name}
-              </option>
-            ))}
-          </optgroup>
-        ))}
-      </select>
-    </label>
+    <div className="scope-dd" ref={ref}>
+      <button
+        type="button"
+        className={`scope-trigger${open ? ' is-open' : ''}`}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={t('scope.label')}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5">
+          {scope === 'all' ? <path d="M3 3.5h6v6H3zM11 3.5h6v6h-6zM3 11.5h6v6H3zM11 11.5h6v6h-6z" /> : scopeBoard ? <path d="M3 3.5h4v13H3zM8 3.5h4v8H8zM13 3.5h4v10h-4z" /> : <path d="M2.5 5.5h5l1.6 1.8h8.4v8.2h-15z" />}
+        </svg>
+        <span className="scope-label">{label}</span>
+        <svg className="scope-caret" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
+          <path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+      {open && (
+        <div className="scope-panel" role="listbox" aria-label={t('scope.label')} ref={panelRef} onKeyDown={onKeyDown}>
+          <button type="button" role="option" aria-selected={scope === 'all'} className={`scope-opt${scope === 'all' ? ' on' : ''}`} onClick={() => choose('all')}>
+            <span className="scope-ico" aria-hidden="true">
+              <svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M3 3.5h6v6H3zM11 3.5h6v6h-6zM3 11.5h6v6H3zM11 11.5h6v6h-6z" />
+              </svg>
+            </span>
+            <span className="scope-name">{t('scope.all')}</span>
+            <span className="scope-count">{counts.all}</span>
+            {scope === 'all' && <Check />}
+          </button>
+          {projects.map((pr) => (
+            <div key={pr.id} className="scope-group">
+              <button
+                type="button"
+                role="option"
+                aria-selected={scope === `p:${pr.id}`}
+                className={`scope-opt is-project${scope === `p:${pr.id}` ? ' on' : ''}`}
+                onClick={() => choose(`p:${pr.id}`)}
+              >
+                <span className="scope-ico" aria-hidden="true">
+                  <svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M2.5 5.5h5l1.6 1.8h8.4v8.2h-15z" />
+                  </svg>
+                </span>
+                <span className="scope-name">{t('scope.allProject', { name: pr.name })}</span>
+                <span className="scope-key">{pr.key}</span>
+                <span className="scope-count">{counts.byProject.get(pr.id) ?? 0}</span>
+                {scope === `p:${pr.id}` && <Check />}
+              </button>
+              {pr.boards.map((b) => (
+                <button
+                  key={b.id}
+                  type="button"
+                  role="option"
+                  aria-selected={scope === `b:${b.id}`}
+                  className={`scope-opt is-board${scope === `b:${b.id}` ? ' on' : ''}`}
+                  onClick={() => choose(`b:${b.id}`)}
+                >
+                  <span className="scope-ico" aria-hidden="true">
+                    <svg viewBox="0 0 20 20" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <path d="M3 3.5h4v13H3zM8 3.5h4v8H8zM13 3.5h4v10h-4z" />
+                    </svg>
+                  </span>
+                  <span className="scope-name">{b.name}</span>
+                  <span className="scope-count">{counts.byBoard.get(b.id) ?? 0}</span>
+                  {scope === `b:${b.id}` && <Check />}
+                </button>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
