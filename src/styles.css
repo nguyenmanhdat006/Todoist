@@ -27,7 +27,8 @@
   --shadow-lg: 0 20px 44px -16px rgba(15, 23, 42, 0.35);
 
   --f-body: 'Inter', system-ui, 'Segoe UI', Roboto, sans-serif;
-  --f-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Code', Consolas, monospace;
+  /* Chỉ dùng một họ chữ (Inter); số dùng chữ số cùng độ rộng để thẳng hàng */
+  --f-mono: var(--f-body);
   --col-w: 264px;
   /* Khung trang dùng chung cho mọi chế độ xem: thanh trên, tiêu đề, Bảng, Danh sách */
   /* Nội dung giãn theo màn hình, chỉ giới hạn ở màn rất rộng (2K, 4K) */
@@ -888,4 +889,9 @@ button.stat-tile:disabled { cursor: default; }
 @media (prefers-reduced-motion: reduce) {
   .top-progress, .view-fade, .sk, .skeleton-col, .btn-spinner, .auth-slow { animation: none !important; }
   .top-progress.is-run { transform: scaleX(0.6); }
+}
+
+/* các chỗ trước đây dùng chữ đơn cách (số liệu, đồng hồ, phím tắt): giữ số thẳng hàng bằng Inter */
+.mono, kbd, .hero-next-count, .hero-next-pos, .project-count, .lt-pct, .card-progress-value, .progress-num, .lang-switch button, .import-file {
+  font-variant-numeric: tabular-nums;
 }
