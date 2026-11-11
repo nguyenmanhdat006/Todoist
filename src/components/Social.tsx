@@ -319,8 +319,11 @@ function Sidebar({ onClose: closeNow }: { onClose: () => void }) {
   const open = async (id: string | null, v?: 'kanban' | 'list' | 'calendar') => {
     if (v) setView(v);
     const ok = await switchBoard(id, () => askConfirm({ message: t('sync.logoutConfirm'), danger: true }));
-    // Thanh bên giữ nguyên: chỉ đóng khi bấm vùng trống, nút ✕ hoặc Esc
-    if (ok) await refreshPeople();
+    // Tải xong bảng mới thì thu thanh bên (có hiệu ứng trượt ra); xem Danh sách / Lịch hay mở hộp thoại thì thanh giữ nguyên
+    if (ok) {
+      await refreshPeople();
+      onClose();
+    }
   };
 
   // Bấm tên dự án: xổ / thu danh sách bảng của dự án, và đánh dấu đã xem thông báo "được thêm vào dự án"
