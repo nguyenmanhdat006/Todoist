@@ -98,7 +98,7 @@ export default function App() {
   const activeBoard = board ?? me?.id ?? null;
   const curProject = projectOfBoard(activeBoard, projects);
   const curBoard = boardInfo(activeBoard, projects);
-  const boardTitle = curProject ? (curProject.boards.length > 1 && curBoard ? `${curProject.name} · ${curBoard.name}` : curProject.name) : undefined;
+  const boardTitle = curProject ? (curBoard ? `${curProject.name} · ${curBoard.name}` : curProject.name) : undefined;
   const scopeProject = scope.startsWith('p:') ? projects.find((p) => p.id === scope.slice(2)) : undefined;
   const scopeBoard = scope.startsWith('b:') ? projects.flatMap((p) => p.boards.map((b) => ({ p, b }))).find((x) => x.b.id === scope.slice(2)) : undefined;
   const projectName = aggregate
