@@ -132,3 +132,10 @@
   .popover.notif-menu { width: auto; }
   .notif-head { flex-wrap: wrap; }
 }
+
+/* thông báo kết bạn */
+.notif-icon.is-friend { color: var(--blue); background: color-mix(in srgb, var(--blue) 16%, transparent); }
+div.notif-item { cursor: pointer; }
+.notif-item.has-actions { align-items: flex-start; padding-right: 16px; }
+.notif-item.has-actions .notif-task { white-space: normal; }
+.notif-actions-row { display: flex; gap: 8px; margin-top: 6px; }

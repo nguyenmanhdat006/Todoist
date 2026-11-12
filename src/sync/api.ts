@@ -60,8 +60,8 @@ export interface OverviewBoard {
 
 export interface ServerNotice {
   id: string;
-  type: 'project_added' | string;
-  data: { projectId?: string; projectName?: string; by?: string };
+  type: 'project_added' | 'friend_request' | 'friend_accepted' | 'friend_declined' | string;
+  data: { projectId?: string; projectName?: string; by?: string; userId?: string; name?: string; email?: string };
   createdAt: string;
   read: boolean;
 }

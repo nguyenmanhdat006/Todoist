@@ -79,11 +79,24 @@ export async function requestFriend(me: string, rawEmail: unknown) {
         other.id,
         me,
       ]);
+      await notifyFrom(c, other.id, 'friend_accepted', me);
       return { user: other, status: 'accepted' as const };
     }
     await c.query(`insert into friendships (requester, addressee, status) values ($1, $2, 'pending')`, [me, other.id]);
+    await notifyFrom(c, other.id, 'friend_request', me);
     return { user: other, status: 'pending' as const };
   });
+}
+
+/** Gửi thông báo tới `to` về việc của người dùng `from` (kèm tên và email để hiện ngay) */
+async function notifyFrom(c: { query: (sql: string, args?: unknown[]) => Promise<{ rows: any[] }> }, to: string, type: string, from: string) {
+  const { rows } = await c.query('select name, email from users where id = $1', [from]);
+  const u = rows[0] ?? {};
+  await c.query('insert into notifications (user_id, type, data) values ($1, $2, $3)', [
+    to,
+    type,
+    JSON.stringify({ userId: from, name: u.name ?? '', email: u.email ?? '' }),
+  ]);
 }
 
 export async function acceptFriend(me: string, otherId: string) {
@@ -93,10 +106,20 @@ export async function acceptFriend(me: string, otherId: string) {
     [otherId, me],
   );
   if (!rowCount) throw new HttpError(404, 'request_not_found');
+  await notifyFrom(db(), otherId, 'friend_accepted', me);
 }
 
 /** Huỷ lời mời đã gửi, từ chối lời mời nhận được, hoặc huỷ kết bạn */
 export async function removeFriend(me: string, otherId: string) {
+  // Từ chối lời mời nhận được: báo cho người gửi. Huỷ lời mời đã gửi hoặc huỷ kết bạn thì không báo.
+  const { rowCount: declined } = await db().query(
+    `delete from friendships where requester = $2 and addressee = $1 and status = 'pending'`,
+    [me, otherId],
+  );
+  if (declined) {
+    await notifyFrom(db(), otherId, 'friend_declined', me);
+    return;
+  }
   await db().query(
     `delete from friendships where (requester = $1 and addressee = $2) or (requester = $2 and addressee = $1)`,
     [me, otherId],

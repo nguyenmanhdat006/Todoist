@@ -1,7 +1,8 @@
 import { askConfirm } from '../confirm';
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useBoard } from '../store/board';
-import { readNotices, refreshPeople, usePeople } from '../sync/people';
+import { acceptFriend, readNotices, refreshPeople, removeFriend, usePeople } from '../sync/people';
+import { toast } from '../toast';
 import { switchBoard } from '../sync/session';
 import type { ServerNotice } from '../sync/api';
 import '../notifications.css';
@@ -46,8 +47,25 @@ export function NotificationBell({ onOpenTask, onToast }: Props) {
   const projects = usePeople((s) => s.projects);
   const unreadNotices = notices.filter((n) => !n.read).length;
   const unread = reminders.filter((r) => !r.read && tasks[r.taskId]).length + unreadNotices;
+  const incoming = usePeople((s) => s.incoming);
+  const friends = usePeople((s) => s.friends);
+  const respond = async (n: ServerNotice, accept: boolean) => {
+    const id = n.data.userId;
+    if (!id) return;
+    try {
+      if (accept) await acceptFriend(id);
+      else {
+        await removeFriend(id);
+        toast.info('toast.friendDenied');
+      }
+      await readNotices([n.id]);
+    } catch {
+      toast.error('toast.actionFailed');
+    }
+  };
   const openNotice = async (n: ServerNotice) => {
     if (!n.read) await readNotices([n.id]);
+    if (n.type.startsWith('friend_')) return;
     const p = projects.find((x) => x.id === n.data.projectId);
     if (p?.boards[0]) {
       setOpen(false);
@@ -191,23 +209,82 @@ export function NotificationBell({ onOpenTask, onToast }: Props) {
 
           {notices.length > 0 && (
             <ul className="notif-list">
-              {notices.slice(0, 5).map((n) => (
-                <li key={n.id} className="notif-row">
-                  <button type="button" className={`notif-item${n.read ? '' : ' is-new'}`} onClick={() => void openNotice(n)}>
-                    <span className="notif-icon is-project" aria-hidden="true">
-                      <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5">
-                        <path d="M2 4.5h4l1.5 1.5H14v6.5H2z" />
-                      </svg>
-                    </span>
-                    <span className="notif-body">
-                      <span className="notif-task">{t('notif.projectAdded', { by: n.data.by ?? '', name: n.data.projectName ?? '' })}</span>
-                      <span className="notif-meta">
-                        {new Intl.DateTimeFormat(t.locale, { dateStyle: 'short', timeStyle: 'short' }).format(new Date(n.createdAt))}
+              {notices.slice(0, 10).map((n) => {
+                const isFriend = n.type.startsWith('friend_');
+                const who = n.data.name || n.data.email || '';
+                const pending = n.type === 'friend_request' && !!n.data.userId && incoming.some((u) => u.id === n.data.userId);
+                const text =
+                  n.type === 'friend_request'
+                    ? pending
+                      ? t('notif.friendRequest', { name: who })
+                      : friends.some((u) => u.id === n.data.userId)
+                        ? t('notif.friendNowFriends', { name: who })
+                        : t('notif.friendGone', { name: who })
+                    : n.type === 'friend_accepted'
+                      ? t('notif.friendAccepted', { name: who })
+                      : n.type === 'friend_declined'
+                        ? t('notif.friendDeclined', { name: who })
+                        : t('notif.projectAdded', { by: n.data.by ?? '', name: n.data.projectName ?? '' });
+                return (
+                  <li key={n.id} className="notif-row">
+                    <div
+                      className={`notif-item${n.read && !pending ? '' : ' is-new'}${pending ? ' has-actions' : ''}`}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => void openNotice(n)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          void openNotice(n);
+                        }
+                      }}
+                    >
+                      <span className={`notif-icon ${isFriend ? 'is-friend' : 'is-project'}`} aria-hidden="true">
+                        {isFriend ? (
+                          <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                            <circle cx="6.2" cy="5.6" r="2.3" />
+                            <path d="M1.8 13c.5-2 2.1-3.1 4.4-3.1s3.9 1.1 4.4 3.1M12.2 5v4M10.2 7h4" />
+                          </svg>
+                        ) : (
+                          <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5">
+                            <path d="M2 4.5h4l1.5 1.5H14v6.5H2z" />
+                          </svg>
+                        )}
                       </span>
-                    </span>
-                  </button>
-                </li>
-              ))}
+                      <span className="notif-body">
+                        <span className="notif-task">{text}</span>
+                        <span className="notif-meta">
+                          {new Intl.DateTimeFormat(t.locale, { dateStyle: 'short', timeStyle: 'short' }).format(new Date(n.createdAt))}
+                        </span>
+                        {pending && (
+                          <span className="notif-actions-row">
+                            <button
+                              type="button"
+                              className="btn primary sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                void respond(n, true);
+                              }}
+                            >
+                              {t('notif.accept')}
+                            </button>
+                            <button
+                              type="button"
+                              className="btn sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                void respond(n, false);
+                              }}
+                            >
+                              {t('notif.deny')}
+                            </button>
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           )}
 

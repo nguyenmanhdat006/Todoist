@@ -54,8 +54,22 @@ export function boardInfo(board: string | null, projects: ProjectInfo[]): BoardI
   return projectOfBoard(board, projects)?.boards.find((b) => b.id === board);
 }
 
+let noticesSeen = false;
+
 export async function loadNotices() {
   const { items } = await api.notifications();
+  // Thông báo bạn bè mới đến khi đang mở app: hiện thêm toast
+  if (noticesSeen) {
+    const known = new Set(usePeople.getState().notices.map((n) => n.id));
+    for (const n of items) {
+      if (n.read || known.has(n.id)) continue;
+      const who = n.data.name || n.data.email || '';
+      if (n.type === 'friend_request') toast.info('toast.friendRequestIn', { name: who });
+      else if (n.type === 'friend_accepted') toast.success('toast.friendAcceptedBy', { name: who });
+      else if (n.type === 'friend_declined') toast.info('toast.friendDeclinedBy', { name: who });
+    }
+  }
+  noticesSeen = true;
   set({ notices: items });
 }
 
