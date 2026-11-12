@@ -71,7 +71,7 @@ export function TitleClock({ locale, title, clockLabel }: { locale: string; titl
       <AnalogClock now={now} label={`${clockLabel}: ${time}`} />
       <div className="toolbar-title-text">
         <span className="eyebrow">{date}</span>
-        <h1>{title}</h1>
+        <h1 title={title}>{title}</h1>
         <span className="hero-time" aria-hidden="true">
           {time.slice(0, 5)}
           <span className="hero-sec">{time.slice(5)}</span>

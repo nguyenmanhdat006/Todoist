@@ -133,3 +133,9 @@ button.hero-next:hover { background: color-mix(in srgb, var(--tag) 18%, var(--su
   .hero .stat-tile[class*='tone-'] { min-width: 0; height: 88px; padding: 10px 12px 14px; }
   .hero .stat-value { font-size: 26px; }
 }
+
+/* Tên bảng dài thì cắt bớt theo chiều rộng còn lại, để lời chào và thẻ Tiếp theo không bị đẩy xuống hàng */
+.hero .toolbar-title-text h1 { max-width: clamp(240px, calc(100vw - 1460px), 560px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 1720px) {
+  .hero .toolbar-title-text h1 { max-width: 100%; }
+}
