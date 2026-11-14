@@ -16,6 +16,7 @@
     "@dnd-kit/sortable": "^8.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "express": "^5.3.0",
+    "nodemailer": "^6.10.1",
     "pg": "^8.23.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -24,6 +25,7 @@
   "devDependencies": {
     "@types/express": "^5.0.6",
     "@types/node": "^22.20.5",
+    "@types/nodemailer": "^6.4.24",
     "@types/pg": "^8.23.1",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",

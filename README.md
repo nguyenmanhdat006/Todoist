@@ -28,6 +28,21 @@ npm run dev          # web: http://localhost:5173 (tự chuyển /api sang cổn
 
 Kiểm tra API: `GET /api/health` trả `{ "ok": true }` khi đã kết nối được database.
 
+### Gửi email (quên mật khẩu)
+
+Chức năng quên mật khẩu gửi email qua SMTP. Thêm các biến môi trường trong Vercel (Settings → Environment Variables), rồi deploy lại:
+
+| Biến | Ý nghĩa |
+|---|---|
+| `SMTP_USER` | tài khoản gửi, ví dụ `ban@gmail.com` |
+| `SMTP_PASS` | với Gmail: **Mật khẩu ứng dụng** (bật xác minh 2 bước → Tài khoản Google → Bảo mật → Mật khẩu ứng dụng), không phải mật khẩu đăng nhập Gmail |
+| `MAIL_FROM` | (tuỳ chọn) tên và địa chỉ người gửi, ví dụ `"Quản lý công việc" <ban@gmail.com>` |
+| `APP_URL` | (tuỳ chọn) địa chỉ web để dựng liên kết trong email; mặc định lấy theo tên miền đang truy cập |
+| `SMTP_HOST`, `SMTP_PORT` | (tuỳ chọn) mặc định `smtp.gmail.com`, `465` |
+
+Chưa cấu hình thì nút "Quên mật khẩu?" báo máy chủ chưa gửi được email. Khi phát triển ở máy, đặt `MAIL_MODE=log` trong `.env.local`
+để API chỉ in email (kèm liên kết đặt lại) ra cửa sổ chạy, không gửi thật.
+
 ## API
 
 | Method | Đường dẫn | Mô tả |
@@ -37,6 +52,9 @@ Kiểm tra API: `GET /api/health` trả `{ "ok": true }` khi đã kết nối đ
 | POST | `/api/auth/logout` | xoá phiên |
 | GET | `/api/auth/me` | người dùng hiện tại (401 nếu chưa đăng nhập) |
 | PATCH | `/api/projects/:id` | `{ name, key? }` → đổi tên và mã dự án (mã ticket `KEY-số`, 2–6 ký tự, duy nhất; chỉ host) |
+| POST | `/api/auth/forgot` | `{ email, lang? }` → gửi liên kết đặt lại mật khẩu (luôn trả ok để không lộ tài khoản nào tồn tại; tối đa 3 email/giờ cho mỗi tài khoản) |
+| POST | `/api/auth/reset/check` | `{ token }` → kiểm tra liên kết còn dùng được, trả `email` |
+| POST | `/api/auth/reset` | `{ token, password }` → đặt mật khẩu mới (liên kết dùng một lần, hết hạn sau 1 giờ), đăng xuất mọi thiết bị |
 | PATCH | `/api/me` | `{ name }` → sửa tên hiển thị |
 | POST | `/api/me/password` | `{ current, password }` → đổi mật khẩu, đăng xuất các thiết bị khác |
 | GET | `/api/admin/users` | danh sách tài khoản (chỉ admin) |

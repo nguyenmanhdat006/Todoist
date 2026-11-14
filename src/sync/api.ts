@@ -122,6 +122,9 @@ export const api = {
   register: (email: string, password: string, name: string) =>
     call<{ user: AccountUser }>('POST', '/api/auth/register', { email, password, name }),
   logout: () => call<{ ok: true }>('POST', '/api/auth/logout', {}),
+  forgotPassword: (email: string, lang: string) => call<{ ok: true }>('POST', '/api/auth/forgot', { email, lang }),
+  resetCheck: (token: string) => call<{ ok: true; email: string }>('POST', '/api/auth/reset/check', { token }),
+  resetPassword: (token: string, password: string) => call<{ ok: true }>('POST', '/api/auth/reset', { token, password }),
   updateProfile: (name: string) => call<{ user: AccountUser }>('PATCH', '/api/me', { name }),
   changePassword: (current: string, password: string) => call<{ ok: true }>('POST', '/api/me/password', { current, password }),
   adminUsers: () => call<{ users: AdminUser[] }>('GET', '/api/admin/users'),

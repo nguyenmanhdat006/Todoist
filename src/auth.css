@@ -94,3 +94,10 @@
 .account-menu .menu-item:hover svg { color: var(--blue); }
 .account-menu .menu-item.is-signout:hover { color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, transparent); }
 .account-menu .menu-item.is-signout:hover svg { color: var(--danger); }
+
+/* ---------- quên mật khẩu ---------- */
+.auth-forgot { align-self: flex-end; margin-top: 6px; font-size: 12.5px; }
+.auth-title { margin: 0 0 6px; font-size: 20px; font-weight: 700; letter-spacing: -0.02em; }
+.auth-sent { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 4px 0 8px; }
+.auth-sent-icon { width: 46px; height: 46px; display: grid; place-items: center; margin-bottom: 4px; color: var(--blue); background: color-mix(in srgb, var(--blue) 12%, transparent); }
+.auth-sent .auth-tagline { margin: 0; overflow-wrap: anywhere; }

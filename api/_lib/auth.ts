@@ -124,6 +124,56 @@ export async function endOtherSessions(req: Request, userId: string) {
   ]);
 }
 
+/* ---------- đặt lại mật khẩu ---------- */
+
+const RESET_MINUTES = 60;
+const MAX_RESETS_PER_USER = 3; // mỗi giờ
+const MAX_RESETS_PER_IP = 10; // mỗi giờ
+
+/** Tạo token đặt lại cho người dùng (xoá token chưa dùng cũ). Trả null nếu đã yêu cầu quá nhiều lần. */
+export async function createResetToken(userId: string, ip: string): Promise<string | null> {
+  const { rows } = await db().query<{ by_user: string; by_ip: string }>(
+    `select count(*) filter (where user_id = $1) as by_user, count(*) filter (where ip = $2) as by_ip
+       from password_resets where created_at > now() - interval '1 hour' and (user_id = $1 or ip = $2)`,
+    [userId, ip],
+  );
+  if (Number(rows[0].by_user) >= MAX_RESETS_PER_USER || Number(rows[0].by_ip) >= MAX_RESETS_PER_IP) return null;
+  const token = randomBytes(32).toString('base64url');
+  // Token cũ chưa dùng thì vô hiệu (giữ lại dòng để còn đếm giới hạn)
+  await db().query('update password_resets set used_at = now() where user_id = $1 and used_at is null', [userId]);
+  await db().query('insert into password_resets (token_hash, user_id, ip, expires_at) values ($1, $2, $3, now() + ($4 || \' minutes\')::interval)', [
+    sha256(token),
+    userId,
+    ip,
+    String(RESET_MINUTES),
+  ]);
+  return token;
+}
+
+export async function lookupResetToken(token: unknown): Promise<{ userId: string; email: string } | null> {
+  if (typeof token !== 'string' || token.length < 20 || token.length > 100) return null;
+  const { rows } = await db().query<{ user_id: string; email: string }>(
+    `select r.user_id, u.email from password_resets r join users u on u.id = r.user_id
+      where r.token_hash = $1 and r.used_at is null and r.expires_at > now() and not u.disabled`,
+    [sha256(token)],
+  );
+  return rows[0] ? { userId: rows[0].user_id, email: rows[0].email } : null;
+}
+
+/** Đặt mật khẩu mới bằng token (dùng một lần), đăng xuất mọi thiết bị và gỡ khoá thử sai */
+export async function consumeResetToken(token: string, password: string): Promise<boolean> {
+  const found = await lookupResetToken(token);
+  if (!found) return false;
+  const hash = await hashPassword(password);
+  const { rowCount } = await db().query('update password_resets set used_at = now() where token_hash = $1 and used_at is null', [sha256(token)]);
+  if (!rowCount) return false; // có yêu cầu khác dùng token này trước
+  await db().query('update users set password_hash = $2 where id = $1', [found.userId, hash]);
+  await db().query('delete from sessions where user_id = $1', [found.userId]);
+  await db().query('update password_resets set used_at = now() where user_id = $1 and used_at is null', [found.userId]);
+  await db().query('delete from auth_attempts where email = $1', [found.email]);
+  return true;
+}
+
 /* ---------- chặn dò mật khẩu ---------- */
 
 const WINDOW = "interval '15 minutes'";

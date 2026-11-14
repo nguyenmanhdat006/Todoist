@@ -6,10 +6,13 @@ import express, { type NextFunction, type Request, type Response } from 'express
 import {
   DUMMY_HASH,
   checkRateLimit,
+  consumeResetToken,
+  createResetToken,
   endOtherSessions,
   endSession,
   hashPassword,
   logAttempt,
+  lookupResetToken,
   readCredentials,
   requireAdmin,
   requireUser,
@@ -43,6 +46,7 @@ import {
   requireUuid,
 } from './_lib/social.js';
 import { HttpError, clientIp, route } from './_lib/http.js';
+import { mailConfigured, resetEmail, sendMail } from './_lib/mail.js';
 
 const app = express();
 app.disable('x-powered-by');
@@ -154,6 +158,64 @@ app.get(
     const user = await sessionUser(req);
     if (!user) throw new HttpError(401, 'unauthorized');
     res.json({ user: publicUser(user) });
+  }),
+);
+
+/* ---------- quên mật khẩu ---------- */
+
+/** Địa chỉ gốc của app để dựng liên kết trong email (APP_URL, hoặc tên miền đang được gọi) */
+function appBase(req: Request): string {
+  if (process.env.APP_URL) return process.env.APP_URL.replace(/\/+$/, '');
+  const fwd = req.headers['x-forwarded-host'];
+  const host = (Array.isArray(fwd) ? fwd[0] : fwd?.split(',')[0]?.trim()) || req.headers.host || 'localhost';
+  const proto = req.headers['x-forwarded-proto'] === 'https' || req.secure ? 'https' : /^(localhost|127\.|\[::1\])/.test(host) ? 'http' : 'https';
+  return `${proto}://${host}`;
+}
+
+// Luôn trả ok dù email có tồn tại hay không, để không lộ tài khoản nào có trong hệ thống
+app.post(
+  '/api/auth/forgot',
+  route(async (req, res) => {
+    const b = (req.body ?? {}) as { email?: unknown; lang?: unknown };
+    const email = typeof b.email === 'string' ? b.email.trim().toLowerCase() : '';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) throw new HttpError(400, 'invalid_email');
+    if (!mailConfigured()) throw new HttpError(503, 'mail_not_configured');
+    const { rows } = await db().query<User & { disabled: boolean }>('select id, email, name, role, disabled from users where email = $1', [email]);
+    const user = rows[0];
+    if (user && !user.disabled) {
+      // Quá nhiều yêu cầu thì im lặng bỏ qua (vẫn trả ok) để không lộ tài khoản có tồn tại hay không
+      const token = await createResetToken(user.id, clientIp(req));
+      if (token) {
+        const link = `${appBase(req)}/?reset=${encodeURIComponent(token)}`;
+        try {
+          await sendMail(resetEmail(user.email, user.name, link, b.lang === 'en' ? 'en' : 'vi'));
+        } catch (e) {
+          // Không báo lỗi cho người gọi; ghi log để quản trị xử lý
+          console.error('[mail] gửi email đặt lại mật khẩu thất bại:', e);
+        }
+      }
+    }
+    res.json({ ok: true });
+  }),
+);
+
+app.post(
+  '/api/auth/reset/check',
+  route(async (req, res) => {
+    const found = await lookupResetToken((req.body as { token?: unknown })?.token);
+    if (!found) throw new HttpError(400, 'invalid_token');
+    res.json({ ok: true, email: found.email });
+  }),
+);
+
+app.post(
+  '/api/auth/reset',
+  route(async (req, res) => {
+    const b = (req.body ?? {}) as { token?: unknown; password?: unknown };
+    const password = typeof b.password === 'string' ? b.password : '';
+    if (password.length < 8 || password.length > 200) throw new HttpError(400, 'weak_password');
+    if (typeof b.token !== 'string' || !(await consumeResetToken(b.token, password))) throw new HttpError(400, 'invalid_token');
+    res.json({ ok: true });
   }),
 );
 
