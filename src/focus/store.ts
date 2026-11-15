@@ -10,6 +10,9 @@ export type AlarmSound = 'chime' | 'bell' | 'digital' | 'soft' | 'piano';
 export type Effect = 'off' | 'motes' | 'stars' | 'rain' | 'bubbles' | 'snow';
 export type Scene = 'fantasy' | 'aurora' | 'pastel' | 'lofi' | 'cyber';
 
+/** Màu theo chế độ: tập trung dùng màu nhấn của người dùng, nghỉ ngắn xanh lá nhạt, nghỉ dài xanh lá đậm */
+export const BREAK_COLORS = { short: '#4ade80', long: '#22a35a' } as const;
+
 export const ACCENTS = ['#60a5fa', '#a78bfa', '#2dd4bf', '#a3e635', '#fb7185', '#fbbf24'] as const;
 
 export interface FocusSettings {

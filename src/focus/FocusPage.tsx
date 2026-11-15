@@ -8,6 +8,7 @@ import { fold, ticketLabel, todayISO } from '../utils';
 import { Effects } from './Effects';
 import {
   ACCENTS,
+  BREAK_COLORS,
   fmtClock,
   fmtMinutes,
   keepsStreak,
@@ -80,6 +81,11 @@ export function FocusPage() {
   const today = s.days[todayISO()];
   const st = useMemo(() => streaks(s.days), [s.days]);
   const ch = s.challenges[todayISO()];
+  // Đổi chế độ: vòng tròn sáng lên một nhịp (tăng số để khởi động lại hiệu ứng)
+  const [pulse, setPulse] = useState(0);
+  useEffect(() => {
+    setPulse((n) => n + 1);
+  }, [s.mode]);
   const toggle = (p: PanelId) => setPanel((cur) => (cur === p ? null : p));
 
   useEffect(() => {
@@ -113,7 +119,7 @@ export function FocusPage() {
   const mm = fmtClock(left);
 
   return createPortal(
-    <div className={`fp scene-${s.settings.scene}`} style={{ ['--fa' as string]: s.settings.accent }} role="main" aria-label={t('focus.title')}>
+    <div className={`fp scene-${s.settings.scene}`} style={{ ['--fa' as string]: s.mode === 'focus' ? s.settings.accent : BREAK_COLORS[s.mode] }} role="main" aria-label={t('focus.title')}>
       <div className="fp-scene" aria-hidden="true" />
       <Effects kind={s.settings.effect} color={s.settings.accent} />
 
@@ -182,12 +188,18 @@ export function FocusPage() {
 
         <div className={`fp-timer style-${s.settings.style}${running ? ' is-running' : ''}`} aria-live="off">
           {s.settings.style === 'ring' && (
-            <svg className="fp-ring" viewBox="0 0 200 200" aria-hidden="true">
+            <svg key={pulse} className={`fp-ring${pulse > 1 ? ' flash' : ''}`} viewBox="0 0 200 200" aria-hidden="true">
+              <defs>
+                <linearGradient id="fp-ring-grad" x1="0" y1="1" x2="1" y2="0">
+                  <stop offset="0" className="g0" />
+                  <stop offset="1" className="g1" />
+                </linearGradient>
+              </defs>
               <circle className="track" cx="100" cy="100" r="92" />
-              <circle className="bar" cx="100" cy="100" r="92" pathLength={100} strokeDasharray={100} strokeDashoffset={100 - progress * 100} />
+              <circle className="bar" cx="100" cy="100" r="92" pathLength={100} strokeDasharray={100} strokeDashoffset={progress * 100} />
             </svg>
           )}
-          <div className="fp-time" role="timer" aria-label={`${modeLabel} ${mm}`}>
+          <div key={s.mode} className="fp-time" role="timer" aria-label={`${modeLabel} ${mm}`}>
             <span>{mm.slice(0, 2)}</span>
             <i>:</i>
             <span>{mm.slice(3)}</span>
