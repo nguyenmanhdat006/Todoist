@@ -255,16 +255,34 @@
 .fp-top-tasks span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* chọn việc */
-.fp-search { height: 40px; padding: 0 12px; border: 1px solid rgba(255, 255, 255, 0.14); background: rgba(255, 255, 255, 0.06); color: #fff; font-size: 14px; }
-.fp-search:focus { outline: 2px solid var(--fa); outline-offset: -1px; }
-.fp-tasks { display: flex; flex-direction: column; gap: 4px; }
-.fp-trow { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; width: 100%; padding: 10px 12px; border: 1px solid transparent; background: rgba(255, 255, 255, 0.05); color: #fff; text-align: left; cursor: pointer; transition: background 0.15s; }
-.fp-trow:hover { background: rgba(255, 255, 255, 0.11); }
-.fp-trow.on { background: var(--fa-soft); border-color: color-mix(in srgb, var(--fa) 55%, transparent); }
-.fp-trow.free { font-size: 13px; color: rgba(255, 255, 255, 0.7); }
-.fp-trow-main { font-size: 14px; font-weight: 600; }
-.fp-trow-main em { margin-right: 8px; font-style: normal; font-size: 11.5px; font-weight: 700; color: var(--fa); }
-.fp-trow small { font-size: 11.5px; color: rgba(255, 255, 255, 0.5); }
+.fp-tools { display: flex; flex-direction: column; gap: 8px; }
+.fp-search { display: flex; align-items: center; gap: 9px; height: 42px; padding: 0 6px 0 12px; border: 1px solid rgba(255, 255, 255, 0.14); background: rgba(255, 255, 255, 0.06); color: rgba(255, 255, 255, 0.55); transition: border-color 0.15s, background 0.15s; }
+.fp-search:focus-within { border-color: var(--fa); background: rgba(255, 255, 255, 0.09); color: #fff; }
+.fp-search input { flex: 1; min-width: 0; height: 100%; border: 0; outline: 0; background: none; color: #fff; font-size: 14px; }
+.fp-search input::placeholder { color: rgba(255, 255, 255, 0.4); }
+.fp-search button { width: 28px; height: 28px; border: 0; background: none; color: rgba(255, 255, 255, 0.6); cursor: pointer; }
+.fp-search button:hover { color: #fff; background: rgba(255, 255, 255, 0.1); }
+.fp-free { display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 12px; border: 1px dashed rgba(255, 255, 255, 0.22); background: none; color: rgba(255, 255, 255, 0.75); font-size: 13px; cursor: pointer; text-align: left; transition: background 0.15s, border-color 0.15s; }
+.fp-free:hover { background: rgba(255, 255, 255, 0.07); }
+.fp-free.on { border-style: solid; border-color: color-mix(in srgb, var(--fa) 60%, transparent); background: var(--fa-soft); color: #fff; }
+.fp-free-ico { width: 18px; text-align: center; color: var(--fa); }
+.fp-tlist { display: flex; flex-direction: column; gap: 14px; margin-top: 4px; }
+.fp-tgroup { display: flex; flex-direction: column; gap: 6px; }
+.fp-tgroup h4 { position: sticky; top: -6px; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0; padding: 6px 2px; background: rgba(14, 15, 22, 0.96); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(255, 255, 255, 0.55); }
+.fp-tgroup h4 span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fp-tgroup h4 b { flex: none; padding: 1px 7px; background: rgba(255, 255, 255, 0.1); font-size: 10.5px; letter-spacing: 0; color: rgba(255, 255, 255, 0.8); }
+.fp-trow { display: flex; align-items: center; gap: 11px; width: 100%; padding: 11px 12px; border: 1px solid transparent; background: rgba(255, 255, 255, 0.05); color: #fff; text-align: left; cursor: pointer; transition: background 0.15s, border-color 0.15s, transform 0.12s; }
+.fp-trow:hover { background: rgba(255, 255, 255, 0.1); }
+.fp-trow:active { transform: scale(0.99); }
+.fp-trow.on { background: var(--fa-soft); border-color: color-mix(in srgb, var(--fa) 60%, transparent); }
+.fp-tdot { flex: none; width: 8px; height: 8px; border-radius: 50%; }
+.fp-tbody { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.fp-ttitle { font-size: 14px; font-weight: 600; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.fp-tmeta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 11.5px; color: rgba(255, 255, 255, 0.55); }
+.fp-tmeta em { font-style: normal; font-weight: 700; color: var(--fa); }
+.fp-tmeta i { font-style: normal; padding: 1px 7px; font-weight: 600; color: #fff; background: color-mix(in srgb, var(--c, #888) 30%, transparent); border: 1px solid color-mix(in srgb, var(--c, #888) 50%, transparent); }
+.fp-tspent { margin-left: auto; font-variant-numeric: tabular-nums; }
+.fp-tcheck { flex: none; width: 22px; height: 22px; display: grid; place-items: center; background: var(--fa); color: #15121f; font-size: 12px; font-weight: 800; }
 
 /* nhạc */
 .fp-music {

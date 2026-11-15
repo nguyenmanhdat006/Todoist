@@ -586,48 +586,91 @@ function TasksPanel({ t, onClose }: { t: T; onClose: () => void }) {
   const open = useMemo(() => entries.filter((e) => !e.col.isDone), [entries]);
   const list = useMemo(() => {
     const f = fold(q.trim());
-    return f ? open.filter((e) => fold(`${e.task.title} ${e.projectName} ${e.boardName}`).includes(f)) : open;
+    return f ? open.filter((e) => fold(`${e.task.title} ${e.projectName} ${e.boardName} ${e.col.title} ${ticketLabel(e.task, e.projectKey) ?? ''}`).includes(f)) : open;
   }, [open, q]);
+  // Nhóm theo dự án · bảng (giữ thứ tự xuất hiện: bảng đang mở trước)
+  const groups = useMemo(() => {
+    const m = new Map<string, { name: string; items: typeof list }>();
+    for (const e of list) {
+      const key = e.boardId;
+      const g = m.get(key) ?? { name: [e.projectName, e.boardName].filter(Boolean).join(' · '), items: [] };
+      g.items.push(e);
+      m.set(key, g);
+    }
+    return [...m.values()];
+  }, [list]);
+
   return (
     <Panel title={t('focus.task.listTitle')} onClose={onClose} side="right" t={t}>
-      <input className="fp-search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('focus.task.search')} autoFocus />
-      <div className="fp-tasks">
+      <div className="fp-tools">
+        <label className="fp-search">
+          <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true">
+            <circle cx="7" cy="7" r="4.6" />
+            <path d="M10.5 10.5L14 14" />
+          </svg>
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('focus.task.search')} autoFocus />
+          {q && (
+            <button type="button" onClick={() => setQ('')} aria-label={t('focus.close')}>
+              ✕
+            </button>
+          )}
+        </label>
         <button
           type="button"
-          className={`fp-trow free${!task ? ' on' : ''}`}
+          className={`fp-free${!task ? ' on' : ''}`}
           onClick={() => {
             select(null);
             onClose();
           }}
         >
-          <span>{t('focus.task.none')}</span>
+          <span className="fp-free-ico" aria-hidden="true">
+            {!task ? '✓' : '○'}
+          </span>
+          {t('focus.task.none')}
         </button>
+      </div>
+      <div className="fp-tlist">
         {list.length === 0 && <p className="fp-note">{open.length === 0 ? t('focus.task.empty') : t('focus.task.noMatch')}</p>}
-        {list.map((e) => {
-          const spent = taskMs[e.key]?.ms ?? 0;
-          const code = ticketLabel(e.task, e.projectKey);
-          return (
-            <button
-              key={e.key}
-              type="button"
-              className={`fp-trow${task?.key === e.key ? ' on' : ''}`}
-              onClick={() => {
-                select({ key: e.key, id: e.task.id, boardId: e.boardId, title: e.task.title });
-                toast.info('focus.task.picked', { title: e.task.title });
-                onClose();
-              }}
-            >
-              <span className="fp-trow-main">
-                {code && <em>{code}</em>}
-                {e.task.title}
-              </span>
-              <small>
-                {[e.projectName, e.boardName, e.col.title].filter(Boolean).join(' · ')}
-                {spent >= 60_000 && ` · ${t('focus.task.spent', { time: fmtMinutes(spent) })}`}
-              </small>
-            </button>
-          );
-        })}
+        {groups.map((g) => (
+          <section key={g.name} className="fp-tgroup">
+            <h4>
+              <span>{g.name || t('focus.tasks')}</span>
+              <b>{g.items.length}</b>
+            </h4>
+            {g.items.map((e) => {
+              const spent = taskMs[e.key]?.ms ?? 0;
+              const code = ticketLabel(e.task, e.projectKey);
+              const on = task?.key === e.key;
+              return (
+                <button
+                  key={e.key}
+                  type="button"
+                  className={`fp-trow${on ? ' on' : ''}`}
+                  onClick={() => {
+                    select({ key: e.key, id: e.task.id, boardId: e.boardId, title: e.task.title });
+                    toast.info('focus.task.picked', { title: e.task.title });
+                    onClose();
+                  }}
+                >
+                  <span className="fp-tdot" style={{ background: e.col.color }} aria-hidden="true" />
+                  <span className="fp-tbody">
+                    <span className="fp-ttitle">{e.task.title}</span>
+                    <span className="fp-tmeta">
+                      {code && <em>{code}</em>}
+                      <i style={{ ['--c' as string]: e.col.color }}>{e.col.title}</i>
+                      {spent >= 60_000 && <span className="fp-tspent">⏱ {fmtMinutes(spent)}</span>}
+                    </span>
+                  </span>
+                  {on && (
+                    <span className="fp-tcheck" aria-hidden="true">
+                      ✓
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </section>
+        ))}
       </div>
     </Panel>
   );
