@@ -341,3 +341,17 @@
 .scene-fantasy > .fp-scene, .scene-lofi > .fp-scene, .scene-cyber > .fp-scene { background: #0b0c10; }
 /* làm tối nhẹ để chữ dễ đọc */
 .fp > .fp-scene::after { background: radial-gradient(ellipse at 50% 45%, rgba(0, 0, 0, 0.12) 25%, rgba(5, 6, 10, 0.5) 100%); }
+
+/* nút Pomodoro trên thanh điều hướng */
+.focus-nav {
+  height: 34px; display: inline-flex; align-items: center; gap: 7px; padding: 0 12px; border: 1px solid var(--line-strong); border-radius: 0;
+  background: var(--surface); color: var(--fg-2); font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.focus-nav:hover { color: var(--fg); background: var(--surface-2); }
+.focus-nav.is-running { color: var(--fg); border-color: color-mix(in srgb, var(--blue) 55%, var(--line-strong)); }
+.focus-nav.is-running svg { color: var(--blue); animation: fp-pulse-nav 1.6s ease-in-out infinite; }
+.focus-nav-label { font-variant-numeric: tabular-nums; }
+@keyframes fp-pulse-nav { 50% { opacity: 0.45; } }
+@media (max-width: 760px) { .focus-nav { width: 32px; height: 32px; padding: 0; justify-content: center; } .focus-nav-label { display: none; } }
+@media (prefers-reduced-motion: reduce) { .focus-nav.is-running svg { animation: none; } }

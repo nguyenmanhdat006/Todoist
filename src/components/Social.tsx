@@ -339,7 +339,7 @@ function Sidebar({ onClose: closeNow }: { onClose: () => void }) {
     if (ids) void readNotices(ids);
   };
 
-  const views: { v: 'kanban' | 'list' | 'calendar' | 'focus'; key: TKey; icon: ReactNode }[] = [
+  const views: { v: 'kanban' | 'list' | 'calendar'; key: TKey; icon: ReactNode }[] = [
     {
       v: 'kanban',
       key: 'nav.board',
@@ -350,11 +350,6 @@ function Sidebar({ onClose: closeNow }: { onClose: () => void }) {
       v: 'calendar',
       key: 'nav.calendar',
       icon: <path d="M3 5h14v12H3zM3 8.5h14M7 3v3.5M13 3v3.5" strokeLinecap="round" />,
-    },
-    {
-      v: 'focus',
-      key: 'nav.focus',
-      icon: <path d="M10 17.2a6.7 6.7 0 100-13.4 6.7 6.7 0 000 13.4zM10 6.8V10l2.2 1.6M8 1.8h4" strokeLinecap="round" strokeLinejoin="round" />,
     },
   ];
 
@@ -450,7 +445,7 @@ function Sidebar({ onClose: closeNow }: { onClose: () => void }) {
                 )}
               </div>
             ) : (
-              <button key={v} type="button" className={`side-item${view === v ? ' on' : ''}`} onClick={() => { setView(v); if (v === 'focus') onClose(); }}>
+              <button key={v} type="button" className={`side-item${view === v ? ' on' : ''}`} onClick={() => setView(v)}>
                 <svg viewBox="0 0 20 20" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5">
                   {icon}
                 </svg>
