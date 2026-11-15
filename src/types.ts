@@ -64,7 +64,7 @@ export interface BoardData {
 }
 
 export type ThemeMode = 'system' | 'light' | 'dark';
-export type ViewMode = 'kanban' | 'list' | 'calendar';
+export type ViewMode = 'kanban' | 'list' | 'calendar' | 'focus';
 export type CalMode = 'month' | 'week' | 'day';
 /** Điều kiện hạn chót của bộ lọc */
 export type DueRule = 'any' | 'overdue' | 'today' | 'week' | 'none';

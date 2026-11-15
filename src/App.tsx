@@ -5,6 +5,7 @@ import { useT } from './i18n';
 import { fold, isOverdue, matchesFilter } from './utils';
 import { Board } from './components/Board';
 import { ListView } from './components/ListView';
+import { FocusPage } from './focus/FocusPage';
 import { TaskModal, type TaskDefaults } from './components/TaskModal';
 import { CalendarView } from './components/CalendarView';
 import { SettingsMenu, type ToastData } from './components/Extras';
@@ -219,7 +220,7 @@ export default function App() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement;
-      if (modal || editing !== undefined || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (view === 'focus' || modal || editing !== undefined || e.ctrlKey || e.metaKey || e.altKey) return;
       if (el.closest('input, textarea, select, [contenteditable="true"]')) return;
       if (e.key === 'n' || e.key === 'N') {
         e.preventDefault();
@@ -231,7 +232,7 @@ export default function App() {
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [modal, editing, openCreate]);
+  }, [view, modal, editing, openCreate]);
 
   const deleteTask = (id: string) => {
     const s = useBoard.getState();
@@ -430,9 +431,9 @@ export default function App() {
             onOpenTask={(id, boardId) => void openTaskIn(id, boardId)}
             onCreateAt={(date, time) => openCreate({ dueDate: date, startTime: time })}
           />
-        ) : (
+        ) : view === 'list' ? (
           <ListView matches={matches} filtering={!!query.trim() || filter !== 'all'} onOpenTask={(id, boardId) => void openTaskIn(id, boardId)} />
-        )}
+        ) : null}
         </div>
       </main>
 
@@ -442,6 +443,8 @@ export default function App() {
           © {new Date().getFullYear()} {t('app.name')} · {t('footer.rights')}
         </span>
       </footer>
+
+      {view === 'focus' && <FocusPage />}
 
       {modal && (
         <TaskModal
