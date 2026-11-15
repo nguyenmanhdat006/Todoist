@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import { useT, type T, type TKey } from '../i18n';
 import { useBoard } from '../store/board';
@@ -86,6 +86,7 @@ export function FocusPage() {
   useEffect(() => {
     setPulse((n) => n + 1);
   }, [s.mode]);
+  const musicBtn = useRef<HTMLButtonElement>(null);
   const toggle = (p: PanelId) => setPanel((cur) => (cur === p ? null : p));
 
   useEffect(() => {
@@ -142,7 +143,7 @@ export function FocusPage() {
         </button>
         <button type="button" className={`fp-streak${panel === 'stats' ? ' on' : ''}`} onClick={() => toggle('stats')} title={t('focus.rail.stats')} aria-label={t('focus.rail.stats')}>
           <Icon>
-            <path d="M10 17c3 0 5-2 5-4.6 0-2.2-1.4-3.2-2.4-5C11.8 5.8 11.6 4.2 11 3c-.6 2.4-3.6 3.7-4.6 6.2C5.4 11.7 5 12.5 5 13.2 5 15.3 6.8 17 10 17z" />
+            <path d="M10 17.6c-3.1 0-5.2-2.1-5.2-4.9 0-2.2 1.3-3.6 2.4-5 .8-1 1.5-2 1.6-3.7 3.2 1.4 6.4 4.4 6.4 8.6 0 2.9-2.2 5-5.2 5zM10 17.6c-1.4 0-2.3-.9-2.3-2.2 0-1.3.9-2 1.6-3 .3 1 1.1 1.4 1.5 2.1.5.9.2 3.1-.8 3.1z" />
           </Icon>
           <span>{st.current}</span>
         </button>
@@ -223,7 +224,7 @@ export function FocusPage() {
       </section>
 
       <footer className="fp-dock">
-        <button type="button" className={`fp-dock-btn${panel === 'music' ? ' on' : ''}`} onClick={() => toggle('music')}>
+        <button ref={musicBtn} type="button" className={`fp-dock-btn${panel === 'music' ? ' on' : ''}`} onClick={() => toggle('music')}>
           <Icon>
             <path d="M8 14.5V5l8-1.7v9.2M8 14.5a2 2 0 11-4 0 2 2 0 014 0zM16 12.5a2 2 0 11-4 0 2 2 0 014 0z" />
           </Icon>
@@ -264,7 +265,7 @@ export function FocusPage() {
       {panel === 'look' && <LookPanel t={t} onClose={() => setPanel(null)} />}
       {panel === 'settings' && <SettingsPanel t={t} onClose={() => setPanel(null)} />}
       {panel === 'tasks' && <TasksPanel t={t} onClose={() => setPanel(null)} />}
-      <MusicPanel t={t} open={panel === 'music'} onClose={() => setPanel(null)} />
+      <MusicPanel t={t} open={panel === 'music'} anchor={musicBtn} onClose={() => setPanel(null)} />
     </div>,
     document.body,
   );
@@ -273,6 +274,16 @@ export function FocusPage() {
 /* ---------- khung chung ---------- */
 
 function Panel({ title, onClose, side = 'left', compact = false, children, t }: { title: string; onClose: () => void; side?: 'left' | 'right'; compact?: boolean; children: ReactNode; t: T }) {
+  // Bấm ra ngoài thì thu panel lại (trừ các nút mở panel: chúng tự bật/tắt)
+  useEffect(() => {
+    const onDown = (e: MouseEvent) => {
+      const el = e.target as HTMLElement | null;
+      if (!el || el.closest('.fp-panel, .fp-rail, .fp-dock-btn:not(.icon), .fp-task, .fp-music, .fp-player, .fp-modal-back')) return;
+      onClose();
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [onClose]);
   return (
     <aside className={`fp-panel side-${side}${compact ? ' compact' : ''}`} role="dialog" aria-label={title}>
       <header>
@@ -286,9 +297,9 @@ function Panel({ title, onClose, side = 'left', compact = false, children, t }: 
   );
 }
 
-function Stepper({ value, label, onDec, onInc, pad = false, disabled = false }: { value: number; label: string; onDec: () => void; onInc: () => void; pad?: boolean; disabled?: boolean }) {
+function Stepper({ value, label, onDec, onInc, pad = false, disabled = false, big = false, compact = false }: { value: number; label: string; onDec: () => void; onInc: () => void; pad?: boolean; disabled?: boolean; big?: boolean; compact?: boolean }) {
   return (
-    <div className={`fp-step${disabled ? ' is-locked' : ''}`}>
+    <div className={`fp-step${disabled ? ' is-locked' : ''}${big ? ' big' : ''}${compact ? ' compact' : ''}`}>
       <button type="button" onClick={onDec} disabled={disabled} aria-label={`− ${label}`}>
         −
       </button>
@@ -307,34 +318,57 @@ function Stepper({ value, label, onDec, onInc, pad = false, disabled = false }: 
 
 function ChallengePanel({ t, onClose }: { t: T; onClose: () => void }) {
   const ch = useFocus((s) => s.challenges[todayISO()]);
+  const today = useFocus((s) => s.days[todayISO()]);
   const accept = useFocus((s) => s.acceptChallenge);
   const [total, setTotal] = useState(ch?.goalMin ?? 120);
   const h = Math.floor(total / 60);
   const m = total % 60;
   const set = (v: number) => setTotal(Math.max(5, Math.min(12 * 60, v)));
   const day = new Intl.DateTimeFormat(t.locale, { weekday: 'long' }).format(new Date());
+  const doneMs = today?.ms ?? 0;
+  const pct = ch ? Math.min(100, (doneMs / (ch.goalMin * 60_000)) * 100) : 0;
   return (
-    <Panel title={t('focus.ch.title')} onClose={onClose} compact t={t}>
-      <p className="fp-lead">
-        {t('focus.ch.lead')} <small>({day})</small>
-      </p>
-      <div className="fp-steps">
-        <Stepper value={h} label={t('focus.ch.hours')} onDec={() => set(total - 60)} onInc={() => set(total + 60)} />
-        <Stepper value={m} label={t('focus.ch.minutes')} pad onDec={() => set(total - 5)} onInc={() => set(total + 5)} />
+    <div className="fp-modal-back" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="fp-modal" role="dialog" aria-modal="true" aria-label={t('focus.ch.title')}>
+        <header>
+          <small className="fp-eyebrow">{t('focus.ch.title')}</small>
+          <button type="button" className="fp-x" onClick={onClose} aria-label={t('focus.close')}>
+            ✕
+          </button>
+        </header>
+        <h3 className="fp-ch-head">{t('focus.ch.heading', { day })}</h3>
+        <div className="fp-ch-steps">
+          <Stepper big value={h} label={t('focus.ch.hours')} onDec={() => set(total - 60)} onInc={() => set(total + 60)} />
+          <Stepper big value={m} label={t('focus.ch.minutes')} pad onDec={() => set(total - 5)} onInc={() => set(total + 5)} />
+        </div>
+        <p className="fp-note">{t('focus.ch.note')}</p>
+        <button
+          type="button"
+          className="fp-cta"
+          onClick={() => {
+            accept(total);
+            toast.success('focus.ch.accepted', { goal: fmtMinutes(total * 60_000) });
+            onClose();
+          }}
+        >
+          <svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M10 17.6c-3.1 0-5.2-2.1-5.2-4.9 0-2.2 1.3-3.6 2.4-5 .8-1 1.5-2 1.6-3.7 3.2 1.4 6.4 4.4 6.4 8.6 0 2.9-2.2 5-5.2 5zM10 17.6c-1.4 0-2.3-.9-2.3-2.2 0-1.3.9-2 1.6-3 .3 1 1.1 1.4 1.5 2.1.5.9.2 3.1-.8 3.1z" />
+          </svg>
+          {ch ? t('focus.ch.update') : t('focus.ch.accept')}
+        </button>
+        {ch && (
+          <div className={`fp-ch-now${ch.done ? ' done' : ''}`}>
+            <div>
+              <small>{ch.done ? t('focus.ch.completedBadge') : t('focus.ch.progress', { done: fmtMinutes(doneMs), goal: fmtMinutes(ch.goalMin * 60_000) })}</small>
+              <span className="fp-ch-bar">
+                <i style={{ width: `${pct}%` }} />
+              </span>
+            </div>
+            <b>{Math.round(pct)}%</b>
+          </div>
+        )}
       </div>
-      <p className="fp-note">{t('focus.ch.note')}</p>
-      <button
-        type="button"
-        className="fp-cta"
-        onClick={() => {
-          accept(total);
-          toast.success('focus.ch.accepted', { goal: fmtMinutes(total * 60_000) });
-          onClose();
-        }}
-      >
-        {ch ? t('focus.ch.update') : t('focus.ch.accept')}
-      </button>
-    </Panel>
+    </div>
   );
 }
 
@@ -487,6 +521,12 @@ function Toggle({ on, onChange, label }: { on: boolean; onChange: (v: boolean) =
   );
 }
 
+const Glyph = ({ children }: { children: ReactNode }) => (
+  <svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    {children}
+  </svg>
+);
+
 function SettingsPanel({ t, onClose }: { t: T; onClose: () => void }) {
   const settings = useFocus((s) => s.settings);
   const status = useFocus((s) => s.status);
@@ -494,9 +534,11 @@ function SettingsPanel({ t, onClose }: { t: T; onClose: () => void }) {
   const resetCounters = useFocus((s) => s.resetCounters);
   const lang = useBoard((s) => s.lang);
   const setLang = useBoard((s) => s.setLang);
+  const [langOpen, setLangOpen] = useState(false);
   const locked = status !== 'idle';
   const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
   const perm = typeof Notification !== 'undefined' ? Notification.permission : 'denied';
+  const langName = lang === 'vi' ? 'Tiếng Việt' : 'English';
 
   const toggleDesktop = async (v: boolean) => {
     if (!v) return set({ desktop: false });
@@ -507,82 +549,125 @@ function SettingsPanel({ t, onClose }: { t: T; onClose: () => void }) {
 
   return (
     <Panel title={t('focus.set.title')} onClose={onClose} t={t}>
-      <div className="fp-row">
-        <span>{t('focus.set.language')}</span>
-        <div className="fp-chips tight">
-          {(['vi', 'en'] as const).map((l) => (
-            <button key={l} type="button" className={lang === l ? 'on' : ''} onClick={() => setLang(l)}>
-              {l === 'vi' ? 'Tiếng Việt' : 'English'}
+      <div className="fp-set">
+        <button type="button" className="fp-set-row link" onClick={() => setLangOpen((v) => !v)} aria-expanded={langOpen}>
+          <Glyph>
+            <circle cx="10" cy="10" r="7.2" />
+            <path d="M2.8 10h14.4M10 2.8c2 2 3 4.4 3 7.2s-1 5.2-3 7.2c-2-2-3-4.4-3-7.2s1-5.2 3-7.2z" />
+          </Glyph>
+          <b>{t('focus.set.language')}</b>
+          <span className="val">{langName}</span>
+          <svg className={`chev${langOpen ? ' open' : ''}`} viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M6 3.5L10.5 8 6 12.5" />
+          </svg>
+        </button>
+        {langOpen && (
+          <div className="fp-chips lang-opts">
+            {(['vi', 'en'] as const).map((l) => (
+              <button
+                key={l}
+                type="button"
+                className={lang === l ? 'on' : ''}
+                onClick={() => {
+                  setLang(l);
+                  setLangOpen(false);
+                }}
+              >
+                {lang === l && '✓ '}
+                {l === 'vi' ? 'Tiếng Việt' : 'English'}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <hr />
+        <h3>{t('focus.set.lengths')}</h3>
+        <div className="fp-lens">
+          {(
+            [
+              ['focus', settings.focusMin, 5, 120, 5, 'focusMin'],
+              ['short', settings.shortMin, 1, 30, 1, 'shortMin'],
+              ['long', settings.longMin, 5, 60, 5, 'longMin'],
+            ] as const
+          ).map(([m, v, lo, hi, stp, key]) => (
+            <div key={m} className="fp-len">
+              <span>{t(`focus.mode.${m}` as TKey)}</span>
+              <Stepper compact value={v} label={t('focus.set.min')} disabled={locked} onDec={() => set({ [key]: clamp(v - stp, lo, hi) })} onInc={() => set({ [key]: clamp(v + stp, lo, hi) })} />
+            </div>
+          ))}
+        </div>
+        {locked && <p className="fp-note lock">🔒 {t('focus.set.locked')}</p>}
+        <div className="fp-every">
+          <span>
+            {t('focus.set.longEvery')} <b>{settings.longEvery}</b> {t('focus.set.sessions')}
+          </span>
+          <span className="fp-mini">
+            <button type="button" onClick={() => set({ longEvery: clamp(settings.longEvery - 1, 2, 8) })} aria-label="−">
+              −
+            </button>
+            <button type="button" onClick={() => set({ longEvery: clamp(settings.longEvery + 1, 2, 8) })} aria-label="+">
+              +
+            </button>
+          </span>
+        </div>
+        <button type="button" className="fp-reset" onClick={resetCounters}>
+          <Glyph>
+            <path d="M3.5 10a6.5 6.5 0 106.5-6.5c-1.9 0-3.6.8-4.8 2.1M3.5 3.8v2.6h2.6" />
+          </Glyph>
+          {t('focus.set.resetCounters')}
+        </button>
+
+        <h3>{t('focus.set.auto')}</h3>
+        <div className="fp-set-row">
+          <span>{t('focus.set.autoBreaks')}</span>
+          <Toggle on={settings.autoBreaks} onChange={(v) => set({ autoBreaks: v })} label={t('focus.set.autoBreaks')} />
+        </div>
+        <div className="fp-set-row">
+          <span>{t('focus.set.autoFocus')}</span>
+          <Toggle on={settings.autoFocus} onChange={(v) => set({ autoFocus: v })} label={t('focus.set.autoFocus')} />
+        </div>
+
+        <hr />
+        <div className="fp-set-row hl">
+          <Glyph>
+            <path d="M5 8a5 5 0 0110 0c0 4 1.5 5 1.5 5h-13S5 12 5 8zM8.3 16a1.8 1.8 0 003.4 0" />
+          </Glyph>
+          <b>{t('focus.set.alarm')}</b>
+          <Toggle on={settings.alarm} onChange={(v) => set({ alarm: v })} label={t('focus.set.alarm')} />
+        </div>
+        <div className="fp-sounds">
+          {SOUNDS.map((k) => (
+            <button
+              key={k}
+              type="button"
+              className={settings.sound === k ? 'on' : ''}
+              onClick={() => {
+                set({ sound: k });
+                playAlarm(k, settings.volume);
+              }}
+            >
+              {settings.sound === k && '✓ '}
+              {t(`focus.sound.${k}` as TKey)}
             </button>
           ))}
         </div>
-      </div>
-      <h3>{t('focus.set.lengths')}</h3>
-      <div className="fp-steps three">
-        <Stepper value={settings.focusMin} label={`${t('focus.mode.focus')} · ${t('focus.set.min')}`} disabled={locked} onDec={() => set({ focusMin: clamp(settings.focusMin - 5, 5, 120) })} onInc={() => set({ focusMin: clamp(settings.focusMin + 5, 5, 120) })} />
-        <Stepper value={settings.shortMin} label={`${t('focus.mode.short')} · ${t('focus.set.min')}`} disabled={locked} onDec={() => set({ shortMin: clamp(settings.shortMin - 1, 1, 30) })} onInc={() => set({ shortMin: clamp(settings.shortMin + 1, 1, 30) })} />
-        <Stepper value={settings.longMin} label={`${t('focus.mode.long')} · ${t('focus.set.min')}`} disabled={locked} onDec={() => set({ longMin: clamp(settings.longMin - 5, 5, 60) })} onInc={() => set({ longMin: clamp(settings.longMin + 5, 5, 60) })} />
-      </div>
-      {locked && <p className="fp-note lock">🔒 {t('focus.set.locked')}</p>}
-      <div className="fp-row">
-        <span>
-          {t('focus.set.longEvery')} <b>{settings.longEvery}</b> {t('focus.set.sessions')}
-        </span>
-        <div className="fp-mini">
-          <button type="button" onClick={() => set({ longEvery: clamp(settings.longEvery - 1, 2, 8) })} aria-label="−">
-            −
-          </button>
-          <button type="button" onClick={() => set({ longEvery: clamp(settings.longEvery + 1, 2, 8) })} aria-label="+">
-            +
-          </button>
-        </div>
-      </div>
-      <button type="button" className="fp-ghost" onClick={resetCounters}>
-        ↺ {t('focus.set.resetCounters')}
-      </button>
-
-      <h3>{t('focus.set.auto')}</h3>
-      <div className="fp-row">
-        <span>{t('focus.set.autoBreaks')}</span>
-        <Toggle on={settings.autoBreaks} onChange={(v) => set({ autoBreaks: v })} label={t('focus.set.autoBreaks')} />
-      </div>
-      <div className="fp-row">
-        <span>{t('focus.set.autoFocus')}</span>
-        <Toggle on={settings.autoFocus} onChange={(v) => set({ autoFocus: v })} label={t('focus.set.autoFocus')} />
-      </div>
-
-      <div className="fp-row sep">
-        <span>{t('focus.set.alarm')}</span>
-        <Toggle on={settings.alarm} onChange={(v) => set({ alarm: v })} label={t('focus.set.alarm')} />
-      </div>
-      <div className="fp-chips">
-        {SOUNDS.map((k) => (
-          <button
-            key={k}
-            type="button"
-            className={settings.sound === k ? 'on' : ''}
-            onClick={() => {
-              set({ sound: k });
-              playAlarm(k, settings.volume);
-            }}
-          >
-            {settings.sound === k && '✓ '}
-            {t(`focus.sound.${k}` as TKey)}
-          </button>
-        ))}
-      </div>
-      <div className="fp-row">
-        <span>{t('focus.set.volume')}</span>
-        <label className="fp-range">
-          <input type="range" min={0} max={100} value={Math.round(settings.volume * 100)} onChange={(e) => set({ volume: Number(e.target.value) / 100 })} onMouseUp={() => playAlarm(settings.sound, settings.volume)} />
+        <div className="fp-volrow">
+          <span>{t('focus.set.volume')}</span>
+          <input type="range" min={0} max={100} value={Math.round(settings.volume * 100)} onChange={(e) => set({ volume: Number(e.target.value) / 100 })} onMouseUp={() => playAlarm(settings.sound, settings.volume)} aria-label={t('focus.set.volume')} />
           <em>{Math.round(settings.volume * 100)}%</em>
-        </label>
+        </div>
+
+        <hr />
+        <div className="fp-set-row">
+          <Glyph>
+            <rect x="2.5" y="3.5" width="15" height="10" rx="1.6" />
+            <path d="M7.5 16.5h5M10 13.5v3" />
+          </Glyph>
+          <b>{t('focus.set.desktop')}</b>
+          <Toggle on={settings.desktop && perm === 'granted'} onChange={(v) => void toggleDesktop(v)} label={t('focus.set.desktop')} />
+        </div>
+        {perm === 'denied' && <p className="fp-note">{t('focus.set.desktopBlocked')}</p>}
       </div>
-      <div className="fp-row sep">
-        <span>{t('focus.set.desktop')}</span>
-        <Toggle on={settings.desktop && perm === 'granted'} onChange={(v) => void toggleDesktop(v)} label={t('focus.set.desktop')} />
-      </div>
-      {perm === 'denied' && <p className="fp-note">{t('focus.set.desktopBlocked')}</p>}
     </Panel>
   );
 }
@@ -730,7 +815,19 @@ async function fetchTitle(url: string): Promise<string | null> {
   }
 }
 
-function MusicPanel({ t, open, onClose }: { t: T; open: boolean; onClose: () => void }) {
+function MusicPanel({ t, open, anchor, onClose }: { t: T; open: boolean; anchor: RefObject<HTMLElement>; onClose: () => void }) {
+  // Hộp nhạc nằm ngay trên nút Nhạc: đo vị trí nút (và đo lại khi đổi cỡ cửa sổ)
+  const [pos, setPos] = useState<{ left: number; bottom: number } | null>(null);
+  useLayoutEffect(() => {
+    const measure = () => {
+      const r = anchor.current?.getBoundingClientRect();
+      if (window.innerWidth <= 760) setPos(null);
+      else if (r) setPos({ left: Math.max(12, Math.min(r.left + r.width / 2 - 160, window.innerWidth - 332)), bottom: window.innerHeight - r.top + 12 });
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [anchor, open]);
   const links = useFocus((s) => s.links);
   const titles = useFocus((s) => s.linkTitles);
   const addLink = useFocus((s) => s.addLink);
@@ -810,7 +907,7 @@ function MusicPanel({ t, open, onClose }: { t: T; open: boolean; onClose: () => 
 
   return (
     <>
-      <div className={`fp-music${open ? ' open' : ''}`} role="dialog" aria-label={t('focus.music.title')} aria-hidden={!open}>
+      <div className={`fp-music${open ? ' open' : ''}`} style={pos ? { left: pos.left, bottom: pos.bottom, right: 'auto' } : undefined} role="dialog" aria-label={t('focus.music.title')} aria-hidden={!open}>
         <h4>{t('focus.music.stations')}</h4>
         {stations.map((s) => (
           <button key={s.k} type="button" className={`fp-station${noise === s.k ? ' on' : ''}`} onClick={() => toggleNoise(s.k)}>
@@ -859,7 +956,7 @@ function MusicPanel({ t, open, onClose }: { t: T; open: boolean; onClose: () => 
           </button>
         </div>
         {err && <p className="fp-err">{t('focus.music.invalid')}</p>}
-        <label className="fp-vol">
+        <label className="fp-vol" title={t('focus.music.hint')}>
           <span>🔊</span>
           <input
             type="range"
@@ -874,7 +971,6 @@ function MusicPanel({ t, open, onClose }: { t: T; open: boolean; onClose: () => 
             aria-label={t('focus.set.volume')}
           />
         </label>
-        <p className="fp-note">{t('focus.music.hint')}</p>
       </div>
 
       {emb && playing && (
