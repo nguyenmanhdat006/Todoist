@@ -1,7 +1,7 @@
 /* ---------- phần bên phải thanh đầu trang ---------- */
 .hero-aside {
-  flex: 1 1 680px; min-width: 0; align-self: stretch; display: grid; align-items: center;
-  grid-template-columns: minmax(0, 1fr) minmax(240px, 320px);
+  flex: 1 1 560px; min-width: 0; align-self: stretch; display: grid; align-items: center;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 320px);
   grid-template-areas: 'greet next';
   gap: 12px 22px; padding-left: 28px; border-left: 1px solid var(--line);
 }
@@ -92,8 +92,11 @@ button.hero-next:hover { background: color-mix(in srgb, var(--tag) 18%, var(--su
 
 
 /* Không đủ chỗ trên một hàng: xuống hàng riêng, ngăn bằng vạch ngang thay cho vạch dọc */
-@media (max-width: 1720px) {
+@media (max-width: 1400px) {
   .hero-aside { flex-basis: 100%; padding-left: 0; padding-top: 14px; border-left: 0; border-top: 1px solid var(--line); }
+  /* hàng đầu: ba ô thống kê dãn ra lấp chỗ trống bên phải */
+  .hero .stat-tiles { flex: 1 1 0; min-width: 0; }
+  .hero .stat-tile[class*='tone-'] { flex: 1 1 0; min-width: 0; }
 }
 /* Điện thoại: lời chào ở trên, thẻ Tiếp theo ở dưới */
 @media (max-width: 760px) {
@@ -107,7 +110,7 @@ button.hero-next:hover { background: color-mix(in srgb, var(--tag) 18%, var(--su
 /* ---------- 3 ô thống kê cùng kiểu và cùng chiều cao với banner ---------- */
 .hero .stat-tiles { gap: 10px; }
 .hero .stat-tile[class*='tone-'] {
-  position: relative; overflow: hidden; isolation: isolate; height: 104px; min-width: 150px; justify-content: center;
+  position: relative; overflow: hidden; isolation: isolate; height: 104px; min-width: 130px; justify-content: center;
   gap: 4px; padding: 12px 18px 16px; border-radius: 0;
   background: linear-gradient(90deg, color-mix(in srgb, var(--tone) 16%, var(--surface)), color-mix(in srgb, var(--tone) 7%, var(--surface)));
   border: 1px solid color-mix(in srgb, var(--tone) 22%, var(--line));
@@ -135,7 +138,15 @@ button.hero-next:hover { background: color-mix(in srgb, var(--tag) 18%, var(--su
 }
 
 /* Tên bảng dài thì cắt bớt theo chiều rộng còn lại, để lời chào và thẻ Tiếp theo không bị đẩy xuống hàng */
-.hero .toolbar-title-text h1 { max-width: clamp(240px, calc(100vw - 1460px), 560px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-@media (max-width: 1720px) {
+.hero .toolbar-title-text h1 { max-width: clamp(140px, calc(100vw - 1270px), 560px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 1400px) {
   .hero .toolbar-title-text h1 { max-width: 100%; }
+}
+
+/* màn hình vừa: thu nhỏ chữ trong banner để mọi thứ vẫn nằm trên một hàng */
+@media (max-width: 1700px) {
+  .hero-aside { grid-template-columns: minmax(0, 1fr) minmax(210px, 250px); gap: 12px 16px; padding-left: 20px; }
+  .hero-banner-text { font-size: 17px; }
+  .hero-hand { transform: scale(0.9); transform-origin: bottom; }
+  .hero .stat-tile[class*='tone-'] { padding: 12px 14px 16px; }
 }
