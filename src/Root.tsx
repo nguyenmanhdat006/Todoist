@@ -4,6 +4,7 @@ import { useBoard } from './store/board';
 import { boot, useSession } from './sync/session';
 import { ToastHost } from './components/ToastHost';
 import { useFocusRunner } from './focus/runner';
+import { PipHost } from './focus/pip';
 import { ConfirmHost } from './components/ConfirmHost';
 import { TopProgress } from './components/TopProgress';
 import { AuthScreen, SplashScreen } from './components/AuthScreen';
@@ -46,6 +47,7 @@ export default function Root() {
       {screen}
       <TopProgress />
       <ToastHost />
+      <PipHost />
       <ConfirmHost />
     </>
   );

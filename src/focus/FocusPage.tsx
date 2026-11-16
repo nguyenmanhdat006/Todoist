@@ -7,6 +7,7 @@ import { useAllEntries } from '../sync/overview';
 import { toast } from '../toast';
 import { fold, ticketLabel, todayISO } from '../utils';
 import { Effects } from './Effects';
+import { togglePip, usePip } from './pip';
 import {
   ACCENTS,
   BREAK_COLORS,
@@ -67,6 +68,7 @@ export function FocusPage() {
     setPulse((n) => n + 1);
   }, [s.mode]);
   const musicBtn = useRef<HTMLButtonElement>(null);
+  const pip = usePip((s) => s.win);
   const toggle = (p: PanelId) => setPanel((cur) => (cur === p ? null : p));
 
   useEffect(() => {
@@ -232,6 +234,12 @@ export function FocusPage() {
         >
           <Icon>
             <path d="M5 4.5l7 5.5-7 5.5zM15 4.5v11" />
+          </Icon>
+        </button>
+        <button type="button" className={`fp-dock-btn icon${pip ? ' on' : ''}`} onClick={() => void togglePip()} title={t('focus.pip')} aria-label={t('focus.pip')} aria-pressed={!!pip}>
+          <Icon>
+            <rect x="2.5" y="4" width="15" height="12" rx="2" />
+            <rect x="9.5" y="9.5" width="6" height="4.5" rx="1" />
           </Icon>
         </button>
         <button type="button" className={`fp-dock-btn${panel === 'tasks' ? ' on' : ''}`} onClick={() => toggle('tasks')}>

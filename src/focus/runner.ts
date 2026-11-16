@@ -23,6 +23,20 @@ function announce(ev: FinishEvent) {
   }
 }
 
+/** Một nhịp của đồng hồ: hết giờ thì kết thúc phiên và báo; còn giờ thì cập nhật tiêu đề tab */
+export function tickFocus() {
+  const s = useFocus.getState();
+  if (s.status !== 'running') return;
+  const left = s.endsAt - Date.now();
+  if (left <= 0) {
+    const ev = s.complete();
+    if (ev) announce(ev);
+    return;
+  }
+  const t = makeT(useBoard.getState().lang);
+  document.title = `${fmtClock(left)} · ${t(MODE_KEY[s.mode])}`;
+}
+
 /** Chạy đồng hồ Pomodoro ở mọi trang: kết thúc phiên, phát chuông, đổi tiêu đề tab */
 export function useFocusRunner() {
   const status = useFocus((s) => s.status);
@@ -32,18 +46,7 @@ export function useFocusRunner() {
       document.title = baseTitle;
       return;
     }
-    const tick = () => {
-      const s = useFocus.getState();
-      if (s.status !== 'running') return;
-      const left = s.endsAt - Date.now();
-      if (left <= 0) {
-        const ev = s.complete();
-        if (ev) announce(ev);
-        return;
-      }
-      const t = makeT(useBoard.getState().lang);
-      document.title = `${fmtClock(left)} · ${t(MODE_KEY[s.mode])}`;
-    };
+    const tick = tickFocus;
     tick();
     const id = setInterval(tick, 250);
     return () => {
