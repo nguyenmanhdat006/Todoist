@@ -16,7 +16,7 @@ import { GlobalSearch } from './components/GlobalSearch';
 import { Motto } from './components/Motto';
 import { BoardSkeleton } from './components/Skeleton';
 import { findSampleTaskIds } from './data/legacySample';
-import { HelpButton, LangSwitch, ProgressRing, ThemeSwitch } from './components/TopbarWidgets';
+import { HelpButton, LangSwitch, ProgressRing, StyleSwitch, ThemeSwitch } from './components/TopbarWidgets';
 import { NotificationBell } from './components/NotificationBell';
 import { AccountMenu } from './components/AccountMenu';
 import { FriendsButton, SidebarToggle } from './components/Social';
@@ -288,6 +288,7 @@ export default function App() {
             <ProgressRing done={stats.done} total={stats.total} />
             <LangSwitch />
             <ThemeSwitch />
+            <StyleSwitch />
             <FriendsButton />
             <NotificationBell onOpenTask={(id) => setModal({ taskId: id, columnId: '' })} onToast={showToast} />
             <SettingsMenu onToast={showToast} />

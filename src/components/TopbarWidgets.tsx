@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useBoard } from '../store/board';
-import type { Lang, ThemeMode } from '../types';
+import { UI_STYLES, type Lang, type ThemeMode } from '../types';
 import { useT, type TKey } from '../i18n';
 
 /** Vòng tiến độ: % việc đã hoàn thành */
@@ -176,6 +176,59 @@ export function LangSwitch() {
           {l.label}
         </button>
       ))}
+    </div>
+  );
+}
+
+/** Chọn kiểu giao diện của phần Quản lý công việc (Cổ điển / Mềm / Kính) */
+export function StyleSwitch() {
+  const t = useT();
+  const uiStyle = useBoard((s) => s.uiStyle ?? 'glass');
+  const setUiStyle = useBoard((s) => s.setUiStyle);
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  return (
+    <div className="settings style-switch" ref={ref}>
+      <button type="button" className="icon-btn" aria-haspopup="true" aria-expanded={open} aria-label={t('style.title')} title={t('style.title')} onClick={() => setOpen((v) => !v)}>
+        <svg viewBox="0 0 20 20" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M10 2.5a7.5 7.5 0 1 0 0 15c1.1 0 1.6-.8 1.3-1.7-.3-.9.2-1.8 1.2-1.8h1.4A3.1 3.1 0 0 0 17.5 11 7.5 7.5 0 0 0 10 2.5z" />
+          <circle cx="6.5" cy="9" r="1" />
+          <circle cx="9.5" cy="6" r="1" />
+          <circle cx="13" cy="7.5" r="1" />
+        </svg>
+      </button>
+      {open && (
+        <div className="popover style-menu" role="dialog" aria-label={t('style.title')}>
+          <div className="menu-label">{t('style.title')}</div>
+          <div className="style-opts" role="radiogroup" aria-label={t('style.title')}>
+            {UI_STYLES.map((s) => (
+              <button key={s} type="button" role="radio" aria-checked={uiStyle === s} className={`style-opt${uiStyle === s ? ' on' : ''}`} onClick={() => setUiStyle(s)}>
+                <span className={`style-prev is-${s}`} aria-hidden="true">
+                  <i />
+                  <i />
+                </span>
+                <span className="style-name">{t(`style.${s}`)}</span>
+                <span className="style-desc">{t(`style.${s}.desc`)}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

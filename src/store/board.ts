@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { BoardData, BuiltinColumn, CalMode, Reminder, Column, Lang, Priority, SavedFilter, Task, ThemeMode, ViewMode } from '../types';
+import type { BoardData, BuiltinColumn, CalMode, Reminder, Column, Lang, Priority, SavedFilter, Task, ThemeMode, UiStyle, ViewMode } from '../types';
 import { BUILTIN_COLUMNS, PRESET_TAGS } from '../types';
 import { todayISO, uid } from '../utils';
 import type { ImportData } from '../data/exchange';
@@ -57,6 +57,9 @@ interface BoardState extends BoardData {
   clearAll: () => void;
 
   setTheme: (t: ThemeMode) => void;
+  /** Kiểu giao diện của phần Quản lý công việc (không ảnh hưởng trang Pomodoro) */
+  uiStyle: UiStyle;
+  setUiStyle: (s: UiStyle) => void;
   setView: (v: ViewMode) => void;
   setCalMode: (m: CalMode) => void;
   setCalHiddenTags: (tags: string[]) => void;
@@ -226,6 +229,7 @@ export const useBoard = create<BoardState>()(
     (set, get) => ({
       ...emptyBoard(),
       theme: 'dark',
+      uiStyle: 'glass',
       view: 'kanban',
       calMode: 'week',
       calHiddenTags: [],
@@ -414,6 +418,7 @@ export const useBoard = create<BoardState>()(
       clearAll: () => set(emptyBoard(get().lang)),
 
       setTheme: (theme) => set({ theme }),
+      setUiStyle: (uiStyle) => set({ uiStyle }),
       setView: (view) => set({ view }),
       setCalMode: (calMode) => set({ calMode }),
       setCalHiddenTags: (calHiddenTags) => set({ calHiddenTags }),
@@ -466,7 +471,7 @@ export const useBoard = create<BoardState>()(
         merged.columns = ensureBuiltins(merged.columns, merged.lang);
         return { ...merged, ...localizeDefaults(merged, merged.lang) };
       },
-      partialize: (s) => ({ columns: s.columns, tasks: s.tasks, theme: s.theme, view: s.view, calMode: s.calMode, calHiddenTags: s.calHiddenTags, reminders: s.reminders, lang: s.lang, filters: s.filters }),
+      partialize: (s) => ({ columns: s.columns, tasks: s.tasks, theme: s.theme, uiStyle: s.uiStyle, view: s.view, calMode: s.calMode, calHiddenTags: s.calHiddenTags, reminders: s.reminders, lang: s.lang, filters: s.filters }),
     },
   ),
 );

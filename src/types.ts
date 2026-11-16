@@ -64,6 +64,10 @@ export interface BoardData {
 }
 
 export type ThemeMode = 'system' | 'light' | 'dark';
+
+/** Kiểu giao diện: Cổ điển (vuông), Mềm (bo tròn), Kính (bento + nền mờ) */
+export type UiStyle = 'classic' | 'soft' | 'glass';
+export const UI_STYLES: UiStyle[] = ['classic', 'soft', 'glass'];
 export type ViewMode = 'kanban' | 'list' | 'calendar' | 'focus';
 export type CalMode = 'month' | 'week' | 'day';
 /** Điều kiện hạn chót của bộ lọc */

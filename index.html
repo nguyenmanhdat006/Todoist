@@ -12,6 +12,15 @@
       rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..800&display=swap"
     />
+  <script>
+    // Kiểu giao diện đã chọn (mặc định Kính): đặt sớm để trang không nháy sang kiểu khác khi vừa mở
+    try {
+      var s = JSON.parse(localStorage.getItem('sakura-kanban') || '{}');
+      document.documentElement.setAttribute('data-ui', (s.state && s.state.uiStyle) || 'glass');
+    } catch (e) {
+      document.documentElement.setAttribute('data-ui', 'glass');
+    }
+  </script>
   </head>
   <body>
     <div id="root"></div>

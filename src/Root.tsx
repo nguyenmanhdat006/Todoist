@@ -15,6 +15,7 @@ export default function Root() {
   const status = useSession((s) => s.status);
   const theme = useBoard((s) => s.theme);
   const lang = useBoard((s) => s.lang);
+  const uiStyle = useBoard((s) => s.uiStyle);
   useFocusRunner();
 
   useEffect(() => {
@@ -33,6 +34,10 @@ export default function Root() {
   useEffect(() => {
     document.documentElement.lang = lang;
   }, [lang]);
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-ui', uiStyle ?? 'glass');
+  }, [uiStyle]);
 
   const screen =
     status === 'checking' ? <SplashScreen /> : status === 'anon' ? <AuthScreen /> : <App />;

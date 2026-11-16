@@ -1,0 +1,163 @@
+/* ============================================================
+   Kiểu giao diện cho phần Quản lý công việc (không áp dụng cho trang Pomodoro .fp)
+     data-ui="classic"  vuông vức (mặc định, không cần luật nào ở đây)
+     data-ui="soft"     Mềm: bo tròn, ít viền, bóng nhẹ, chip dạng viên thuốc
+     data-ui="glass"    Kính: ô kiểu bento, nền mờ, bo lớn
+   Độ bo lấy từ biến --r (đăng ký ở styles.css); mỗi phần tử tự nhận bậc bo của nó.
+   ============================================================ */
+
+html[data-ui='soft'] { --r-sm: 6px; --r-md: 10px; --r-lg: 16px; --r-xl: 22px; }
+html[data-ui='glass'] { --r-sm: 8px; --r-md: 14px; --r-lg: 22px; --r-xl: 28px; }
+
+/* bậc mặc định cho mọi phần tử (trừ trang Pomodoro) */
+html[data-ui='soft'] :not(.fp, .fp *),
+html[data-ui='glass'] :not(.fp, .fp *) { --r: var(--r-md); }
+html[data-ui='soft'] :not(.fp, .fp *)::before, html[data-ui='soft'] :not(.fp, .fp *)::after,
+html[data-ui='glass'] :not(.fp, .fp *)::before, html[data-ui='glass'] :not(.fp, .fp *)::after { --r: var(--r-sm); }
+
+/* nhỏ: chip, nhãn, đếm, phím tắt */
+html[data-ui='soft'] :is(kbd, .seg-count, .col-count, .hero-badge, .ticket-key, .role-chip, .gs-key-badge, .scope-key, .scope-count, .gs-count, .notif-count, .tag-remove, .opt-dot, .col-dot, .card-check, .cal-more, .time-select-hint, .hero-dots button, .stat-bar, .auth-sent-icon),
+html[data-ui='glass'] :is(kbd, .seg-count, .col-count, .hero-badge, .ticket-key, .role-chip, .gs-key-badge, .scope-key, .scope-count, .gs-count, .notif-count, .tag-remove, .opt-dot, .col-dot, .card-check, .cal-more, .time-select-hint, .hero-dots button, .stat-bar, .auth-sent-icon) { --r: var(--r-sm); }
+
+/* lớn: khối, hộp thoại, bảng xổ */
+html[data-ui='soft'] :is(.toolbar-top.hero, .hero-banner, .hero-next, .hero-carousel, .modal, .popover, .column, .cal-card, .cal-side, .auth-card, .gs-panel, .scope-panel, .sidebar, .lt-scroll),
+html[data-ui='glass'] :is(.toolbar-top.hero, .hero-banner, .hero-next, .hero-carousel, .modal, .popover, .column, .cal-card, .cal-side, .auth-card, .gs-panel, .scope-panel, .sidebar, .lt-scroll) { --r: var(--r-lg); }
+html[data-ui='glass'] :is(.toolbar-top.hero, .modal, .auth-card) { --r: var(--r-xl); }
+
+/* chip và nhãn dạng viên thuốc */
+html[data-ui='soft'] :is(.tag, .prio-chip, .ticket-key, .role-chip, .gs-key-badge, .scope-key, .hero-badge),
+html[data-ui='glass'] :is(.tag, .prio-chip, .ticket-key, .role-chip, .gs-key-badge, .scope-key, .hero-badge) { border-radius: 999px; padding-inline: 9px; }
+
+/* các phần tử trước nay không khai báo bo góc */
+html[data-ui='soft'] :is(.toast, .gs-field, .gs-item, .gs-tile, .scope-trigger, .scope-opt, .confirm-dialog, .admin-row, .person, .reporter, .board-ico, .board-edit input, .admin-search, .admin-role, .assignee-select select, .side-item, .side-prow-main, .side-icon, .side-board, .topbar-right .settings > button, .account-menu .menu-item, .focus-nav, .progress-steps button, .assignee, .side-add, .side-board-menu, .lt-bar, .lt-finished, .notif-row, .lt-select select, .lt-prio select, .lt-title, .time-select button, .brand-mark, .gs-foot kbd, .col-menu, .project-key-input, .btn-spinner),
+html[data-ui='glass'] :is(.toast, .gs-field, .gs-item, .gs-tile, .scope-trigger, .scope-opt, .confirm-dialog, .admin-row, .person, .reporter, .board-ico, .board-edit input, .admin-search, .admin-role, .assignee-select select, .side-item, .side-prow-main, .side-icon, .side-board, .topbar-right .settings > button, .account-menu .menu-item, .focus-nav, .progress-steps button, .assignee, .side-add, .side-board-menu, .lt-bar, .lt-finished, .notif-row, .lt-select select, .lt-prio select, .lt-title, .time-select button, .brand-mark, .gs-foot kbd, .col-menu, .project-key-input) { border-radius: var(--r); }
+html[data-ui='soft'] :is(.toast, .confirm-dialog), html[data-ui='glass'] :is(.toast, .confirm-dialog) { border-radius: var(--r-lg); }
+html[data-ui] .btn-spinner, html[data-ui] .auth-spinner, html[data-ui] .sync-dot { border-radius: 50%; }
+
+/* ============================================================
+   MỀM
+   ============================================================ */
+html[data-ui='soft'] {
+  --line: color-mix(in srgb, var(--fg) 10%, transparent);
+  --line-strong: color-mix(in srgb, var(--fg) 22%, transparent);
+  --shadow: 0 1px 2px color-mix(in srgb, #0f172a 7%, transparent), 0 6px 18px -10px color-mix(in srgb, #0f172a 22%, transparent);
+  --shadow-lg: 0 18px 44px -18px color-mix(in srgb, #0f172a 38%, transparent);
+}
+html[data-ui='soft'] body { letter-spacing: -0.005em; }
+html[data-ui='soft'] :is(h1, h2, .brand-name, .col-title, .stat-value) { letter-spacing: -0.025em; }
+
+/* thanh trên: mỏng, bỏ vạch kẻ, bóng rất nhẹ */
+html[data-ui='soft'] .topbar { border-bottom-color: transparent; box-shadow: 0 1px 0 var(--line), 0 8px 24px -20px color-mix(in srgb, #0f172a 40%, transparent); }
+
+/* ô lớn: viền mảnh, bóng mềm */
+html[data-ui='soft'] .toolbar-top.hero { border-color: var(--line); box-shadow: var(--shadow-lg); }
+html[data-ui='soft'] .hero-banner, html[data-ui='soft'] .hero-next, html[data-ui='soft'] .hero .stat-tile[class*='tone-'] { border-color: transparent; }
+html[data-ui='soft'] .column { background: color-mix(in srgb, var(--panel) 80%, var(--bg)); border-color: var(--line); box-shadow: none; }
+html[data-ui='soft'] .col-head { border-top-left-radius: var(--r-lg); border-top-right-radius: var(--r-lg); overflow: hidden; }
+
+/* thẻ việc: nổi nhẹ, bo 12 */
+html[data-ui='soft'] .card { --r: 12px; border-color: var(--line); box-shadow: var(--shadow); }
+html[data-ui='soft'] .card::before { top: 14px; bottom: 14px; left: 6px; width: 3px; border-radius: 99px; }
+html[data-ui='soft'] .card:hover { box-shadow: var(--shadow-lg); transform: translateY(-2px); }
+
+/* nút: phẳng, bo tròn */
+html[data-ui='soft'] .btn.primary { background: var(--btn-bg); box-shadow: 0 6px 16px -8px color-mix(in srgb, #2563eb 75%, transparent); }
+html[data-ui='soft'] .btn.primary:hover { filter: brightness(1.06); }
+html[data-ui='soft'] :is(.field input, .field textarea, .field select, .search input) { border-color: var(--line-strong); }
+html[data-ui='soft'] :is(.field input, .field textarea, .field select, .search input):focus { box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 22%, transparent); border-color: var(--blue); }
+
+/* thanh bên và bảng xổ nhẹ nhàng hơn */
+html[data-ui='soft'] .sidebar { border-right-color: transparent; box-shadow: var(--shadow-lg); }
+html[data-ui='soft'] .side-item.on, html[data-ui='soft'] .side-board.on { box-shadow: none; }
+html[data-ui='soft'] .popover, html[data-ui='soft'] .gs-panel, html[data-ui='soft'] .scope-panel, html[data-ui='soft'] .modal { border-color: var(--line); }
+html[data-ui='soft'] .gs-item[data-active='true'], html[data-ui='soft'] .scope-opt.on, html[data-ui='soft'] .scope-opt:hover { box-shadow: none; }
+html[data-ui='soft'] .gs-item, html[data-ui='soft'] .scope-opt { margin-inline: 6px; width: calc(100% - 12px); }
+
+/* ============================================================
+   KÍNH (bento + nền mờ)
+   ============================================================ */
+html[data-ui='glass'] {
+  --glass: color-mix(in srgb, var(--surface) 62%, transparent);
+  --glass-strong: color-mix(in srgb, var(--surface) 82%, transparent);
+  --glass-edge: color-mix(in srgb, #ffffff 55%, transparent);
+  --line: color-mix(in srgb, var(--fg) 9%, transparent);
+  --line-strong: color-mix(in srgb, var(--fg) 20%, transparent);
+  --shadow: 0 1px 1px color-mix(in srgb, #0f172a 6%, transparent), 0 10px 28px -14px color-mix(in srgb, #0f172a 30%, transparent);
+  --shadow-lg: 0 26px 60px -22px color-mix(in srgb, #0f172a 45%, transparent);
+}
+html[data-theme='dark'][data-ui='glass'] { --glass-edge: color-mix(in srgb, #ffffff 12%, transparent); --glass: color-mix(in srgb, var(--surface) 58%, transparent); }
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme='light'])[data-ui='glass'] { --glass-edge: color-mix(in srgb, #ffffff 12%, transparent); --glass: color-mix(in srgb, var(--surface) 58%, transparent); }
+}
+
+/* nền có các đốm màu mờ phía sau kính */
+html[data-ui='glass'] .app::before {
+  background:
+    radial-gradient(48% 40% at 8% 6%, color-mix(in srgb, var(--blue) 30%, transparent), transparent 70%),
+    radial-gradient(42% 36% at 94% 14%, color-mix(in srgb, var(--orange) 26%, transparent), transparent 70%),
+    radial-gradient(50% 42% at 70% 100%, color-mix(in srgb, #8b5cf6 20%, transparent), transparent 70%),
+    var(--bg);
+}
+html[data-ui='glass'] .app::after { opacity: 0; }
+/* màn đăng nhập cũng có nền màu mờ phía sau kính */
+html[data-ui='glass'] .auth-page {
+  background:
+    radial-gradient(50% 42% at 10% 8%, color-mix(in srgb, var(--blue) 30%, transparent), transparent 70%),
+    radial-gradient(44% 38% at 92% 18%, color-mix(in srgb, var(--orange) 26%, transparent), transparent 70%),
+    radial-gradient(52% 44% at 70% 100%, color-mix(in srgb, #8b5cf6 20%, transparent), transparent 70%),
+    var(--bg);
+}
+
+html[data-ui='glass'] .topbar { background: var(--glass-strong); border-bottom-color: var(--glass-edge); }
+html[data-ui='glass'] :is(.toolbar-top.hero, .column, .cal-card, .cal-side, .lt-scroll, .auth-card) {
+  background: var(--glass); border: 1px solid var(--glass-edge); box-shadow: var(--shadow-lg);
+  -webkit-backdrop-filter: blur(16px) saturate(150%); backdrop-filter: blur(16px) saturate(150%);
+}
+html[data-ui='glass'] :is(.popover, .gs-panel, .scope-panel, .modal, .confirm-dialog, .toast, .sidebar) {
+  background: var(--glass-strong); border: 1px solid var(--glass-edge); box-shadow: var(--shadow-lg);
+  -webkit-backdrop-filter: blur(22px) saturate(160%); backdrop-filter: blur(22px) saturate(160%);
+}
+html[data-ui='glass'] .column { box-shadow: var(--shadow); }
+html[data-ui='glass'] .card { --r: 16px; background: color-mix(in srgb, var(--surface) 92%, transparent); border-color: var(--glass-edge); box-shadow: var(--shadow); }
+html[data-ui='glass'] .card::before { top: 16px; bottom: 16px; left: 6px; width: 3px; border-radius: 99px; }
+html[data-ui='glass'] .card:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); }
+
+/* ô thống kê, banner, thẻ Tiếp theo như các ô bento riêng biệt */
+html[data-ui='glass'] .hero .stat-tile[class*='tone-'], html[data-ui='glass'] .hero-banner, html[data-ui='glass'] .hero-next { border-color: var(--glass-edge); box-shadow: var(--shadow); }
+html[data-ui='glass'] .hero-aside { border-left-color: transparent; }
+html[data-ui='glass'] .toolbar-title.has-clock { border-right-color: transparent; }
+
+html[data-ui='glass'] .btn.primary { background: linear-gradient(135deg, #3b82f6, #6366f1); box-shadow: 0 10px 24px -10px color-mix(in srgb, #6366f1 80%, transparent); }
+html[data-ui='glass'] :is(.field input, .field textarea, .field select, .search input, .gs-field, .scope-trigger) { background: color-mix(in srgb, var(--surface) 75%, transparent); border-color: var(--line-strong); }
+html[data-ui='glass'] :is(.field input, .field textarea, .field select, .search input):focus { box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 24%, transparent); border-color: var(--blue); }
+html[data-ui='glass'] .sidebar { border-right-color: var(--glass-edge); }
+html[data-ui='glass'] .side-item.on, html[data-ui='glass'] .side-board.on, html[data-ui='glass'] .gs-item[data-active='true'], html[data-ui='glass'] .scope-opt.on { box-shadow: none; }
+html[data-ui='glass'] .gs-item, html[data-ui='glass'] .scope-opt { margin-inline: 6px; width: calc(100% - 12px); }
+html[data-ui='glass'] .footer, html[data-ui='glass'] .app-footer { background: transparent; border-top-color: var(--glass-edge); }
+
+@media (prefers-reduced-transparency: reduce) {
+  html[data-ui='glass'] * { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+  html[data-ui='glass'] { --glass: var(--surface); --glass-strong: var(--surface); }
+}
+
+/* ---------- bộ chọn kiểu giao diện (thanh trên) ---------- */
+.style-menu { right: 0; top: 44px; width: 300px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+.style-opts { display: flex; flex-direction: column; gap: 6px; }
+.style-opt {
+  display: grid; grid-template-columns: 56px 1fr; grid-template-rows: auto auto; column-gap: 12px; align-items: center; text-align: left;
+  padding: 8px 10px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); cursor: pointer;
+  transition: border-color 0.15s, background-color 0.15s, box-shadow 0.15s;
+}
+.style-opt:hover { border-color: var(--line-strong); background: var(--surface-2); }
+.style-opt.on { border-color: var(--blue); box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 18%, transparent); }
+.style-prev { grid-row: 1 / 3; width: 56px; height: 40px; position: relative; display: block; background: var(--bg); border: 1px solid var(--line); overflow: hidden; }
+.style-prev i { position: absolute; top: 6px; bottom: 6px; width: 20px; background: var(--surface); border: 1px solid var(--line-strong); }
+.style-prev i:first-child { left: 6px; }
+.style-prev i:last-child { right: 6px; }
+.style-prev.is-classic, .style-prev.is-classic i { border-radius: 0; }
+.style-prev.is-soft, .style-prev.is-soft i { border-radius: 8px; }
+.style-prev.is-soft i { border-color: var(--line); box-shadow: 0 2px 6px -2px rgba(15, 23, 42, 0.3); }
+.style-prev.is-glass { border-radius: 12px; background: linear-gradient(135deg, color-mix(in srgb, var(--blue) 40%, var(--bg)), color-mix(in srgb, var(--orange) 36%, var(--bg))); }
+.style-prev.is-glass i { border-radius: 9px; background: color-mix(in srgb, var(--surface) 55%, transparent); border-color: rgba(255, 255, 255, 0.5); }
+.style-name { font-size: 13.5px; font-weight: 700; }
+.style-desc { font-size: 12px; color: var(--muted); }
