@@ -1,3 +1,4 @@
+import { Motto } from '../components/Motto';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import { useT, type T, type TKey } from '../i18n';
@@ -29,25 +30,6 @@ const SCENES: Scene[] = ['fantasy', 'pastel', 'lofi', 'cyber', 'aurora'];
 const EFFECTS: Effect[] = ['off', 'motes', 'stars', 'rain', 'bubbles', 'snow'];
 const SOUNDS: AlarmSound[] = ['chime', 'bell', 'digital', 'soft', 'piano'];
 
-const QUOTES: Record<'vi' | 'en', string[]> = {
-  vi: [
-    'Động lực giúp bạn bắt đầu, thói quen giúp bạn đi tiếp.',
-    'Mỗi phiên tập trung là một viên gạch cho việc lớn.',
-    'Làm từng việc một, và làm cho trọn vẹn.',
-    'Bắt đầu nhỏ, đều đặn, rồi bạn sẽ ngạc nhiên về quãng đường đã đi.',
-    'Tập trung không phải là làm nhiều hơn, mà là làm đúng việc.',
-    'Hôm nay chỉ cần 25 phút trọn vẹn.',
-  ],
-  en: [
-    'Motivation gets you going, but habit keeps you going.',
-    'Every focus session is one brick toward something big.',
-    'Do one thing at a time, and do it fully.',
-    'Start small, stay steady, and be surprised by how far you have come.',
-    'Focus is not doing more. It is doing the right thing.',
-    'Today, just 25 whole minutes.',
-  ],
-};
-
 /** Đồng hồ cập nhật mượt khi đang chạy */
 function useNow(active: boolean) {
   const [now, setNow] = useState(() => Date.now());
@@ -69,7 +51,6 @@ const Icon = ({ children, size = 18, fill = 'none' }: { children: ReactNode; siz
 export function FocusPage() {
   const t = useT();
   const setView = useBoard((s) => s.setView);
-  const lang = useBoard((s) => s.lang);
   const s = useFocus();
   const [panel, setPanel] = useState<PanelId | null>(null);
   const running = s.status === 'running';
@@ -77,7 +58,6 @@ export function FocusPage() {
   const left = running ? Math.max(0, s.endsAt - now) : s.remaining;
   const total = s.durationOf(s.mode);
   const progress = total ? 1 - left / total : 0;
-  const quote = QUOTES[lang][new Date().getDate() % QUOTES[lang].length];
   const today = s.days[todayISO()];
   const st = useMemo(() => streaks(s.days), [s.days]);
   const ch = s.challenges[todayISO()];
@@ -220,7 +200,9 @@ export function FocusPage() {
           </button>
         )}
 
-        <p className="fp-quote">“{quote}”</p>
+        <p className="fp-quote">
+          <Motto variant="focus" />
+        </p>
       </section>
 
       <footer className="fp-dock">

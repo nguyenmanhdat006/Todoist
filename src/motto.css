@@ -1,0 +1,36 @@
+/* ---------- câu nhắc "Work hard, play hard" ---------- */
+.motto { display: inline-flex; align-items: baseline; gap: 0.26em; font-weight: 700; letter-spacing: -0.01em; white-space: nowrap; }
+/* "play hard": nghiêng, gạch chân cam quét ra khi xuất hiện (rõ trên mọi nền) */
+.motto-play {
+  position: relative; font-style: italic; padding: 0 0.08em 0.1em;
+  background: linear-gradient(var(--orange), var(--orange)) no-repeat left bottom / 100% 0.085em;
+  animation: motto-sweep 0.8s 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes motto-sweep { from { background-size: 0 0.085em; } to { background-size: 100% 0.085em; } }
+@keyframes motto-rise { from { opacity: 0; transform: translateY(6px); } }
+
+/* banner chào ở đầu trang: dòng thứ hai, to và đậm */
+.motto-banner { font-size: 1.24em; line-height: 1.1; letter-spacing: -0.015em; animation: motto-rise 0.5s 0.1s ease-out both; }
+.motto-banner .motto-work { color: var(--fg); }
+
+/* chân trang: hai vạch kẻ hai bên */
+.motto-footer { align-items: center; gap: 0.3em; font-size: 15px; letter-spacing: 0.02em; }
+.motto-footer::before, .motto-footer::after { content: ''; width: 44px; height: 1px; margin: 0 12px; background: linear-gradient(90deg, transparent, var(--line-strong)); }
+.motto-footer::after { background: linear-gradient(270deg, transparent, var(--line-strong)); }
+.motto-footer .motto-work { color: var(--blue); }
+
+/* thẻ "Tiếp theo" khi không còn việc */
+.motto-card { margin-top: 6px; font-size: 17px; }
+.motto-card .motto-work { color: var(--blue); }
+
+/* trang Tập trung (nền tối) */
+.motto-focus { font-size: clamp(20px, 2.6vw, 30px); letter-spacing: 0.02em; text-shadow: 0 2px 16px rgba(0, 0, 0, 0.55); }
+.motto-focus .motto-work { color: #fff; }
+/* gạch chân theo màu chế độ hiện tại của trang (--fa đổi theo Tập trung / Nghỉ ngắn / Nghỉ dài), không dùng cam cố định */
+.motto-focus .motto-play { background-image: linear-gradient(color-mix(in srgb, var(--fa) 88%, #fff), color-mix(in srgb, var(--fa) 88%, #fff)); }
+
+@media (prefers-reduced-motion: reduce) {
+  .motto-play, .motto-banner { animation: none; }
+}
+
+.fp-quote .motto-work { font-style: normal; }

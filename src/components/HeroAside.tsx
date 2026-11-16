@@ -3,6 +3,7 @@
  *  - banner lời chào theo giờ trong ngày, có bàn tay vẫy
  *  - thẻ "Tiếp theo": tự chuyển qua các việc sắp tới (đếm ngược với việc có giờ hôm nay)
  */
+import { Motto } from './Motto';
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useBoard } from '../store/board';
 import { useSession } from '../sync/session';
@@ -215,7 +216,7 @@ export function HeroAside({ onOpenTask }: Props) {
               {t(greetingKey(now.getHours()))}
               {name && `, ${name}`}
             </span>
-            <span>{t('hero.welcome')}</span>
+            <Motto variant="banner" />
           </p>
         </div>
       </div>
@@ -227,6 +228,7 @@ export function HeroAside({ onOpenTask }: Props) {
           <div className="hero-next is-empty">
             <span className="hero-next-label">{t('hero.next')}</span>
             <span className="hero-next-meta">{t('hero.nothingNext')}</span>
+            <Motto variant="card" />
           </div>
         )}
 

@@ -13,6 +13,7 @@ import { SettingsMenu, type ToastData } from './components/Extras';
 import { showToast as showToastMsg } from './toast';
 import { askConfirm } from './confirm';
 import { GlobalSearch } from './components/GlobalSearch';
+import { Motto } from './components/Motto';
 import { BoardSkeleton } from './components/Skeleton';
 import { findSampleTaskIds } from './data/legacySample';
 import { HelpButton, LangSwitch, ProgressRing, ThemeSwitch } from './components/TopbarWidgets';
@@ -440,6 +441,7 @@ export default function App() {
       </main>
 
       <footer className="app-footer">
+        <Motto variant="footer" />
         <span className="app-footer-name">{t('app.name')}</span>
         <span className="app-footer-copy">
           © {new Date().getFullYear()} {t('app.name')} · {t('footer.rights')}

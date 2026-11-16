@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 /** Thời gian hiện tại, cập nhật đúng lúc sang giây mới */
 export function useNow() {
@@ -59,6 +59,46 @@ export function AnalogClock({ now, label }: { now: Date; label: string }) {
 }
 
 /**
+ * Tên trang dài thì thu nhỏ cỡ chữ cho vừa chỗ (thay vì cắt chữ hay bóp banner bên cạnh);
+ * nhỏ nhất rồi mà vẫn dài thì xuống tối đa 2 dòng, quá nữa mới cắt bằng dấu …
+ */
+const FitTitle = memo(function FitTitle({ title }: { title: string }) {
+  const ref = useRef<HTMLHeadingElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const fit = () => {
+      el.classList.remove('is-wrap');
+      el.style.fontSize = '';
+      const base = parseFloat(getComputedStyle(el).fontSize) || 32;
+      const min = Math.max(18, Math.round(base * 0.64));
+      let size = base;
+      while (el.scrollWidth > el.clientWidth + 1 && size > min) {
+        size -= 1;
+        el.style.fontSize = `${size}px`;
+      }
+      if (el.scrollWidth > el.clientWidth + 1) el.classList.add('is-wrap');
+    };
+    fit();
+    // Cửa sổ đổi cỡ, hoặc phông chữ tải xong: đo lại
+    const host = el.closest('.toolbar-top') ?? document.body;
+    const ro = new ResizeObserver(() => fit());
+    ro.observe(host);
+    window.addEventListener('resize', fit);
+    void document.fonts?.ready.then(fit);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', fit);
+    };
+  }, [title]);
+  return (
+    <h1 ref={ref} title={title}>
+      {title}
+    </h1>
+  );
+});
+
+/**
  * Khối tiêu đề trang: đồng hồ kim + ngày + giờ số + tên trang.
  * Tự cập nhật mỗi giây trong component riêng, để không vẽ lại cả bảng công việc.
  */
@@ -71,7 +111,7 @@ export function TitleClock({ locale, title, clockLabel }: { locale: string; titl
       <AnalogClock now={now} label={`${clockLabel}: ${time}`} />
       <div className="toolbar-title-text">
         <span className="eyebrow">{date}</span>
-        <h1 title={title}>{title}</h1>
+        <FitTitle title={title} />
         <span className="hero-time" aria-hidden="true">
           {time.slice(0, 5)}
           <span className="hero-sec">{time.slice(5)}</span>

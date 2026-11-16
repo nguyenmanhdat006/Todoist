@@ -1,7 +1,8 @@
 /* ---------- phần bên phải thanh đầu trang ---------- */
 .hero-aside {
   flex: 1 1 560px; min-width: 0; align-self: stretch; display: grid; align-items: center;
-  grid-template-columns: minmax(0, 1fr) minmax(220px, 320px);
+  /* banner không bao giờ hẹp hơn nội dung của nó (bàn tay + lời chào + câu nhắc) */
+  grid-template-columns: minmax(366px, 1fr) minmax(220px, 320px);
   grid-template-areas: 'greet next';
   gap: 12px 22px; padding-left: 28px; border-left: 1px solid var(--line);
 }
@@ -33,7 +34,9 @@
   font-size: 20px; font-weight: 800; line-height: 1.2; letter-spacing: -0.01em;
   color: color-mix(in srgb, var(--ban) 85%, var(--fg));
 }
-.hero-banner-text span:last-child { font-weight: 700; }
+/* lời chào: dòng nhỏ, vừa phải; câu nhắc bên dưới là dòng chính */
+.hero-banner-text { gap: 5px; }
+.hero-banner-text > span:first-child { font-size: 0.8em; font-weight: 600; letter-spacing: 0; line-height: 1.25; }
 
 .hero-hand { flex: none; overflow: visible; margin-bottom: 27px; }
 .hero-hand .skin { fill: #fbc7a4; stroke: #c9805e; stroke-width: 1.4; }
@@ -92,7 +95,7 @@ button.hero-next:hover { background: color-mix(in srgb, var(--tag) 18%, var(--su
 
 
 /* Không đủ chỗ trên một hàng: xuống hàng riêng, ngăn bằng vạch ngang thay cho vạch dọc */
-@media (max-width: 1400px) {
+@media (max-width: 1440px) {
   .hero-aside { flex-basis: 100%; padding-left: 0; padding-top: 14px; border-left: 0; border-top: 1px solid var(--line); }
   /* hàng đầu: ba ô thống kê dãn ra lấp chỗ trống bên phải */
   .hero .stat-tiles { flex: 1 1 0; min-width: 0; }
@@ -137,16 +140,29 @@ button.hero-next:hover { background: color-mix(in srgb, var(--tag) 18%, var(--su
   .hero .stat-value { font-size: 26px; }
 }
 
-/* Tên bảng dài thì cắt bớt theo chiều rộng còn lại, để lời chào và thẻ Tiếp theo không bị đẩy xuống hàng */
-.hero .toolbar-title-text h1 { max-width: clamp(140px, calc(100vw - 1270px), 560px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-@media (max-width: 1400px) {
-  .hero .toolbar-title-text h1 { max-width: 100%; }
+/* Tên bảng dài: chỉ phần tiêu đề được co lại (cắt bằng dấu …), còn thống kê, banner và thẻ Tiếp theo giữ đủ chỗ.
+   Không dựa vào chiều rộng cửa sổ, nên đúng với mọi tên dài, mọi ngôn ngữ và mọi tên người dùng. */
+@media (min-width: 1441px) {
+  .toolbar-top.hero { flex-wrap: nowrap; }
+  .toolbar-title.has-clock { flex: 0 1 auto; min-width: 0; }
+  .hero .toolbar-title-text { min-width: 150px; }
+  .hero .toolbar-title-text h1 { max-width: min(100%, 360px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hero .stat-tiles { flex: none; }
+  .hero-aside { flex: 1 0 0; min-width: min-content; }
+}
+@media (max-width: 1440px) {
+  .hero .toolbar-title-text h1 { max-width: min(100%, 360px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 }
 
 /* màn hình vừa: thu nhỏ chữ trong banner để mọi thứ vẫn nằm trên một hàng */
 @media (max-width: 1700px) {
-  .hero-aside { grid-template-columns: minmax(0, 1fr) minmax(210px, 250px); gap: 12px 16px; padding-left: 20px; }
+  .hero-aside { grid-template-columns: minmax(366px, 1fr) minmax(210px, 250px); gap: 12px 16px; padding-left: 20px; }
   .hero-banner-text { font-size: 17px; }
   .hero-hand { transform: scale(0.9); transform-origin: bottom; }
   .hero .stat-tile[class*='tone-'] { padding: 12px 14px 16px; }
+}
+
+/* tên trang dài, đã thu nhỏ hết cỡ mà vẫn không vừa một dòng: xuống tối đa 2 dòng */
+.hero .toolbar-title-text h1.is-wrap {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; white-space: normal; line-height: 1.12; overflow-wrap: anywhere;
 }
