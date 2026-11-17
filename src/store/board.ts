@@ -23,6 +23,8 @@ export interface Snapshot extends BoardData {
 }
 
 interface BoardState extends BoardData {
+  /** Bảng mà dữ liệu này thuộc về (người dùng:bảng); lưu cùng dữ liệu để không bao giờ lệch nhau. null = chưa rõ */
+  owner: string | null;
   theme: ThemeMode;
   view: ViewMode;
   calMode: CalMode;
@@ -228,6 +230,7 @@ export const useBoard = create<BoardState>()(
   persist(
     (set, get) => ({
       ...emptyBoard(),
+      owner: null,
       theme: 'dark',
       uiStyle: 'glass',
       view: 'kanban',
@@ -471,7 +474,7 @@ export const useBoard = create<BoardState>()(
         merged.columns = ensureBuiltins(merged.columns, merged.lang);
         return { ...merged, ...localizeDefaults(merged, merged.lang) };
       },
-      partialize: (s) => ({ columns: s.columns, tasks: s.tasks, theme: s.theme, uiStyle: s.uiStyle, view: s.view, calMode: s.calMode, calHiddenTags: s.calHiddenTags, reminders: s.reminders, lang: s.lang, filters: s.filters }),
+      partialize: (s) => ({ owner: s.owner, columns: s.columns, tasks: s.tasks, theme: s.theme, uiStyle: s.uiStyle, view: s.view, calMode: s.calMode, calHiddenTags: s.calHiddenTags, reminders: s.reminders, lang: s.lang, filters: s.filters }),
     },
   ),
 );

@@ -95,9 +95,30 @@ function saveMeta(patch: Partial<Meta>) {
  * nhớ thế hệ và bảng lúc bắt đầu; xong mà đã đổi thì bỏ kết quả, tránh ghi dữ liệu của bảng này vào bảng kia.
  */
 let epoch = 0;
+let reloadingForOtherTab = false;
 /** Bảng mà dữ liệu đang nằm trong store thật sự thuộc về. Khác bảng đang mở (meta.board) thì tuyệt đối không gửi lên. */
 let loadedFor: string | null = meta.board;
 const sameScope = (ep: number, board: string | null) => ep === epoch && board === meta.board;
+
+const ownerKey = (userId: string | null, board: string | null) => `${userId ?? '-'}:${board ?? 'me'}`;
+/** Ghi nhận dữ liệu trong store thuộc về bảng này (lưu cùng dữ liệu trong localStorage nên không thể lệch nhau) */
+function own(board: string | null) {
+  loadedFor = board;
+  useBoard.setState({ owner: ownerKey(meta.userId, board) });
+}
+/**
+ * Dữ liệu lưu trên máy gắn với một bảng; nếu không khớp bảng đang ghi trong meta (ví dụ hai tab đổi bảng chen nhau)
+ * thì bỏ dữ liệu đó và tải lại từ máy chủ, không bao giờ gửi nó lên bảng khác.
+ */
+function reconcileOwner() {
+  const owner = useBoard.getState().owner;
+  if (owner == null || !meta.userId) return; // dữ liệu cũ chưa gắn nhãn: tin là đúng
+  if (owner === ownerKey(meta.userId, meta.board)) return;
+  console.warn('[sync] dữ liệu trên máy không thuộc bảng đang mở, tải lại từ máy chủ');
+  resetLocal();
+  saveMeta({ revision: 0, dirty: false });
+  useBoard.setState({ owner: null });
+}
 
 let noticeId = 0;
 
@@ -202,7 +223,7 @@ async function resolveConflict() {
     const { revision, file } = await api.getBoard(board);
     if (!sameScope(ep, board)) return;
     if (file) applyFile(file);
-    loadedFor = board;
+    own(board);
     saveMeta({ revision, dirty: false });
     set({ sync: 'saved' });
     notify({
@@ -234,7 +255,23 @@ useBoard.subscribe((s, prev) => {
 
 if (typeof window !== 'undefined') {
   window.addEventListener('online', () => schedule(0));
+  // Tab khác đổi bảng / đăng nhập / đăng xuất: tab này đang giữ dữ liệu của bảng cũ, tải lại để không gửi nhầm
+  window.addEventListener('storage', (e) => {
+    if (e.key !== META_KEY || e.storageArea !== localStorage) return;
+    let m: { userId?: unknown; board?: unknown } | null = null;
+    try {
+      m = e.newValue ? JSON.parse(e.newValue) : null;
+    } catch {
+      return;
+    }
+    const board = m && typeof m.board === 'string' ? m.board : null;
+    const userId = m && typeof m.userId === 'string' ? m.userId : null;
+    if (userId === meta.userId && board === meta.board) return;
+    reloadingForOtherTab = true;
+    window.location.reload();
+  });
   window.addEventListener('beforeunload', (e) => {
+    if (reloadingForOtherTab) return;
     const { status, sync } = useSession.getState();
     if (status === 'ready' && (sync === 'saving' || sync === 'pending')) e.preventDefault();
   });
@@ -244,13 +281,14 @@ if (typeof window !== 'undefined') {
 
 async function enter(user: AccountUser) {
   epoch++;
+  reconcileOwner();
   const sameUser = meta.userId === user.id;
   saveMeta({ userId: user.id, email: user.email, name: user.name, ...(sameUser ? {} : { revision: 0, dirty: false, board: null }) });
   set({ user, bootError: null, board: meta.board });
 
   if (sameUser && meta.dirty) {
     // Còn thay đổi chưa gửi từ lần trước (mất mạng / tắt máy): gửi trước
-    loadedFor = meta.board;
+    own(meta.board);
     set({ status: 'ready' });
     await push();
     return;
@@ -269,7 +307,7 @@ async function enter(user: AccountUser) {
   const { revision, file } = board;
   if (!sameUser) resetLocal();
   if (file) applyFile(file);
-  loadedFor = meta.board;
+  own(meta.board);
   saveMeta({ revision, dirty: !file });
   set({ status: 'ready', sync: file ? 'saved' : 'pending' });
   // Tài khoản mới: lưu bảng trống (có các cột mặc định) lên máy chủ
@@ -277,6 +315,7 @@ async function enter(user: AccountUser) {
 }
 
 export async function boot() {
+  reconcileOwner();
   set({ status: 'checking', bootError: null });
   try {
     const { user } = await api.me();
@@ -352,7 +391,7 @@ export async function logout(confirmLoss: () => boolean | Promise<boolean>): Pro
   epoch++;
   resetLocal();
   saveMeta({ userId: null, email: '', name: '', revision: 0, dirty: false, board: null });
-  loadedFor = null;
+  own(null);
   set({ status: 'anon', user: null, sync: 'saved', board: null });
   toast.success('toast.signedOut');
   return true;
@@ -380,7 +419,7 @@ export async function switchBoard(board: string | null, confirmLoss: () => boole
     saveMeta({ board, revision, dirty: false });
     resetLocal();
     if (file) applyFile(file);
-    loadedFor = board;
+    own(board);
     set({ board, sync: file ? 'saved' : 'pending' });
     if (!file) {
       // Bảng mới: lưu các cột mặc định lên máy chủ
