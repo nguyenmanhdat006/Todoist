@@ -829,11 +829,13 @@ button.stat-tile:disabled { cursor: default; }
 
 /* ---------- chân trang ---------- */
 .app-footer {
-  flex: none; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  flex: none; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 2px 18px; padding: 6px 16px calc(6px + env(safe-area-inset-bottom));
   border-top: 1px solid var(--line); background: color-mix(in srgb, var(--panel) 70%, transparent); text-align: center;
 }
-.app-footer-name { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--fg-2); }
-.app-footer-copy { font-size: 12px; color: var(--muted); }
+.app-footer .motto-footer { font-size: 13px; }
+.app-footer .motto-footer::before, .app-footer .motto-footer::after { width: 28px; margin: 0 8px; }
+.app-footer-name { font-size: 10.5px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--fg-2); }
+.app-footer-copy { font-size: 11.5px; color: var(--muted); }
 
 /* ---------- hộp xác nhận ---------- */
 .confirm-backdrop { z-index: 300; }
