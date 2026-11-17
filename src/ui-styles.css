@@ -79,6 +79,8 @@ html[data-ui='soft'] .gs-item, html[data-ui='soft'] .scope-opt { margin-inline: 
 html[data-ui='glass'] {
   --glass: color-mix(in srgb, var(--surface) 62%, transparent);
   --glass-strong: color-mix(in srgb, var(--surface) 82%, transparent);
+  /* Hộp nổi (menu, tìm kiếm, hộp thoại): gần đặc để chữ phía sau không lộ ra, nhất là khi nằm trong thanh trên cùng (backdrop-filter lồng nhau không làm mờ được nền trang) */
+  --glass-pop: color-mix(in srgb, var(--surface) 97%, transparent);
   --glass-edge: color-mix(in srgb, #ffffff 55%, transparent);
   --line: color-mix(in srgb, var(--fg) 9%, transparent);
   --line-strong: color-mix(in srgb, var(--fg) 20%, transparent);
@@ -114,7 +116,7 @@ html[data-ui='glass'] :is(.toolbar-top.hero, .column, .cal-card, .cal-side, .lt-
   -webkit-backdrop-filter: blur(16px) saturate(150%); backdrop-filter: blur(16px) saturate(150%);
 }
 html[data-ui='glass'] :is(.popover, .gs-panel, .scope-panel, .modal, .confirm-dialog, .toast, .sidebar) {
-  background: var(--glass-strong); border: 1px solid var(--glass-edge); box-shadow: var(--shadow-lg);
+  background: var(--glass-pop); border: 1px solid var(--glass-edge); box-shadow: var(--shadow-lg);
   -webkit-backdrop-filter: blur(22px) saturate(160%); backdrop-filter: blur(22px) saturate(160%);
 }
 html[data-ui='glass'] .column { box-shadow: var(--shadow); }
@@ -137,7 +139,7 @@ html[data-ui='glass'] .footer, html[data-ui='glass'] .app-footer { background: t
 
 @media (prefers-reduced-transparency: reduce) {
   html[data-ui='glass'] * { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
-  html[data-ui='glass'] { --glass: var(--surface); --glass-strong: var(--surface); }
+  html[data-ui='glass'] { --glass: var(--surface); --glass-strong: var(--surface); --glass-pop: var(--surface); }
 }
 
 /* ---------- bộ chọn kiểu giao diện (thanh trên) ---------- */
