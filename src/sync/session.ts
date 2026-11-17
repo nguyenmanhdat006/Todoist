@@ -46,6 +46,8 @@ interface SessionState {
   board: string | null;
   /** Đang chuyển bảng */
   switching: boolean;
+  /** Sao lưu: done = bản sao lưu khớp dữ liệu, pending = đang chờ / đang sao lưu, flagged = giữ bản cũ vì dữ liệu ít hẳn */
+  backup: 'done' | 'pending' | 'flagged';
 }
 
 export const useSession = create<SessionState>(() => ({
@@ -56,6 +58,7 @@ export const useSession = create<SessionState>(() => ({
   notice: null,
   board: null,
   switching: false,
+  backup: 'done',
 }));
 
 const set = useSession.setState;
@@ -202,7 +205,7 @@ export async function push(): Promise<void> {
     // Số ticket và người tạo do máy chủ cấp cho việc mới
     if (assigned && Object.keys(assigned).length) withoutPush(() => useBoard.getState().applyTicketInfo(assigned));
     saveMeta({ revision, dirty: localVersion !== started });
-    unbacked = true;
+    setUnbacked(true);
     scheduleBackup();
     const wasDown = useSession.getState().sync === 'offline' || useSession.getState().sync === 'error';
     set({ sync: meta.dirty ? 'pending' : 'saved' });
@@ -217,14 +220,25 @@ export async function push(): Promise<void> {
 
 /* ---------- sao lưu tự động ---------- */
 
-const BACKUP_DELAY = 5 * 60_000;
+// Sao lưu ngay sau khi lưu xong vài giây (gộp các lần sửa liên tiếp)
+const BACKUP_DELAY = 3000;
+const BACKUP_RETRY = 20_000;
 let backupTimer: ReturnType<typeof setTimeout> | undefined;
 const warnedBackup = new Set<string>();
 /** Đã có thay đổi được lưu lên máy chủ nhưng chưa được sao lưu thành file */
 let unbacked = false;
+function setUnbacked(v: boolean, flagged = false) {
+  unbacked = v;
+  set({ backup: flagged ? 'flagged' : v ? 'pending' : 'done' });
+}
 
 export function markBackedUp(board: string | null) {
-  if (board === meta.board) unbacked = false;
+  if (board === meta.board) setUnbacked(false);
+}
+
+/** Thông báo đỏ (tam giác) "chưa sao lưu dữ liệu" kèm nút Sao lưu ngay */
+function warnNotBackedUp() {
+  toast.warning('backup.leaveWarn', undefined, { actionLabel: makeT(useBoard.getState().lang)('backup.now'), onAction: () => void syncAndBackup() });
 }
 
 /** Lưu nốt thay đổi rồi sao lưu ngay (nút trong cảnh báo khi thoát) */
@@ -240,7 +254,7 @@ export async function syncAndBackup(): Promise<void> {
     if (!sameScope(ep, board)) return;
     if (r.status === 'flagged') toast.error('backup.flaggedToast');
     else {
-      unbacked = false;
+      setUnbacked(false);
       toast.success('backup.saved');
     }
   } catch {
@@ -248,7 +262,7 @@ export async function syncAndBackup(): Promise<void> {
   }
 }
 
-/** Sau khi lưu xong vài phút không có thay đổi mới thì nhờ máy chủ sao lưu bảng (chỉ ghi nếu dữ liệu thật sự đổi) */
+/** Sau khi lưu xong vài giây không có thay đổi mới thì nhờ máy chủ sao lưu bảng (chỉ ghi nếu dữ liệu thật sự đổi) */
 function scheduleBackup() {
   clearTimeout(backupTimer);
   backupTimer = setTimeout(() => void runBackup(), BACKUP_DELAY);
@@ -260,14 +274,18 @@ async function runBackup() {
   if (useSession.getState().status !== 'ready' || meta.dirty || loadedFor !== board) return;
   try {
     const r = await quietly(() => api.backupNow(board, 'auto'));
-    if (r.status !== 'flagged' && sameScope(ep, board)) unbacked = false;
+    if (sameScope(ep, board)) setUnbacked(r.status === 'flagged', r.status === 'flagged');
     // Dữ liệu ít hơn hẳn bản sao lưu: báo một lần cho mỗi bảng
     if (r.status === 'flagged' && sameScope(ep, board) && !warnedBackup.has(String(board))) {
       warnedBackup.add(String(board));
       toast.error('backup.flaggedToast');
     }
   } catch {
-    /* thử lại ở lần lưu sau */
+    // Mất mạng / lỗi tạm: thử lại sau ít giây
+    if (sameScope(ep, board)) {
+      clearTimeout(backupTimer);
+      backupTimer = setTimeout(() => void runBackup(), BACKUP_RETRY);
+    }
   }
 }
 
@@ -373,14 +391,15 @@ if (typeof window !== 'undefined') {
       /* bỏ qua */
     }
   });
+  // Chỉ khi người dùng có ý định rời đi (đóng tab, tải lại, đổi địa chỉ) mà chưa lưu lên máy chủ hoặc chưa sao lưu: chặn lại.
+  // Hộp "Rời khỏi trang?" là của trình duyệt (app không đổi được chữ); cảnh báo đỏ của app hiện ngay lúc đó, thấy được khi chọn Ở lại.
   window.addEventListener('beforeunload', (e) => {
     if (reloadingForOtherTab) return;
     const { status, sync } = useSession.getState();
-    // Còn thay đổi chưa lưu, hoặc đã lưu nhưng chưa sao lưu: giữ trang lại và hiện cảnh báo đỏ để bấm Sao lưu ngay
     if (status === 'ready' && (sync === 'saving' || sync === 'pending' || meta.dirty || unbacked)) {
       e.preventDefault();
       e.returnValue = '';
-      toast.warning('backup.leaveWarn', undefined, { actionLabel: makeT(useBoard.getState().lang)('backup.now'), onAction: () => void syncAndBackup() });
+      warnNotBackedUp();
     }
   });
 }
@@ -421,7 +440,7 @@ async function enter(user: AccountUser) {
   // Tài khoản mới: lưu bảng trống (có các cột mặc định) lên máy chủ
   if (!file) await push();
   // Mở app: bảo đảm bản sao lưu khớp dữ liệu hiện tại (chỉ ghi nếu có thay đổi), để cảnh báo khi thoát chính xác
-  unbacked = true;
+  setUnbacked(true);
   void runBackup();
 }
 
@@ -537,7 +556,7 @@ export async function switchBoard(board: string | null, confirmLoss: () => boole
       saveMeta({ dirty: true });
       await push();
     }
-    unbacked = true;
+    setUnbacked(true);
     void runBackup();
     return true;
   } catch (e) {

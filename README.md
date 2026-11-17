@@ -246,8 +246,8 @@ request ghi dữ liệu phải là JSON và cùng nguồn; khoá tạm sau 8 l�
 
 - Mỗi bảng có **một file sao lưu duy nhất**, luôn được ghi đè (không sinh thêm file). Xem, tải về và khôi phục ở tab **Sao lưu** của trang dự án.
 - Không có lịch chạy ngầm: sao lưu được kích hoạt khi dữ liệu thay đổi. Máy chủ chỉ ghi khi dữ liệu thật sự đổi (so sánh mã băm). Các thời điểm sao lưu:
-  - vài phút sau lần lưu cuối của trình duyệt;
+  - vài giây sau mỗi lần lưu của trình duyệt (trạng thái "Đang lưu… / Đã lưu và sao lưu" hiện cạnh tên dự án, kiểu Google Drive);
   - khi đóng tab (`sendBeacon`);
   - nút **Sao lưu ngay**.
-- **Cảnh báo khi thoát:** nếu còn thay đổi chưa lưu hoặc chưa sao lưu, trình duyệt giữ trang lại và app hiện thông báo đỏ (tam giác) "Bạn chưa sao lưu dữ liệu" kèm nút **Sao lưu ngay**.
+- **Cảnh báo khi thoát:** chỉ khi bạn có ý định rời đi (đóng tab, tải lại, đổi địa chỉ) mà dữ liệu chưa lưu hoặc chưa sao lưu, trình duyệt hiện hộp "Rời khỏi trang?" (chữ do trình duyệt quyết định). Chọn Ở lại thì app hiện thông báo đỏ (tam giác) "Bạn chưa sao lưu dữ liệu" kèm nút **Sao lưu ngay**. Lúc đóng tab thật, app còn tự gửi lệnh sao lưu cuối.
 - **Chống ghi đè nhầm:** nếu dữ liệu hiện tại ít hơn hẳn bản sao lưu (từ 4 việc trở lên mà còn dưới một nửa), bản cũ được giữ nguyên và tab Sao lưu hiện cảnh báo; chỉ ghi đè khi bạn bấm **Ghi đè bằng dữ liệu hiện tại**.

@@ -29,6 +29,7 @@ import { Summary } from './space/Summary';
 import { Timeline } from './space/Timeline';
 import { LinksView } from './space/Links';
 import { BackupView } from './space/Backup';
+import { SaveStatus } from './components/SaveStatus';
 import { switchBoard, useSession } from './sync/session';
 import { loadOverview, useOverview, useScopedEntries } from './sync/overview';
 import { ScopeSelect } from './components/Social';
@@ -349,7 +350,7 @@ export default function App() {
           <HeroAside onOpenTask={(id) => setModal({ taskId: id, columnId: '' })} />
         </div>
         ) : (
-          <SpaceHeader title={projectName ?? t('page.title')} projectKey={spaceKey} view={view} onView={setView} crumb={t('space.crumb')} />
+          <SpaceHeader title={projectName ?? t('page.title')} projectKey={spaceKey} view={view} onView={setView} crumb={t('space.crumb')} actions={<SaveStatus />} />
         )}
         {(filterable || view === 'summary') && (
         <div className="filterbar">
