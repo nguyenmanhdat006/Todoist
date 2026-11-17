@@ -260,3 +260,12 @@
 .hs-heat i { aspect-ratio: 1; border-radius: 3px; background: var(--surface-2); display: block; }
 .hs-heat i.l1 { background: #c7dcf8; } .hs-heat i.l2 { background: #8db8ef; } .hs-heat i.l3 { background: #4b8be0; } .hs-heat i.l4 { background: #1d5fb8; }
 @media (max-width: 900px) { .hs-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .hs-row.is-a, .hs-row.is-b { grid-template-columns: 1fr; } }
+
+/* nút đổi phân hệ */
+.mod-dd { flex: none; }
+.mod-trigger .scope-caret { margin-left: -2px; }
+.mod-trigger.is-open .scope-caret { transform: rotate(180deg); }
+.mod-panel { left: auto; right: 0; min-width: 230px; }
+.mod-name { flex: 1; }
+.mod-live { font-variant-numeric: tabular-nums; font-size: 12px; font-weight: 600; color: var(--blue); }
+@media (max-width: 760px) { .mod-trigger .scope-caret { display: none; } }

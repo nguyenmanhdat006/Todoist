@@ -55,7 +55,7 @@ function errKey(e: unknown): TKey {
 }
 
 /** Popover đóng khi bấm ra ngoài hoặc nhấn Esc */
-function usePopover(open: boolean, close: () => void) {
+export function usePopover(open: boolean, close: () => void) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;

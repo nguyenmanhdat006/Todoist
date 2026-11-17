@@ -6,7 +6,7 @@ import { fold, isOverdue, matchesFilter } from './utils';
 import { Board } from './components/Board';
 import { ListView } from './components/ListView';
 import { FocusPage } from './focus/FocusPage';
-import { FocusButton } from './focus/FocusButton';
+import { ModuleSwitch } from './components/ModuleSwitch';
 import { TaskModal, type TaskDefaults } from './components/TaskModal';
 import { CalendarView } from './components/CalendarView';
 import { SettingsMenu, type ToastData } from './components/Extras';
@@ -298,7 +298,7 @@ export default function App() {
           </div>
           <GlobalSearch onOpenTask={(id, boardId) => void openTaskIn(id, boardId)} />
           <div className="topbar-right">
-            <FocusButton />
+            <ModuleSwitch />
             <ProgressRing done={stats.done} total={stats.total} />
             <LangSwitch />
             <ThemeSwitch />
