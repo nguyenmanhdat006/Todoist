@@ -39,13 +39,13 @@ export function AccountMenu() {
     <div className="settings account" ref={ref}>
       <button
         type="button"
-        className={`icon-btn account-btn sync-${sync}`}
+        className={`icon-btn account-btn sync-${sync}${user.avatarV ? ' has-photo' : ''}`}
         aria-label={`${t('sync.account')}: ${label}. ${status}`}
         title={`${label} · ${status}`}
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
       >
-        {user.avatarV ? <Avatar user={user} size={28} title="" /> : <span className="account-initial">{initial}</span>}
+        {user.avatarV ? <Avatar user={user} size={32} title="" /> : <span className="account-initial">{initial}</span>}
         <span className="sync-dot" aria-hidden="true" />
       </button>
       {open && (

@@ -101,3 +101,8 @@
 .auth-sent { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 4px 0 8px; }
 .auth-sent-icon { width: 46px; height: 46px; display: grid; place-items: center; margin-bottom: 4px; color: var(--blue); background: color-mix(in srgb, var(--blue) 12%, transparent); }
 .auth-sent .auth-tagline { margin: 0; overflow-wrap: anywhere; }
+
+/* nút tài khoản có ảnh: ảnh tròn vừa khít, không khung vuông bao ngoài */
+.icon-btn.account-btn.has-photo { padding: 0; border-radius: 50%; background: none; overflow: visible; }
+.icon-btn.account-btn.has-photo .avatar { box-shadow: none; }
+html[data-ui] .topbar-right .settings > .account-btn.has-photo { border-radius: 50%; }
