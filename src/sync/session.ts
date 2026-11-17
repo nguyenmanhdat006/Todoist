@@ -90,6 +90,15 @@ function saveMeta(patch: Partial<Meta>) {
   }
 }
 
+/**
+ * Mỗi lần đổi bảng / đăng nhập / đăng xuất tăng thế hệ lên 1. Việc chạy bất đồng bộ (gửi, tải định kỳ, giải quyết xung đột)
+ * nhớ thế hệ và bảng lúc bắt đầu; xong mà đã đổi thì bỏ kết quả, tránh ghi dữ liệu của bảng này vào bảng kia.
+ */
+let epoch = 0;
+/** Bảng mà dữ liệu đang nằm trong store thật sự thuộc về. Khác bảng đang mở (meta.board) thì tuyệt đối không gửi lên. */
+let loadedFor: string | null = meta.board;
+const sameScope = (ep: number, board: string | null) => ep === epoch && board === meta.board;
+
 let noticeId = 0;
 
 const notify = (n: Omit<Notice, 'id'>) => set({ notice: { ...n, id: ++noticeId } });
@@ -133,17 +142,26 @@ function schedule(delay = PUSH_DELAY) {
 
 export async function push(): Promise<void> {
   const s = useSession.getState();
-  if (s.status !== 'ready' || pushing) return;
+  if (s.status !== 'ready' || pushing || s.switching) return;
+  if (loadedFor !== meta.board) {
+    // Dữ liệu trong bộ nhớ không phải của bảng đang mở: gửi lên sẽ ghi đè nhầm bảng, nên chặn lại
+    console.error('[sync] bỏ qua lần gửi: dữ liệu không thuộc bảng đang mở');
+    return;
+  }
   if (!meta.dirty) {
     set({ sync: 'saved' });
     return;
   }
   pushing = true;
   const started = localVersion;
+  const ep = epoch;
+  const board = meta.board;
   set({ sync: 'saving' });
   try {
     const st = useBoard.getState();
-    const { revision, assigned } = await quietly(() => api.putBoard(meta.revision, buildExport(st), meta.board));
+    const { revision, assigned } = await quietly(() => api.putBoard(meta.revision, buildExport(st), board));
+    // Đã đổi bảng trong lúc gửi: dữ liệu đã vào đúng bảng cũ, không đụng tới thông tin của bảng mới
+    if (!sameScope(ep, board)) return;
     // Số ticket và người tạo do máy chủ cấp cho việc mới
     if (assigned && Object.keys(assigned).length) withoutPush(() => useBoard.getState().applyTicketInfo(assigned));
     saveMeta({ revision, dirty: localVersion !== started });
@@ -152,7 +170,7 @@ export async function push(): Promise<void> {
     if (wasDown) toast.success('toast.online');
     if (meta.dirty) schedule(0);
   } catch (e) {
-    await handlePushError(e);
+    if (sameScope(ep, board)) await handlePushError(e);
   } finally {
     pushing = false;
   }
@@ -178,15 +196,21 @@ async function handlePushError(e: unknown) {
 /** Thiết bị khác đã lưu trước: lấy bản trên máy chủ, giữ bản trên máy này để người dùng chọn lại */
 async function resolveConflict() {
   const local: Snapshot = useBoard.getState().snapshot();
+  const ep = epoch;
+  const board = meta.board;
   try {
-    const { revision, file } = await api.getBoard(meta.board);
+    const { revision, file } = await api.getBoard(board);
+    if (!sameScope(ep, board)) return;
     if (file) applyFile(file);
+    loadedFor = board;
     saveMeta({ revision, dirty: false });
     set({ sync: 'saved' });
     notify({
       key: 'sync.conflict',
       actionKey: 'sync.keepLocal',
       onAction: () => {
+        // Đã sang bảng khác thì bản giữ lại thuộc về bảng cũ: không được ghi vào bảng đang mở
+        if (!sameScope(ep, board)) return;
         useBoard.getState().restore(local);
         // restore() đi qua subscribe nên tự đánh dấu cần gửi; gửi ngay
         schedule(0);
@@ -219,12 +243,14 @@ if (typeof window !== 'undefined') {
 /* ---------- đăng nhập / mở app ---------- */
 
 async function enter(user: AccountUser) {
+  epoch++;
   const sameUser = meta.userId === user.id;
   saveMeta({ userId: user.id, email: user.email, name: user.name, ...(sameUser ? {} : { revision: 0, dirty: false, board: null }) });
   set({ user, bootError: null, board: meta.board });
 
   if (sameUser && meta.dirty) {
     // Còn thay đổi chưa gửi từ lần trước (mất mạng / tắt máy): gửi trước
+    loadedFor = meta.board;
     set({ status: 'ready' });
     await push();
     return;
@@ -243,6 +269,7 @@ async function enter(user: AccountUser) {
   const { revision, file } = board;
   if (!sameUser) resetLocal();
   if (file) applyFile(file);
+  loadedFor = meta.board;
   saveMeta({ revision, dirty: !file });
   set({ status: 'ready', sync: file ? 'saved' : 'pending' });
   // Tài khoản mới: lưu bảng trống (có các cột mặc định) lên máy chủ
@@ -322,8 +349,10 @@ export async function logout(confirmLoss: () => boolean | Promise<boolean>): Pro
   } catch {
     /* vẫn đăng xuất ở máy */
   }
+  epoch++;
   resetLocal();
   saveMeta({ userId: null, email: '', name: '', revision: 0, dirty: false, board: null });
+  loadedFor = null;
   set({ status: 'anon', user: null, sync: 'saved', board: null });
   toast.success('toast.signedOut');
   return true;
@@ -338,14 +367,20 @@ export async function logout(confirmLoss: () => boolean | Promise<boolean>): Pro
 export async function switchBoard(board: string | null, confirmLoss: () => boolean | Promise<boolean>): Promise<boolean> {
   if (board === meta.board) return true;
   clearTimeout(timer);
+  // Chờ lần gửi đang dở xong rồi mới đổi bảng
+  while (pushing) await new Promise((r) => setTimeout(r, 40));
   if (meta.dirty) await push();
   if (meta.dirty && !(await confirmLoss())) return false;
+  const ep = ++epoch;
   set({ switching: true });
   try {
     const { revision, file } = await api.getBoard(board);
+    // Có lần đổi bảng khác chen vào: bỏ kết quả này
+    if (ep !== epoch) return false;
     saveMeta({ board, revision, dirty: false });
     resetLocal();
     if (file) applyFile(file);
+    loadedFor = board;
     set({ board, sync: file ? 'saved' : 'pending' });
     if (!file) {
       // Bảng mới: lưu các cột mặc định lên máy chủ
@@ -354,10 +389,10 @@ export async function switchBoard(board: string | null, confirmLoss: () => boole
     }
     return true;
   } catch (e) {
-    await handlePushError(e);
+    if (ep === epoch) await handlePushError(e);
     return false;
   } finally {
-    set({ switching: false });
+    if (ep === epoch) set({ switching: false });
   }
 }
 
@@ -365,9 +400,13 @@ export async function switchBoard(board: string | null, confirmLoss: () => boole
 async function pull() {
   const s = useSession.getState();
   if (s.status !== 'ready' || s.switching || pushing || meta.dirty) return;
+  const ep = epoch;
+  const board = meta.board;
   try {
-    const { revision, file } = await quietly(() => api.getBoard(meta.board));
-    if (revision > meta.revision && !meta.dirty && file) {
+    const { revision, file } = await quietly(() => api.getBoard(board));
+    // Trong lúc chờ phản hồi đã đổi bảng / đang gửi / có thay đổi mới: bỏ, kẻo áp dữ liệu bảng này vào bảng kia
+    if (!sameScope(ep, board) || useSession.getState().switching || pushing || meta.dirty) return;
+    if (revision > meta.revision && file) {
       applyFile(file);
       saveMeta({ revision });
     }
