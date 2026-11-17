@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://todoist-website-omega.vercel.app/schema/task-management-export-v2.json",
-  "title": "Task management export (schemaVersion 2)",
-  "description": "File JSON xuất từ app Quản lý công việc. Xem docs/export-format.md.",
+  "title": "Productivity Hub export (schemaVersion 2)",
+  "description": "File JSON xuất từ app Productivity Hub. Xem docs/export-format.md.",
   "type": "object",
   "required": ["format", "schemaVersion", "exportedAt", "timezone", "columns", "tasks"],
   "properties": {

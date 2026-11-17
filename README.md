@@ -1,4 +1,4 @@
-# Quản lý công việc (Task management)
+# Productivity Hub
 
 **Một nơi gọn gàng để lên kế hoạch, theo dõi và hoàn thành công việc: một mình hoặc cùng nhóm.**
 Kanban kéo thả, danh sách dạng bảng tính, lịch, thông báo nhắc việc, đồng hồ Pomodoro gắn thẳng vào việc bạn đang làm, tất cả trong một ứng dụng web chạy trên mọi thiết bị.
@@ -117,7 +117,7 @@ Chức năng quên mật khẩu gửi email qua SMTP. Thêm các biến môi tr�
 |---|---|
 | `SMTP_USER` | tài khoản gửi, ví dụ `ban@gmail.com` |
 | `SMTP_PASS` | với Gmail: **Mật khẩu ứng dụng** (bật xác minh 2 bước → Tài khoản Google → Bảo mật → Mật khẩu ứng dụng), không phải mật khẩu đăng nhập Gmail |
-| `MAIL_FROM` | (tuỳ chọn) tên và địa chỉ người gửi, ví dụ `"Quản lý công việc" <ban@gmail.com>` |
+| `MAIL_FROM` | (tuỳ chọn) tên và địa chỉ người gửi, ví dụ `"Productivity Hub" <ban@gmail.com>` |
 | `APP_URL` | (tuỳ chọn) địa chỉ web để dựng liên kết trong email; mặc định lấy theo tên miền đang truy cập |
 | `SMTP_HOST`, `SMTP_PORT` | (tuỳ chọn) mặc định `smtp.gmail.com`, `465` |
 

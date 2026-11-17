@@ -3,7 +3,7 @@ import { useBoard } from './store/board';
 import type { Lang } from './types';
 
 const vi = {
-  'app.name': 'Quản lý công việc',
+  'app.name': 'Productivity Hub',
   'footer.rights': 'Bảo lưu mọi quyền',
   'space.tab.backup': 'Sao lưu',
   'backup.desc': 'Mỗi bảng chỉ có một file sao lưu, tự ghi đè khi dữ liệu thay đổi: vài giây sau khi sửa và khi đóng tab. Không tạo thêm file mới.',
@@ -808,7 +808,7 @@ const vi = {
 export type TKey = keyof typeof vi;
 
 const en: Record<TKey, string> = {
-  'app.name': 'Task management',
+  'app.name': 'Productivity Hub',
   'footer.rights': 'All rights reserved',
   'space.tab.backup': 'Backup',
   'backup.desc': 'Each board has a single backup file that is overwritten whenever the data changes: a few seconds after editing and when the tab is closed. No extra files are created.',
