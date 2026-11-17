@@ -9,8 +9,6 @@ Bản chạy thật: <https://todoist-website-omega.vercel.app>
 
 ## Ảnh chụp màn hình
 
-Dữ liệu trong ảnh là dữ liệu mẫu.
-
 **Trang chủ**: banner, chọn phân hệ và thống kê theo dự án, theo khoảng thời gian (số việc hoàn thành, giờ tập trung, chuỗi ngày, bản đồ nhiệt).
 
 ![Trang chủ](docs/screenshots/01-home.png)
