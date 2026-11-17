@@ -831,7 +831,7 @@ button.stat-tile:disabled { cursor: default; }
 
 /* ---------- chân trang ---------- */
 .app-footer {
-  flex: none; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 2px 18px; padding: 6px 16px calc(6px + env(safe-area-inset-bottom));
+  flex: none; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 1px; padding: 5px 16px calc(5px + env(safe-area-inset-bottom));
   border-top: 1px solid var(--line); background: color-mix(in srgb, var(--panel) 70%, transparent); text-align: center;
 }
 .app-footer .motto-footer { font-size: 13px; }

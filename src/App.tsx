@@ -350,7 +350,11 @@ export default function App() {
           <HeroAside onOpenTask={(id) => setModal({ taskId: id, columnId: '' })} />
         </div>
         ) : (
-          <SpaceHeader title={projectName ?? t('page.title')} projectKey={spaceKey} view={view} onView={setView} crumb={t('space.crumb')} actions={<SaveStatus />} />
+          <SpaceHeader title={projectName ?? t('page.title')} projectKey={spaceKey} view={view} onView={(v) => {
+            // Đang ở một dự án mà mở tab tổng hợp từ tab khác thì xem đúng dự án đó (không nhảy sang "Tất cả")
+            if (!aggregate && curProject && (v === 'summary' || v === 'list' || v === 'calendar' || v === 'timeline')) useOverview.getState().setScope(`p:${curProject.id}`);
+            setView(v);
+          }} crumb={t('space.crumb')} actions={<SaveStatus />} />
         )}
         {(filterable || view === 'summary') && (
         <div className="filterbar">
