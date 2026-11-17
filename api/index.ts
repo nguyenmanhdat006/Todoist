@@ -23,7 +23,7 @@ import {
 } from './_lib/auth.js';
 import { addComment, deleteComment, editComment, listActivity } from './_lib/activity.js';
 import { readBoard, writeBoard } from './_lib/board.js';
-import { backupBoard, backupFileName, boardsNeedingBackup, getBackupFile, listProjectBackups, readReason } from './_lib/backup.js';
+import { backupBoard, backupFileName, getBackupFile, listProjectBackups, readReason } from './_lib/backup.js';
 import { readOverview } from './_lib/overview.js';
 import { db } from './_lib/db.js';
 import {
@@ -656,29 +656,6 @@ app.get(
       res.setHeader('Content-Disposition', `attachment; filename="${backupFileName(rows[0]?.key ?? '', rows[0]?.name ?? '')}"`);
     }
     res.type('application/json').send(JSON.stringify(file));
-  }),
-);
-
-// Lịch chạy hằng ngày (Vercel Cron): sao lưu mọi bảng đã thay đổi. Cần biến môi trường CRON_SECRET.
-app.get(
-  '/api/cron/backup',
-  route(async (req, res) => {
-    const secret = process.env.CRON_SECRET;
-    if (!secret) throw new HttpError(503, 'cron_not_configured');
-    if (req.headers.authorization !== `Bearer ${secret}`) throw new HttpError(401, 'unauthorized');
-    const ids = await boardsNeedingBackup();
-    let saved = 0;
-    let flagged = 0;
-    for (const id of ids) {
-      try {
-        const r = await backupBoard(id, { reason: 'cron' });
-        if (r.status === 'saved') saved++;
-        else if (r.status === 'flagged') flagged++;
-      } catch {
-        /* bảng lỗi không làm hỏng cả lượt chạy */
-      }
-    }
-    res.json({ checked: ids.length, saved, flagged });
   }),
 );
 

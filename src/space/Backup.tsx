@@ -9,13 +9,12 @@ import { useT, type TKey } from '../i18n';
 import { useBoard } from '../store/board';
 import { api, ApiError, type BackupRow } from '../sync/api';
 import { projectOfBoard, usePeople } from '../sync/people';
-import { push, useSession } from '../sync/session';
+import { markBackedUp, push, useSession } from '../sync/session';
 import { showToast, toast } from '../toast';
 
 const REASON: Record<string, TKey> = {
   auto: 'backup.reason.auto',
   close: 'backup.reason.close',
-  cron: 'backup.reason.cron',
   manual: 'backup.reason.manual',
 };
 
@@ -62,8 +61,14 @@ export function BackupView() {
       if (boardId === active) await push();
       const r = await api.backupNow(boardId === me?.id ? null : boardId, 'manual', force);
       if (r.status === 'flagged') showToast(t('backup.flaggedToast'), { kind: 'error' });
-      else if (r.status === 'unchanged') toast.info('backup.unchanged');
-      else toast.success('backup.saved');
+      else if (r.status === 'unchanged') {
+        toast.info('backup.unchanged');
+        markBackedUp(boardId === me?.id ? null : boardId);
+      }
+      else {
+        toast.success('backup.saved');
+        markBackedUp(boardId === me?.id ? null : boardId);
+      }
       await load();
     } catch (e) {
       showToast(t(e instanceof ApiError && e.offline ? 'err.network' : 'err.server_error'), { kind: 'error' });
@@ -138,15 +143,24 @@ export function BackupView() {
                   </div>
                   <div className="bk-actions">
                     {r.hasBackup && (
-                      <a className="btn sm" href={api.backupDownloadUrl(r.boardId === me?.id ? null : r.boardId)} download>
+                      <a className="btn ghost sm" href={api.backupDownloadUrl(r.boardId === me?.id ? null : r.boardId)} download>
+                        <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M8 2.5v8M4.8 7.6L8 10.8l3.2-3.2M3 13h10" />
+                        </svg>
                         {t('backup.download')}
                       </a>
                     )}
-                    <button type="button" className="btn sm" disabled={base} onClick={() => void backupNow(r.boardId)}>
+                    <button type="button" className="btn primary sm" disabled={base} onClick={() => void backupNow(r.boardId)}>
+                      <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M4.5 12.5h6.8a2.8 2.8 0 00.4-5.6 3.9 3.9 0 00-7.5.9 2.4 2.4 0 00.3 4.7zM8 6.5v4M6.3 9l1.7 1.7L9.7 9" />
+                      </svg>
                       {t('backup.now')}
                     </button>
                     {r.hasBackup && (
-                      <button type="button" className="btn sm" disabled={base || !mine} title={mine ? undefined : t('backup.openToRestore')} onClick={() => void restore(r)}>
+                      <button type="button" className="btn ghost sm" disabled={base || !mine} title={mine ? undefined : t('backup.openToRestore')} onClick={() => void restore(r)}>
+                        <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M3 8a5 5 0 105-5H5.5M5.5 1.2L3.2 3.5 5.5 5.8" />
+                        </svg>
                         {t('backup.restore')}
                       </button>
                     )}

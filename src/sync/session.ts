@@ -8,10 +8,12 @@ import { quietly } from './activity';
  * - revision tăng mỗi lần lưu; nếu thiết bị khác đã lưu trước (409), tải bản mới về và cho chọn giữ bản trên máy này.
  */
 import { toast } from '../toast';
+import { makeT } from '../i18n';
 import { create } from 'zustand';
 import { buildExport, parseImport, type ExportFile } from '../data/exchange';
 import { defaultFilters, emptyBoard, useBoard, type Snapshot } from '../store/board';
 import { api, ApiError, type AccountUser } from './api';
+import { mergeBoards, type BoardSnap } from './merge';
 
 export type Status = 'checking' | 'anon' | 'ready';
 export type SyncState = 'saved' | 'saving' | 'pending' | 'offline' | 'error';
@@ -136,10 +138,21 @@ function withoutPush(fn: () => void) {
   }
 }
 
+/**
+ * Bản dữ liệu ở lần đồng bộ gần nhất với máy chủ (tải về hoặc gửi lên thành công). Khi lưu bị xung đột,
+ * so máy này với bản nền để biết người dùng đã làm gì, rồi áp những việc đó lên bản mới của máy chủ.
+ */
+let base: BoardSnap | null = null;
+const snapOf = (): BoardSnap => {
+  const s = useBoard.getState();
+  return { columns: s.columns, tasks: s.tasks, filters: s.filters, reminders: s.reminders };
+};
+
 function applyFile(file: ExportFile) {
   const parsed = parseImport(file);
   if (!parsed.ok) throw new ApiError(500, 'bad_board');
   withoutPush(() => useBoard.getState().applyImport(parsed.data, true));
+  base = snapOf();
 }
 
 function resetLocal() {
@@ -147,6 +160,7 @@ function resetLocal() {
     const lang = useBoard.getState().lang;
     useBoard.setState({ ...emptyBoard(lang), filters: defaultFilters(), reminders: [] });
   });
+  base = null;
 }
 
 
@@ -180,12 +194,15 @@ export async function push(): Promise<void> {
   set({ sync: 'saving' });
   try {
     const st = useBoard.getState();
+    const sent = snapOf();
     const { revision, assigned } = await quietly(() => api.putBoard(meta.revision, buildExport(st), board));
     // Đã đổi bảng trong lúc gửi: dữ liệu đã vào đúng bảng cũ, không đụng tới thông tin của bảng mới
     if (!sameScope(ep, board)) return;
+    base = sent;
     // Số ticket và người tạo do máy chủ cấp cho việc mới
     if (assigned && Object.keys(assigned).length) withoutPush(() => useBoard.getState().applyTicketInfo(assigned));
     saveMeta({ revision, dirty: localVersion !== started });
+    unbacked = true;
     scheduleBackup();
     const wasDown = useSession.getState().sync === 'offline' || useSession.getState().sync === 'error';
     set({ sync: meta.dirty ? 'pending' : 'saved' });
@@ -203,6 +220,33 @@ export async function push(): Promise<void> {
 const BACKUP_DELAY = 5 * 60_000;
 let backupTimer: ReturnType<typeof setTimeout> | undefined;
 const warnedBackup = new Set<string>();
+/** Đã có thay đổi được lưu lên máy chủ nhưng chưa được sao lưu thành file */
+let unbacked = false;
+
+export function markBackedUp(board: string | null) {
+  if (board === meta.board) unbacked = false;
+}
+
+/** Lưu nốt thay đổi rồi sao lưu ngay (nút trong cảnh báo khi thoát) */
+export async function syncAndBackup(): Promise<void> {
+  clearTimeout(timer);
+  while (pushing) await new Promise((r) => setTimeout(r, 40));
+  if (meta.dirty) await push();
+  if (meta.dirty) return; // chưa lưu được (mất mạng...): không sao lưu bản cũ
+  const ep = epoch;
+  const board = meta.board;
+  try {
+    const r = await api.backupNow(board, 'manual');
+    if (!sameScope(ep, board)) return;
+    if (r.status === 'flagged') toast.error('backup.flaggedToast');
+    else {
+      unbacked = false;
+      toast.success('backup.saved');
+    }
+  } catch {
+    toast.error('toast.syncError');
+  }
+}
 
 /** Sau khi lưu xong vài phút không có thay đổi mới thì nhờ máy chủ sao lưu bảng (chỉ ghi nếu dữ liệu thật sự đổi) */
 function scheduleBackup() {
@@ -216,6 +260,7 @@ async function runBackup() {
   if (useSession.getState().status !== 'ready' || meta.dirty || loadedFor !== board) return;
   try {
     const r = await quietly(() => api.backupNow(board, 'auto'));
+    if (r.status !== 'flagged' && sameScope(ep, board)) unbacked = false;
     // Dữ liệu ít hơn hẳn bản sao lưu: báo một lần cho mỗi bảng
     if (r.status === 'flagged' && sameScope(ep, board) && !warnedBackup.has(String(board))) {
       warnedBackup.add(String(board));
@@ -251,6 +296,25 @@ async function resolveConflict() {
   try {
     const { revision, file } = await api.getBoard(board);
     if (!sameScope(ep, board)) return;
+
+    // Gộp: giữ thay đổi của người dùng trên máy này, thêm thay đổi mới từ nơi khác (việc vừa kéo không bị nhảy lại)
+    const parsed = file ? parseImport(file) : null;
+    if (parsed?.ok && loadedFor === board) {
+      const server: BoardSnap = { columns: parsed.data.columns, tasks: parsed.data.tasks, filters: parsed.data.filters ?? local.filters ?? [], reminders: parsed.data.reminders ?? local.reminders ?? [] };
+      const merged = mergeBoards(base, snapOf(), server);
+      if (merged) {
+        withoutPush(() => useBoard.getState().applyImport(merged, true));
+        base = server;
+        own(board);
+        saveMeta({ revision, dirty: true });
+        localVersion++;
+        set({ sync: 'pending' });
+        schedule(0);
+        toast.info('sync.merged');
+        return;
+      }
+    }
+
     if (file) applyFile(file);
     own(board);
     saveMeta({ revision, dirty: false });
@@ -312,7 +376,12 @@ if (typeof window !== 'undefined') {
   window.addEventListener('beforeunload', (e) => {
     if (reloadingForOtherTab) return;
     const { status, sync } = useSession.getState();
-    if (status === 'ready' && (sync === 'saving' || sync === 'pending')) e.preventDefault();
+    // Còn thay đổi chưa lưu, hoặc đã lưu nhưng chưa sao lưu: giữ trang lại và hiện cảnh báo đỏ để bấm Sao lưu ngay
+    if (status === 'ready' && (sync === 'saving' || sync === 'pending' || meta.dirty || unbacked)) {
+      e.preventDefault();
+      e.returnValue = '';
+      toast.warning('backup.leaveWarn', undefined, { actionLabel: makeT(useBoard.getState().lang)('backup.now'), onAction: () => void syncAndBackup() });
+    }
   });
 }
 
@@ -351,6 +420,9 @@ async function enter(user: AccountUser) {
   set({ status: 'ready', sync: file ? 'saved' : 'pending' });
   // Tài khoản mới: lưu bảng trống (có các cột mặc định) lên máy chủ
   if (!file) await push();
+  // Mở app: bảo đảm bản sao lưu khớp dữ liệu hiện tại (chỉ ghi nếu có thay đổi), để cảnh báo khi thoát chính xác
+  unbacked = true;
+  void runBackup();
 }
 
 export async function boot() {
@@ -465,6 +537,8 @@ export async function switchBoard(board: string | null, confirmLoss: () => boole
       saveMeta({ dirty: true });
       await push();
     }
+    unbacked = true;
+    void runBackup();
     return true;
   } catch (e) {
     if (ep === epoch) await handlePushError(e);

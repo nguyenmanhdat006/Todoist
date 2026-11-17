@@ -6,6 +6,7 @@ const ICONS: Record<ToastKind, JSX.Element> = {
   success: <path d="M4 10.5l4 4 8-9" />,
   error: <path d="M10 5v6M10 14.2v.3" />,
   info: <path d="M10 9v5M10 5.8v.3" />,
+  warning: <path d="M10 3.2L18 16.8H2zM10 8.4v4M10 14.6v.2" />,
 };
 
 export function ToastHost() {
@@ -14,7 +15,7 @@ export function ToastHost() {
   return createPortal(
     <div className="toasts" role="region" aria-label={t('toast.region')} aria-live="polite">
       {items.map((x) => (
-        <div key={x.id} className={`toast toast-${x.kind}${x.leaving ? ' is-leaving' : ''}`} role={x.kind === 'error' ? 'alert' : 'status'}>
+        <div key={x.id} className={`toast toast-${x.kind}${x.leaving ? ' is-leaving' : ''}`} role={x.kind === 'error' || x.kind === 'warning' ? 'alert' : 'status'}>
           <span className="toast-icon" aria-hidden="true">
             <svg viewBox="0 0 20 20" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               {ICONS[x.kind]}

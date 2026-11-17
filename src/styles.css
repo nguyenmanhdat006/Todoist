@@ -675,6 +675,8 @@ button.stat-tile:disabled { cursor: default; }
 .toast.is-leaving { animation: toast-out 0.2s ease-in forwards; }
 .toast-success { --tc: #22a35a; }
 .toast-error { --tc: #ef4444; }
+.toast-warning { --tc: #ef4444; }
+.toast-warning .toast-undo { color: #ef4444; }
 .toast-info { --tc: var(--blue); }
 .toast-icon {
   flex: none; width: 20px; height: 20px; display: grid; place-items: center; border-radius: 50%;

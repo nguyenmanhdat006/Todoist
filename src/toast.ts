@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { makeT, type TKey } from './i18n';
 import { useBoard } from './store/board';
 
-export type ToastKind = 'success' | 'error' | 'info';
+export type ToastKind = 'success' | 'error' | 'info' | 'warning';
 
 export interface ToastItem {
   id: number;
@@ -42,7 +42,7 @@ export interface ToastOptions {
 /** Hiện thông báo bằng chữ đã dịch sẵn */
 export function showToast(message: string, o: ToastOptions = {}) {
   const kind = o.kind ?? 'success';
-  const duration = o.duration ?? (o.onAction ? 6500 : kind === 'error' ? 6000 : 3800);
+  const duration = o.duration ?? (kind === 'warning' ? 15000 : o.onAction ? 6500 : kind === 'error' ? 6000 : 3800);
   // Cùng nội dung đang hiện thì không chồng thêm
   const dup = useToasts.getState().items.find((x) => !x.leaving && x.message === message && x.kind === kind);
   if (dup) dismissToast(dup.id);
@@ -66,4 +66,5 @@ export const toast = {
   success: (key: TKey, vars?: Record<string, string | number>, o?: ToastOptions) => showToast(tr()(key, vars), { ...o, kind: 'success' }),
   error: (key: TKey, vars?: Record<string, string | number>, o?: ToastOptions) => showToast(tr()(key, vars), { ...o, kind: 'error' }),
   info: (key: TKey, vars?: Record<string, string | number>, o?: ToastOptions) => showToast(tr()(key, vars), { ...o, kind: 'info' }),
+  warning: (key: TKey, vars?: Record<string, string | number>, o?: ToastOptions) => showToast(tr()(key, vars), { ...o, kind: 'warning' }),
 };

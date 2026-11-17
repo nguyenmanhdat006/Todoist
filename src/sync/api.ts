@@ -108,7 +108,7 @@ export interface BackupRow {
   taskCount: number | null;
   sizeBytes: number | null;
   revision: number | null;
-  reason: 'auto' | 'close' | 'cron' | 'manual' | null;
+  reason: 'auto' | 'close' | 'manual' | null;
   flagged: boolean | null;
   flaggedTasks: number | null;
 }
@@ -220,7 +220,7 @@ export const api = {
     call<{ link: ProjectLink }>('PATCH', `/api/projects/${id}/links/${linkId}`, { url, title }),
   deleteLink: (id: string, linkId: string) => call<{ ok: true }>('DELETE', `/api/projects/${id}/links/${linkId}`),
   projectBackups: (id: string) => call<{ backups: BackupRow[] }>('GET', `/api/projects/${id}/backups`),
-  backupNow: (board: string | null, reason: 'auto' | 'close' | 'cron' | 'manual', force = false) =>
+  backupNow: (board: string | null, reason: 'auto' | 'close' | 'manual', force = false) =>
     call<{ status: 'unchanged' | 'saved' | 'flagged' | 'empty' }>('POST', '/api/backup', { ...(board ? { board } : {}), reason, ...(force ? { force: true } : {}) }),
   backupFile: (board: string | null) => call<unknown>('GET', `/api/backup/file${board ? `?board=${encodeURIComponent(board)}` : ''}`),
   backupDownloadUrl: (board: string | null) => `/api/backup/file?${board ? `board=${encodeURIComponent(board)}&` : ''}download=1`,

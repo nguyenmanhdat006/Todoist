@@ -1,6 +1,6 @@
 /**
  * Sao lưu bảng ra một file duy nhất (ghi đè khi dữ liệu thay đổi).
- *  - Gọi từ: lịch chạy hằng ngày (cron), trình duyệt sau khi lưu / khi đóng tab, và nút "Sao lưu ngay".
+ *  - Gọi từ: trình duyệt sau khi lưu, khi đóng tab, và nút "Sao lưu ngay" (không có lịch chạy ngầm).
  *  - Không có gì thay đổi (so sánh mã băm) thì không ghi.
  *  - Nếu dữ liệu hiện tại ít hơn hẳn bản sao lưu (từ ≥ 4 việc xuống còn dưới một nửa) thì GIỮ bản cũ và đánh dấu cảnh báo,
  *    để một lần mất dữ liệu không ghi đè mất bản sao lưu tốt. Chỉ ghi đè khi người dùng chủ động xác nhận (force).
@@ -10,7 +10,7 @@ import { db } from './db.js';
 import { HttpError } from './http.js';
 import { readBoard } from './board.js';
 
-export type BackupReason = 'auto' | 'close' | 'cron' | 'manual';
+export type BackupReason = 'auto' | 'close' | 'manual';
 export type BackupStatus = 'unchanged' | 'saved' | 'flagged' | 'empty';
 
 export interface BackupMeta {
@@ -26,7 +26,7 @@ export interface BackupMeta {
 
 const META_COLS = `board_id as "boardId", updated_at as "updatedAt", task_count as "taskCount", size_bytes as "sizeBytes", revision, reason, flagged, flagged_tasks as "flaggedTasks"`;
 
-const REASONS: BackupReason[] = ['auto', 'close', 'cron', 'manual'];
+const REASONS: BackupReason[] = ['auto', 'close', 'manual'];
 export const readReason = (v: unknown): BackupReason => (REASONS.includes(v as BackupReason) ? (v as BackupReason) : 'auto');
 
 export async function backupBoard(boardId: string, opts: { reason: BackupReason; by?: string | null; force?: boolean }): Promise<{ status: BackupStatus; backup: BackupMeta | null }> {
@@ -101,17 +101,4 @@ export function backupFileName(projectKey: string, boardName: string): string {
       .replace(/^-+|-+$/g, '')
       .slice(0, 40);
   return `backup-${slug(projectKey) || 'project'}-${slug(boardName) || 'board'}.json`;
-}
-
-/** Bảng có thay đổi sau lần sao lưu gần nhất (hoặc chưa từng sao lưu): việc của lịch chạy hằng ngày */
-export async function boardsNeedingBackup(limit = 300): Promise<string[]> {
-  const { rows } = await db().query<{ board_id: string }>(
-    `select b.board_id
-       from boards b left join board_backups bk on bk.board_id = b.board_id
-      where bk.board_id is null or b.updated_at > bk.updated_at or bk.flagged
-      order by b.updated_at desc
-      limit $1`,
-    [limit],
-  );
-  return rows.map((r) => r.board_id);
 }

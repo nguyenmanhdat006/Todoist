@@ -9,7 +9,7 @@ import { PRIORITIES, type Priority } from '../types';
 import { parseISO, ticketLabel, todayISO } from '../utils';
 
 const DAY = 86_400_000;
-const PRIO_COLOR: Record<Priority, string> = { high: 'var(--danger)', normal: 'var(--orange)', low: 'var(--blue)' };
+const PRIO_COLOR: Record<Priority, string> = { high: '#ef4444', normal: '#f59e0b', low: '#3b82f6' };
 
 function Card({ title, hint, children, className = '' }: { title: string; hint?: string; children: React.ReactNode; className?: string }) {
   return (
@@ -253,7 +253,9 @@ export function Summary({ onOpenTask }: { onOpenTask: (id: string, boardId?: str
               {PRIORITIES.map((p) => (
                 <div key={p} className="sp-bar-col">
                   <div className="sp-bar-slot">
-                    <i style={{ height: `${(d.prio[p] / prioTop) * 100}%`, background: PRIO_COLOR[p] }} title={`${t(`prio.${p}`)}: ${d.prio[p]}`} />
+                    <i style={{ height: `${(d.prio[p] / prioTop) * 100}%`, background: PRIO_COLOR[p] }} title={`${t(`prio.${p}`)}: ${d.prio[p]}`}>
+                      {d.prio[p] > 0 && <b>{d.prio[p]}</b>}
+                    </i>
                   </div>
                   <span>{t(`prio.${p}`)}</span>
                 </div>

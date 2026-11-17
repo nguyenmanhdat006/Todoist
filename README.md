@@ -166,7 +166,6 @@ Admin đầu tiên được đặt ngay trong migration `007`; sau đó admin đ
 | GET | `/api/projects/:id/backups` | tình trạng file sao lưu của từng bảng trong dự án |
 | POST | `/api/backup` | sao lưu ngay một bảng (`board`, `reason`, `force`); không đổi thì không ghi |
 | GET | `/api/backup/file?board=&download=1` | file sao lưu của bảng (JSON, cùng định dạng Xuất dữ liệu) |
-| GET | `/api/cron/backup` | lịch chạy hằng ngày của Vercel Cron; cần `Authorization: Bearer $CRON_SECRET` |
 | POST | `/api/me/password` | `{ current, password }` → đổi mật khẩu, đăng xuất các thiết bị khác |
 | GET | `/api/admin/users` | danh sách tài khoản (chỉ admin) |
 | PATCH | `/api/admin/users/:id` | `{ role?: 'admin' \| 'user', disabled?: boolean }` (chỉ admin, không đổi được chính mình) |
@@ -246,10 +245,9 @@ request ghi dữ liệu phải là JSON và cùng nguồn; khoá tạm sau 8 l�
 ## Sao lưu tự động
 
 - Mỗi bảng có **một file sao lưu duy nhất**, luôn được ghi đè (không sinh thêm file). Xem, tải về và khôi phục ở tab **Sao lưu** của trang dự án.
-- Máy chủ chỉ ghi khi dữ liệu thật sự đổi (so sánh mã băm). Các thời điểm sao lưu:
+- Không có lịch chạy ngầm: sao lưu được kích hoạt khi dữ liệu thay đổi. Máy chủ chỉ ghi khi dữ liệu thật sự đổi (so sánh mã băm). Các thời điểm sao lưu:
   - vài phút sau lần lưu cuối của trình duyệt;
   - khi đóng tab (`sendBeacon`);
-  - lịch hằng ngày 03:00 UTC (`vercel.json` → `crons`, gói Hobby chỉ cho chạy mỗi ngày một lần);
   - nút **Sao lưu ngay**.
+- **Cảnh báo khi thoát:** nếu còn thay đổi chưa lưu hoặc chưa sao lưu, trình duyệt giữ trang lại và app hiện thông báo đỏ (tam giác) "Bạn chưa sao lưu dữ liệu" kèm nút **Sao lưu ngay**.
 - **Chống ghi đè nhầm:** nếu dữ liệu hiện tại ít hơn hẳn bản sao lưu (từ 4 việc trở lên mà còn dưới một nửa), bản cũ được giữ nguyên và tab Sao lưu hiện cảnh báo; chỉ ghi đè khi bạn bấm **Ghi đè bằng dữ liệu hiện tại**.
-- Để lịch hằng ngày chạy, đặt biến môi trường `CRON_SECRET` (một chuỗi ngẫu nhiên dài) trong Vercel → Settings → Environment Variables. Thiếu biến này thì đường dẫn cron trả 503; các cách sao lưu còn lại vẫn chạy.
