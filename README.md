@@ -138,6 +138,7 @@ Các migration nằm trong `db/migrations/` và chạy theo thứ tự tên file
 | `007_user_roles` | vai trò admin / user, khoá tài khoản |
 | `008_tickets` | mã dự án, mã việc `KEY-số`, người tạo |
 | `009_password_resets` | liên kết đặt lại mật khẩu |
+| `010_task_activity` | lịch sử thay đổi và bình luận của việc |
 
 Admin đầu tiên được đặt ngay trong migration `007`; sau đó admin đổi vai trò người khác trong trang quản lý.
 
@@ -163,6 +164,9 @@ Admin đầu tiên được đặt ngay trong migration `007`; sau đó admin đ
 | GET/POST/DELETE | `/api/friends…` | danh sách bạn bè, gửi lời mời qua email, đồng ý, từ chối / huỷ kết bạn |
 | GET/POST/PATCH/DELETE | `/api/projects…` | dự án: tạo (người tạo là host), đổi tên và mã dự án (`KEY`, 2–6 ký tự, duy nhất; chỉ host), xoá, thêm/bớt thành viên |
 | POST / PATCH / DELETE | `/api/projects/:id/boards`, `/api/boards/:id` | tạo bảng trong dự án (thành viên), đổi tên / xoá (host) |
+| GET | `/api/tasks/:taskId/activity?board=` | lịch sử thay đổi và bình luận của một việc (cần quyền truy cập bảng) |
+| POST | `/api/tasks/:taskId/comments?board=` | `{ body }` → thêm bình luận (tối đa 5000 ký tự) |
+| DELETE | `/api/comments/:id?board=` | xoá bình luận của chính mình |
 | GET / POST | `/api/notifications`, `/api/notifications/read` | thông báo (được thêm vào dự án, lời mời kết bạn, kết quả lời mời), đánh dấu đã đọc |
 
 `GET /api/board?board=<id>` mở một bảng trong dự án; không có `board` là bảng cá nhân. Bảng cá nhân chỉ gắn được chính mình;
@@ -182,6 +186,7 @@ request ghi dữ liệu phải là JSON và cùng nguồn; khoá tạm sau 8 l�
 - Màu thẻ theo tình trạng: xanh lá còn thời gian, vàng trong ngày, đỏ quá hạn, xanh dương đã xong; Lịch dùng cùng màu.
 - Tiến độ (%) cho mọi việc đã bắt đầu (ngoài cột Cần làm); việc ở cột Hoàn thành luôn 100%. Thẻ chưa cập nhật tiến độ có nhắc.
 - Ticket: mã `KEY-số` (số không dùng lại khi xoá việc), người tạo, người phụ trách.
+- Hộp thoại việc hai cột: bên trái tiêu đề, mô tả và **Hoạt động** (tab Tất cả / Bình luận / Lịch sử); bên phải giai đoạn và khung Chi tiết. Lịch sử do máy chủ tự ghi khi lưu bảng (đổi giai đoạn, ưu tiên, hạn, giờ, người phụ trách, nhãn, tiến độ...); các lần kéo tiến độ hoặc gõ tiêu đề liên tiếp trong 5 phút được gộp thành một dòng.
 
 **Các kiểu xem**
 - Danh sách dạng bảng tính: sắp xếp theo cột, đổi giai đoạn / ưu tiên và kéo tiến độ ngay trên bảng. Việc thuộc bảng khác chỉ xem; bấm tên việc để mở bảng đó rồi sửa.

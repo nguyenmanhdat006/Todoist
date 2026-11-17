@@ -66,6 +66,28 @@ export interface ServerNotice {
   read: boolean;
 }
 
+export interface ActivityEvent {
+  id: string;
+  actorId: string | null;
+  type: 'created' | 'status' | 'priority' | 'title' | 'description' | 'due' | 'time' | 'assignee' | 'labels' | 'progress';
+  data: { from?: string | null; to?: string | null };
+  createdAt: string;
+}
+
+export interface ActivityComment {
+  id: string;
+  authorId: string | null;
+  body: string;
+  createdAt: string;
+  editedAt: string | null;
+}
+
+export interface TaskActivity {
+  events: ActivityEvent[];
+  comments: ActivityComment[];
+  users: ApiUser[];
+}
+
 export interface Member extends ApiUser {
   role: 'host' | 'member';
 }
@@ -148,6 +170,14 @@ export const api = {
   createBoard: (projectId: string, name: string) => call<{ board: BoardInfo }>('POST', `/api/projects/${projectId}/boards`, { name }),
   renameBoard: (id: string, name: string) => call<{ board: BoardInfo }>('PATCH', `/api/boards/${id}`, { name }),
   deleteBoard: (id: string) => call<{ ok: true }>('DELETE', `/api/boards/${id}`),
+  taskActivity: (taskId: string, board: string | null) =>
+    call<TaskActivity>('GET', `/api/tasks/${encodeURIComponent(taskId)}/activity${board ? `?board=${encodeURIComponent(board)}` : ''}`),
+  addComment: (taskId: string, board: string | null, body: string) =>
+    call<{ comment: ActivityComment }>('POST', `/api/tasks/${encodeURIComponent(taskId)}/comments${board ? `?board=${encodeURIComponent(board)}` : ''}`, { body }),
+  editComment: (id: string, board: string | null, body: string) =>
+    call<{ comment: ActivityComment }>('PATCH', `/api/comments/${encodeURIComponent(id)}${board ? `?board=${encodeURIComponent(board)}` : ''}`, { body }),
+  deleteComment: (id: string, board: string | null) =>
+    call<{ ok: true }>('DELETE', `/api/comments/${encodeURIComponent(id)}${board ? `?board=${encodeURIComponent(board)}` : ''}`),
   overview: () => call<{ boards: OverviewBoard[]; users: ApiUser[] }>('GET', '/api/overview'),
   notifications: () => call<{ items: ServerNotice[] }>('GET', '/api/notifications'),
   readNotifications: (ids?: string[]) => call<{ items: ServerNotice[] }>('POST', '/api/notifications/read', ids ? { ids } : {}),

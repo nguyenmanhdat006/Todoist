@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react';
+import { createPortal } from 'react-dom';
 
 export interface TimeOption {
   value: string;
@@ -145,7 +146,9 @@ export function TimeSelect({ id, label, value, options, disabled, onChange }: Pr
           <path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </button>
-      {open && (
+      {open &&
+        // Vẽ ra body: hộp thoại có backdrop-filter nên làm lệch và cắt phần tử position: fixed nằm bên trong
+        createPortal(
         <ul ref={listRef} id={`${id}-list`} className="time-list" role="listbox" aria-label={label} style={pos}>
           {options.map((o, i) => (
             <li
@@ -165,8 +168,9 @@ export function TimeSelect({ id, label, value, options, disabled, onChange }: Pr
               </svg>
             </li>
           ))}
-        </ul>
-      )}
+        </ul>,
+          document.body,
+        )}
     </>
   );
 }

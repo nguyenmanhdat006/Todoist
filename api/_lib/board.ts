@@ -5,6 +5,7 @@
  */
 import type pg from 'pg';
 import { EXPORT_FORMAT, EXPORT_VERSION, parseImport, type ExportFile } from '../../src/data/exchange.js';
+import { diffTasks, pruneActivity, recordEvents } from './activity.js';
 import { db, tx } from './db.js';
 import { HttpError } from './http.js';
 
@@ -193,6 +194,9 @@ export async function writeBoard(boardId: string, baseRevision: number, raw: unk
         r,
       ]),
     );
+    // Bản cũ của việc và cột, để ghi lịch sử thay đổi sau khi lưu
+    const oldTasks = new Map((await c.query('select * from tasks where board_id = $1', [boardId])).rows.map((r) => [r.id as string, r as any]));
+    const oldTitles = new Map((await c.query<{ id: string; title: string }>('select id, title from board_columns where board_id = $1', [boardId])).rows.map((r) => [r.id, r.title]));
     const fresh = taskRows.filter((r) => !existing.has(r.id));
     const proj = await c.query<{ project_id: string }>('select project_id from project_boards where id = $1', [boardId]);
     let nextNumber = 0;
@@ -259,6 +263,9 @@ export async function writeBoard(boardId: string, baseRevision: number, raw: unk
          from jsonb_to_recordset($2::jsonb) as x(id text, task_id text, at_local timestamp, created_at timestamptz, read boolean)`,
         [boardId, JSON.stringify(reminderRows)],
       );
+
+    await recordEvents(c, boardId, writerId, diffTasks(oldTasks, taskRows as any, oldTitles, new Map(colRows.map((x) => [x.id, x.title]))));
+    await pruneActivity(c, boardId, taskRows.map((r) => r.id));
 
     const next = await c.query<{ revision: number }>(
       'update boards set revision = revision + 1, timezone = $2, updated_at = now() where board_id = $1 returning revision',

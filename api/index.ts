@@ -21,6 +21,7 @@ import {
   verifyPassword,
   type User,
 } from './_lib/auth.js';
+import { addComment, deleteComment, editComment, listActivity } from './_lib/activity.js';
 import { readBoard, writeBoard } from './_lib/board.js';
 import { readOverview } from './_lib/overview.js';
 import { db } from './_lib/db.js';
@@ -319,6 +320,45 @@ app.put(
     if (typeof body.baseRevision !== 'number' || !Number.isInteger(body.baseRevision)) throw new HttpError(400, 'bad_revision');
     const { boardId, allowed } = await boardAccess(req.user!.id, body.board ?? body.project);
     res.json(await writeBoard(boardId, body.baseRevision, body.file, allowed, req.user!.id));
+  }),
+);
+
+// Hoạt động của việc: lịch sử và bình luận. ?board= như /api/board (không có = bảng cá nhân)
+app.get(
+  '/api/tasks/:taskId/activity',
+  requireUser,
+  route(async (req, res) => {
+    const { boardId } = await boardAccess(req.user!.id, req.query.board);
+    res.json(await listActivity(boardId, String(req.params.taskId).slice(0, 100)));
+  }),
+);
+
+app.post(
+  '/api/tasks/:taskId/comments',
+  requireUser,
+  route(async (req, res) => {
+    const { boardId } = await boardAccess(req.user!.id, req.query.board);
+    const comment = await addComment(boardId, String(req.params.taskId).slice(0, 100), req.user!.id, (req.body as { body?: unknown })?.body);
+    res.status(201).json({ comment });
+  }),
+);
+
+app.patch(
+  '/api/comments/:id',
+  requireUser,
+  route(async (req, res) => {
+    const { boardId } = await boardAccess(req.user!.id, req.query.board);
+    res.json({ comment: await editComment(boardId, String(req.params.id), req.user!.id, (req.body as { body?: unknown })?.body) });
+  }),
+);
+
+app.delete(
+  '/api/comments/:id',
+  requireUser,
+  route(async (req, res) => {
+    const { boardId } = await boardAccess(req.user!.id, req.query.board);
+    await deleteComment(boardId, String(req.params.id), req.user!.id);
+    res.json({ ok: true });
   }),
 );
 
