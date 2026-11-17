@@ -37,23 +37,18 @@ export function SpaceHeader({
   projectKey,
   view,
   onView,
-  crumb,
   actions,
 }: {
   title: string;
   projectKey?: string;
   view: ViewMode;
   onView: (v: Tab) => void;
-  crumb: string;
   actions?: ReactNode;
 }) {
   const t = useT();
   const mark = (projectKey || title).replace(/[^\p{L}\p{N}]/gu, '').slice(0, 2).toUpperCase() || '·';
   return (
     <div className="sp-head">
-      <div className="sp-crumb">
-        {crumb} <span aria-hidden="true">/</span>
-      </div>
       <div className="sp-title-row">
         <span className="sp-mark" aria-hidden="true">
           {mark}

@@ -354,7 +354,7 @@ export default function App() {
             // Đang ở một dự án mà mở tab tổng hợp từ tab khác thì xem đúng dự án đó (không nhảy sang "Tất cả")
             if (!aggregate && curProject && (v === 'summary' || v === 'list' || v === 'calendar' || v === 'timeline')) useOverview.getState().setScope(`p:${curProject.id}`);
             setView(v);
-          }} crumb={t('space.crumb')} actions={<SaveStatus />} />
+          }} actions={<SaveStatus />} />
         )}
         {(filterable || view === 'summary') && (
         <div className="filterbar">

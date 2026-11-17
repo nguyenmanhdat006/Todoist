@@ -1,6 +1,5 @@
 /* ---------- trang dự án kiểu Jira: đầu trang, tab, tóm tắt, dòng thời gian, tài liệu ---------- */
 .sp-head { display: flex; flex-direction: column; gap: 6px; margin-top: -4px; }
-.sp-crumb { font-size: 13px; color: var(--muted); }
 .sp-title-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .sp-mark {
   flex: none; width: 28px; height: 28px; display: grid; place-items: center; border-radius: 7px;
