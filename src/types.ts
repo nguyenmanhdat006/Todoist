@@ -68,9 +68,9 @@ export type ThemeMode = 'system' | 'light' | 'dark';
 /** Kiểu giao diện: Cổ điển (vuông), Mềm (bo tròn), Kính (bento + nền mờ) */
 export type UiStyle = 'classic' | 'soft' | 'glass';
 export const UI_STYLES: UiStyle[] = ['classic', 'soft', 'glass'];
-export type ViewMode = 'home' | 'summary' | 'kanban' | 'list' | 'calendar' | 'timeline' | 'docs' | 'reports' | 'focus';
+export type ViewMode = 'home' | 'summary' | 'kanban' | 'list' | 'calendar' | 'timeline' | 'docs' | 'reports' | 'backup' | 'focus';
 /** Các tab của trang dự án, theo thứ tự hiển thị */
-export const SPACE_TABS = ['summary', 'list', 'kanban', 'calendar', 'timeline', 'docs', 'reports'] as const;
+export const SPACE_TABS = ['summary', 'list', 'kanban', 'calendar', 'timeline', 'docs', 'reports', 'backup'] as const;
 export type CalMode = 'month' | 'week' | 'day';
 /** Điều kiện hạn chót của bộ lọc */
 export type DueRule = 'any' | 'overdue' | 'today' | 'week' | 'none';

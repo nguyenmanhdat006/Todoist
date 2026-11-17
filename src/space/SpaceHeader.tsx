@@ -13,6 +13,7 @@ const TAB_LABEL: Record<Tab, TKey> = {
   timeline: 'space.tab.timeline',
   docs: 'space.tab.docs',
   reports: 'space.tab.reports',
+  backup: 'space.tab.backup',
 };
 
 const ICON: Record<Tab, ReactNode> = {
@@ -28,6 +29,7 @@ const ICON: Record<Tab, ReactNode> = {
   timeline: <path d="M3 5h8M6 10h11M4 15h8" />,
   docs: <path d="M5 3h7l3 3v11H5zM12 3v3h3M7.5 10h5M7.5 13h5" />,
   reports: <path d="M3 3v14h14M6.5 12l3-3 2.5 2.5 4-5" />,
+  backup: <path d="M6 15.5h8.2a3.3 3.3 0 00.6-6.5 4.6 4.6 0 00-8.9 1A2.8 2.8 0 006 15.5zM10 8.5v5M8 11.6l2 2 2-2" />,
 };
 
 export function SpaceHeader({

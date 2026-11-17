@@ -186,6 +186,7 @@ export async function push(): Promise<void> {
     // Số ticket và người tạo do máy chủ cấp cho việc mới
     if (assigned && Object.keys(assigned).length) withoutPush(() => useBoard.getState().applyTicketInfo(assigned));
     saveMeta({ revision, dirty: localVersion !== started });
+    scheduleBackup();
     const wasDown = useSession.getState().sync === 'offline' || useSession.getState().sync === 'error';
     set({ sync: meta.dirty ? 'pending' : 'saved' });
     if (wasDown) toast.success('toast.online');
@@ -194,6 +195,34 @@ export async function push(): Promise<void> {
     if (sameScope(ep, board)) await handlePushError(e);
   } finally {
     pushing = false;
+  }
+}
+
+/* ---------- sao lưu tự động ---------- */
+
+const BACKUP_DELAY = 5 * 60_000;
+let backupTimer: ReturnType<typeof setTimeout> | undefined;
+const warnedBackup = new Set<string>();
+
+/** Sau khi lưu xong vài phút không có thay đổi mới thì nhờ máy chủ sao lưu bảng (chỉ ghi nếu dữ liệu thật sự đổi) */
+function scheduleBackup() {
+  clearTimeout(backupTimer);
+  backupTimer = setTimeout(() => void runBackup(), BACKUP_DELAY);
+}
+
+async function runBackup() {
+  const ep = epoch;
+  const board = meta.board;
+  if (useSession.getState().status !== 'ready' || meta.dirty || loadedFor !== board) return;
+  try {
+    const r = await quietly(() => api.backupNow(board, 'auto'));
+    // Dữ liệu ít hơn hẳn bản sao lưu: báo một lần cho mỗi bảng
+    if (r.status === 'flagged' && sameScope(ep, board) && !warnedBackup.has(String(board))) {
+      warnedBackup.add(String(board));
+      toast.error('backup.flaggedToast');
+    }
+  } catch {
+    /* thử lại ở lần lưu sau */
   }
 }
 
@@ -269,6 +298,16 @@ if (typeof window !== 'undefined') {
     if (userId === meta.userId && board === meta.board) return;
     reloadingForOtherTab = true;
     window.location.reload();
+  });
+  // Đóng tab: nhờ máy chủ sao lưu lần cuối (sendBeacon vẫn gửi được khi trang đang đóng)
+  window.addEventListener('pagehide', () => {
+    if (useSession.getState().status !== 'ready' || loadedFor !== meta.board) return;
+    try {
+      const body = new Blob([JSON.stringify({ ...(meta.board ? { board: meta.board } : {}), reason: 'close' })], { type: 'application/json' });
+      navigator.sendBeacon('/api/backup', body);
+    } catch {
+      /* bỏ qua */
+    }
   });
   window.addEventListener('beforeunload', (e) => {
     if (reloadingForOtherTab) return;

@@ -99,6 +99,20 @@ export interface ProjectLink {
   createdAt: string;
 }
 
+export interface BackupRow {
+  boardId: string;
+  name: string;
+  fileName: string;
+  hasBackup: boolean;
+  updatedAt: string | null;
+  taskCount: number | null;
+  sizeBytes: number | null;
+  revision: number | null;
+  reason: 'auto' | 'close' | 'cron' | 'manual' | null;
+  flagged: boolean | null;
+  flaggedTasks: number | null;
+}
+
 export interface Member extends ApiUser {
   role: 'host' | 'member';
 }
@@ -205,5 +219,10 @@ export const api = {
   updateLink: (id: string, linkId: string, url: string, title: string) =>
     call<{ link: ProjectLink }>('PATCH', `/api/projects/${id}/links/${linkId}`, { url, title }),
   deleteLink: (id: string, linkId: string) => call<{ ok: true }>('DELETE', `/api/projects/${id}/links/${linkId}`),
+  projectBackups: (id: string) => call<{ backups: BackupRow[] }>('GET', `/api/projects/${id}/backups`),
+  backupNow: (board: string | null, reason: 'auto' | 'close' | 'cron' | 'manual', force = false) =>
+    call<{ status: 'unchanged' | 'saved' | 'flagged' | 'empty' }>('POST', '/api/backup', { ...(board ? { board } : {}), reason, ...(force ? { force: true } : {}) }),
+  backupFile: (board: string | null) => call<unknown>('GET', `/api/backup/file${board ? `?board=${encodeURIComponent(board)}` : ''}`),
+  backupDownloadUrl: (board: string | null) => `/api/backup/file?${board ? `board=${encodeURIComponent(board)}&` : ''}download=1`,
   removeMember: (id: string, userId: string) => call<{ members: Member[] }>('DELETE', `/api/projects/${id}/members/${userId}`),
 };

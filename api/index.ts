@@ -23,6 +23,7 @@ import {
 } from './_lib/auth.js';
 import { addComment, deleteComment, editComment, listActivity } from './_lib/activity.js';
 import { readBoard, writeBoard } from './_lib/board.js';
+import { backupBoard, backupFileName, boardsNeedingBackup, getBackupFile, listProjectBackups, readReason } from './_lib/backup.js';
 import { readOverview } from './_lib/overview.js';
 import { db } from './_lib/db.js';
 import {
@@ -42,6 +43,7 @@ import {
   createProject,
   deleteProject,
   getProject,
+  projectRole,
   listFriends,
   listProjects,
   removeFriend,
@@ -613,6 +615,70 @@ app.delete(
   route(async (req, res) => {
     await deleteLink(req.user!.id, requireUuid(req.params.id), requireUuid(req.params.linkId));
     res.json({ ok: true });
+  }),
+);
+
+/* ---------- sao lưu bảng (mỗi bảng một file, ghi đè khi dữ liệu đổi) ---------- */
+
+app.get(
+  '/api/projects/:id/backups',
+  requireUser,
+  route(async (req, res) => {
+    const id = requireUuid(req.params.id);
+    await projectRole(req.user!.id, id);
+    res.json({ backups: await listProjectBackups(id) });
+  }),
+);
+
+// Sao lưu ngay (trình duyệt gọi sau khi lưu, khi đóng tab, hoặc bấm nút). force = ghi đè cả khi nghi mất dữ liệu
+app.post(
+  '/api/backup',
+  requireUser,
+  route(async (req, res) => {
+    const b = (req.body ?? {}) as { board?: unknown; reason?: unknown; force?: unknown };
+    const { boardId } = await boardAccess(req.user!.id, b.board);
+    res.json(await backupBoard(boardId, { reason: readReason(b.reason), by: req.user!.id, force: b.force === true }));
+  }),
+);
+
+// File sao lưu của một bảng; ?download=1 để tải về dưới dạng file
+app.get(
+  '/api/backup/file',
+  requireUser,
+  route(async (req, res) => {
+    const { boardId } = await boardAccess(req.user!.id, req.query.board);
+    const { file } = await getBackupFile(boardId);
+    if (req.query.download === '1') {
+      const { rows } = await db().query<{ key: string; name: string }>(
+        'select p.key, pb.name from project_boards pb join projects p on p.id = pb.project_id where pb.id = $1',
+        [boardId],
+      );
+      res.setHeader('Content-Disposition', `attachment; filename="${backupFileName(rows[0]?.key ?? '', rows[0]?.name ?? '')}"`);
+    }
+    res.type('application/json').send(JSON.stringify(file));
+  }),
+);
+
+// Lịch chạy hằng ngày (Vercel Cron): sao lưu mọi bảng đã thay đổi. Cần biến môi trường CRON_SECRET.
+app.get(
+  '/api/cron/backup',
+  route(async (req, res) => {
+    const secret = process.env.CRON_SECRET;
+    if (!secret) throw new HttpError(503, 'cron_not_configured');
+    if (req.headers.authorization !== `Bearer ${secret}`) throw new HttpError(401, 'unauthorized');
+    const ids = await boardsNeedingBackup();
+    let saved = 0;
+    let flagged = 0;
+    for (const id of ids) {
+      try {
+        const r = await backupBoard(id, { reason: 'cron' });
+        if (r.status === 'saved') saved++;
+        else if (r.status === 'flagged') flagged++;
+      } catch {
+        /* bảng lỗi không làm hỏng cả lượt chạy */
+      }
+    }
+    res.json({ checked: ids.length, saved, flagged });
   }),
 );
 

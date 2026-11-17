@@ -28,6 +28,7 @@ import { SpaceHeader } from './space/SpaceHeader';
 import { Summary } from './space/Summary';
 import { Timeline } from './space/Timeline';
 import { LinksView } from './space/Links';
+import { BackupView } from './space/Backup';
 import { switchBoard, useSession } from './sync/session';
 import { loadOverview, useOverview, useScopedEntries } from './sync/overview';
 import { ScopeSelect } from './components/Social';
@@ -110,7 +111,7 @@ export default function App() {
   const boardTitle = curProject ? (curBoard ? `${curProject.name} · ${curBoard.name}` : curProject.name) : undefined;
   const scopeProject = scope.startsWith('p:') ? projects.find((p) => p.id === scope.slice(2)) : undefined;
   const scopeBoard = scope.startsWith('b:') ? projects.flatMap((p) => p.boards.map((b) => ({ p, b }))).find((x) => x.b.id === scope.slice(2)) : undefined;
-  const projectName = view === 'docs' || view === 'reports'
+  const projectName = view === 'docs' || view === 'reports' || view === 'backup'
     ? curProject?.name
     : aggregate
     ? scopeBoard
@@ -120,7 +121,7 @@ export default function App() {
         : t('scope.allTitle')
     : boardTitle;
 
-  const spaceKey = view === 'docs' || view === 'reports' || !aggregate ? curProject?.key : (scopeBoard?.p.key ?? scopeProject?.key);
+  const spaceKey = view === 'docs' || view === 'reports' || view === 'backup' || !aggregate ? curProject?.key : (scopeBoard?.p.key ?? scopeProject?.key);
   // Các trang có thanh tìm kiếm / bộ lọc; Tóm tắt chỉ cần chọn phạm vi
   const filterable = view === 'list' || view === 'kanban' || view === 'calendar' || view === 'timeline';
 
@@ -471,6 +472,8 @@ export default function App() {
           <LinksView kind="doc" />
         ) : view === 'reports' ? (
           <LinksView kind="report" />
+        ) : view === 'backup' ? (
+          <BackupView />
         ) : null}
         </div>
       </main>
