@@ -7,6 +7,48 @@ Bản chạy thật: <https://todoist-website-omega.vercel.app>
 
 ---
 
+## Ảnh chụp màn hình
+
+Dữ liệu trong ảnh là dữ liệu mẫu.
+
+**Trang chủ**: banner, chọn phân hệ và thống kê theo dự án, theo khoảng thời gian (số việc hoàn thành, giờ tập trung, chuỗi ngày, bản đồ nhiệt).
+
+![Trang chủ](docs/screenshots/01-home.png)
+
+**Bảng Kanban**: kéo thả thẻ giữa các cột, màu thẻ theo hạn, tiến độ từng việc.
+
+![Bảng Kanban](docs/screenshots/03-board.png)
+
+**Tóm tắt dự án**: số liệu 7 ngày, biểu đồ trạng thái, ưu tiên, nhãn và hoạt động gần đây.
+
+![Tóm tắt](docs/screenshots/02-summary.png)
+
+**Danh sách** dạng bảng tính, sắp xếp và sửa ngay trên dòng.
+
+![Danh sách](docs/screenshots/04-list.png)
+
+**Lịch** theo tuần và tháng.
+
+![Lịch](docs/screenshots/05-calendar.png)
+
+**Dòng thời gian**: thanh từ ngày tạo đến hạn của từng việc.
+
+![Dòng thời gian](docs/screenshots/06-timeline.png)
+
+**Sao lưu**: mỗi bảng một file sao lưu tự ghi đè, tải xuống hoặc khôi phục.
+
+![Sao lưu](docs/screenshots/07-backup.png)
+
+**Tìm kiếm** bằng `Ctrl K`, có bộ lọc theo dự án, người, trạng thái và nhãn.
+
+![Tìm kiếm](docs/screenshots/08-search.png)
+
+**Pomodoro**: hẹn giờ tập trung gắn với việc đang làm.
+
+![Pomodoro](docs/screenshots/09-pomodoro.png)
+
+---
+
 ## Dùng để làm gì
 
 - **Sinh viên, người đi làm**: gom việc học, bài tập, việc cơ quan vào một chỗ; thấy ngay việc nào quá hạn, việc nào trong ngày, việc nào còn thời gian.
