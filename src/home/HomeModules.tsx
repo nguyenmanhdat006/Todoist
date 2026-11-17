@@ -4,6 +4,7 @@ import { useT } from '../i18n';
 import { useFocus } from '../focus/store';
 import { fmtMinutes } from '../focus/store';
 import { toISODate } from '../utils';
+import { HomeStats } from './HomeStats';
 
 export function HomeModules({ open, overdue }: { open: number; overdue: number }) {
   const t = useT();
@@ -48,6 +49,7 @@ export function HomeModules({ open, overdue }: { open: number; overdue: number }
           </span>
         </button>
       </div>
+      <HomeStats />
     </div>
   );
 }

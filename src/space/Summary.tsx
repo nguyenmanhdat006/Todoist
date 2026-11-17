@@ -39,7 +39,7 @@ function Stat({ icon, n, label, sub }: { icon: React.ReactNode; n: number; label
   );
 }
 
-function Donut({ parts, total, label }: { parts: { key: string; label: string; n: number; color: string }[]; total: number; label: string }) {
+export function Donut({ parts, total, label }: { parts: { key: string; label: string; n: number; color: string }[]; total: number; label: string }) {
   const R = 46;
   const C = 2 * Math.PI * R;
   let offset = 0;
