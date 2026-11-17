@@ -421,3 +421,78 @@ export async function boardAccess(me: string, board: unknown) {
   const members = await projectMembers(rows[0].project_id);
   return { boardId, allowed: new Set(members.map((m) => m.id)) };
 }
+
+/* ---------------- liên kết tài liệu / báo cáo của dự án ---------------- */
+
+export type LinkKind = 'doc' | 'report';
+
+export interface ProjectLink {
+  id: string;
+  kind: LinkKind;
+  title: string;
+  url: string;
+  createdBy: string | null;
+  createdAt: string;
+}
+
+/** Chỉ nhận địa chỉ http(s) (chặn javascript:, data:...) */
+function readUrl(v: unknown): URL {
+  const raw = typeof v === 'string' ? v.trim() : '';
+  if (!raw || raw.length > 2000) throw new HttpError(400, 'invalid_url');
+  let u: URL;
+  try {
+    u = new URL(/^[a-z][a-z0-9+.-]*:/i.test(raw) ? raw : `https://${raw}`);
+  } catch {
+    throw new HttpError(400, 'invalid_url');
+  }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') throw new HttpError(400, 'invalid_url');
+  return u;
+}
+
+const LINK_COLS = `id, kind, title, url, created_by as "createdBy", created_at as "createdAt"`;
+
+export async function listLinks(me: string, projectId: string): Promise<ProjectLink[]> {
+  await projectRole(me, projectId);
+  const { rows } = await db().query<ProjectLink>(`select ${LINK_COLS} from project_links where project_id = $1 order by created_at`, [projectId]);
+  return rows;
+}
+
+export async function addLink(me: string, projectId: string, rawKind: unknown, rawUrl: unknown, rawTitle: unknown): Promise<ProjectLink> {
+  await projectRole(me, projectId);
+  if (rawKind !== 'doc' && rawKind !== 'report') throw new HttpError(400, 'invalid_kind');
+  const url = readUrl(rawUrl);
+  const typed = typeof rawTitle === 'string' ? rawTitle.trim().replace(/\s+/g, ' ') : '';
+  if (typed.length > 120) throw new HttpError(400, 'invalid_name');
+  const title = typed || url.hostname.replace(/^www\./, '');
+  const { rows: count } = await db().query<{ n: number }>('select count(*)::int as n from project_links where project_id = $1', [projectId]);
+  if (count[0].n >= 200) throw new HttpError(400, 'too_many_links');
+  const { rows } = await db().query<ProjectLink>(
+    `insert into project_links (project_id, kind, title, url, created_by) values ($1, $2, $3, $4, $5) returning ${LINK_COLS}`,
+    [projectId, rawKind, title, url.toString(), me],
+  );
+  return rows[0];
+}
+
+export async function updateLink(me: string, projectId: string, linkId: string, rawUrl: unknown, rawTitle: unknown): Promise<ProjectLink> {
+  const role = await projectRole(me, projectId);
+  const { rows: cur } = await db().query<{ createdBy: string | null }>('select created_by as "createdBy" from project_links where id = $1 and project_id = $2', [linkId, projectId]);
+  if (!cur[0]) throw new HttpError(404, 'link_not_found');
+  if (role !== 'host' && cur[0].createdBy !== me) throw new HttpError(403, 'forbidden');
+  const url = readUrl(rawUrl);
+  const title = (typeof rawTitle === 'string' ? rawTitle.trim().replace(/\s+/g, ' ') : '').slice(0, 120) || url.hostname.replace(/^www\./, '');
+  const { rows } = await db().query<ProjectLink>(`update project_links set title = $3, url = $4 where id = $1 and project_id = $2 returning ${LINK_COLS}`, [
+    linkId,
+    projectId,
+    title,
+    url.toString(),
+  ]);
+  return rows[0];
+}
+
+export async function deleteLink(me: string, projectId: string, linkId: string) {
+  const role = await projectRole(me, projectId);
+  const { rows } = await db().query<{ createdBy: string | null }>('select created_by as "createdBy" from project_links where id = $1 and project_id = $2', [linkId, projectId]);
+  if (!rows[0]) throw new HttpError(404, 'link_not_found');
+  if (role !== 'host' && rows[0].createdBy !== me) throw new HttpError(403, 'forbidden');
+  await db().query('delete from project_links where id = $1', [linkId]);
+}

@@ -90,6 +90,15 @@ export interface TaskActivity {
   users: ApiUser[];
 }
 
+export interface ProjectLink {
+  id: string;
+  kind: 'doc' | 'report';
+  title: string;
+  url: string;
+  createdBy: string | null;
+  createdAt: string;
+}
+
 export interface Member extends ApiUser {
   role: 'host' | 'member';
 }
@@ -190,5 +199,11 @@ export const api = {
     call<{ project: { id: string; name: string; key: string } }>('PATCH', `/api/projects/${id}`, key ? { name, key } : { name }),
   deleteProject: (id: string) => call<{ ok: true }>('DELETE', `/api/projects/${id}`),
   addMember: (id: string, userId: string) => call<{ members: Member[] }>('POST', `/api/projects/${id}/members`, { userId }),
+  projectLinks: (id: string) => call<{ links: ProjectLink[] }>('GET', `/api/projects/${id}/links`),
+  addLink: (id: string, kind: 'doc' | 'report', url: string, title: string) =>
+    call<{ link: ProjectLink }>('POST', `/api/projects/${id}/links`, { kind, url, title }),
+  updateLink: (id: string, linkId: string, url: string, title: string) =>
+    call<{ link: ProjectLink }>('PATCH', `/api/projects/${id}/links/${linkId}`, { url, title }),
+  deleteLink: (id: string, linkId: string) => call<{ ok: true }>('DELETE', `/api/projects/${id}/links/${linkId}`),
   removeMember: (id: string, userId: string) => call<{ members: Member[] }>('DELETE', `/api/projects/${id}/members/${userId}`),
 };

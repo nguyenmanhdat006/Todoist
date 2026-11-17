@@ -107,7 +107,7 @@ export function FocusPage() {
       <Effects kind={s.settings.effect} color={s.settings.accent} />
 
       <header className="fp-top">
-        <button type="button" className="fp-back" onClick={() => setView('kanban')}>
+        <button type="button" className="fp-back" onClick={() => setView('home')}>
           <Icon size={16}>
             <path d="M12 4l-6 6 6 6" />
           </Icon>

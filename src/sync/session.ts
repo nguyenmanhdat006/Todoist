@@ -301,12 +301,14 @@ export function applyUser(user: AccountUser) {
 export async function login(email: string, password: string) {
   const { user } = await api.login(email, password);
   await enter(user);
+  useBoard.getState().setView('home');
   toast.success('toast.signedIn', { name: user.name || user.email });
 }
 
 export async function register(email: string, password: string, name: string) {
   const { user } = await api.register(email, password, name);
   await enter(user);
+  useBoard.getState().setView('home');
   toast.success('toast.signedUp', { name: user.name || user.email });
 }
 

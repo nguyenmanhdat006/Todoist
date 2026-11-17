@@ -17,6 +17,7 @@ Bản chạy thật: <https://todoist-website-omega.vercel.app>
 
 ### Nhìn công việc theo cách bạn thích
 - **Bảng Kanban** kéo thả (chuột, cảm ứng, bàn phím): đổi thứ tự thẻ, đổi chỗ cột, thêm/sửa/xoá cột, mỗi cột chọn màu riêng.
+- **Trang dự án kiểu Jira** với các tab: **Tóm tắt** (số liệu 7 ngày, biểu đồ trạng thái / ưu tiên / nhãn / người phụ trách, tiến độ từng bảng, hoạt động gần đây), Danh sách, Bảng, Lịch, **Dòng thời gian** (thanh từ ngày tạo đến hạn, thu phóng Tuần / Tháng / Quý), **Tài liệu** và **Báo cáo** (gắn link Google Drive, Docs, Sheets, Notion... cho cả dự án).
 - **Danh sách** dạng bảng tính: sắp xếp theo cột, đổi giai đoạn, độ ưu tiên và kéo tiến độ ngay trên bảng.
 - **Lịch** theo tuần và tháng: mọi việc có hạn và giờ đều hiện trên lịch, bấm vào để mở.
 - Danh sách và Lịch **gộp việc của mọi bảng** (cá nhân và các dự án bạn tham gia), có ô chọn phạm vi để lọc theo dự án hoặc bảng.
@@ -140,6 +141,7 @@ Các migration nằm trong `db/migrations/` và chạy theo thứ tự tên file
 | `009_password_resets` | liên kết đặt lại mật khẩu |
 | `010_task_activity` | lịch sử thay đổi và bình luận của việc |
 | `011_avatars` | ảnh đại diện của người dùng |
+| `012_project_links` | liên kết tài liệu / báo cáo của dự án (tab Tài liệu, Báo cáo) |
 
 Admin đầu tiên được đặt ngay trong migration `007`; sau đó admin đổi vai trò người khác trong trang quản lý.
 
@@ -158,6 +160,8 @@ Admin đầu tiên được đặt ngay trong migration `007`; sau đó admin đ
 | PATCH | `/api/me` | `{ name }` → sửa tên hiển thị |
 | PUT / DELETE | `/api/me/avatar` | `{ image }` (data URL PNG / JPEG / WebP, tối đa 200 KB) → đặt ảnh đại diện; DELETE gỡ ảnh |
 | GET | `/api/avatars/:id?v=` | ảnh đại diện của một người (cần đăng nhập; cache lâu theo `v`) |
+| GET / POST | `/api/projects/:id/links` | liệt kê / thêm liên kết tài liệu (`kind`: `doc` hoặc `report`, chỉ nhận http/https) |
+| PATCH / DELETE | `/api/projects/:id/links/:linkId` | sửa / gỡ liên kết (người thêm hoặc host) |
 | POST | `/api/me/password` | `{ current, password }` → đổi mật khẩu, đăng xuất các thiết bị khác |
 | GET | `/api/admin/users` | danh sách tài khoản (chỉ admin) |
 | PATCH | `/api/admin/users/:id` | `{ role?: 'admin' \| 'user', disabled?: boolean }` (chỉ admin, không đổi được chính mình) |

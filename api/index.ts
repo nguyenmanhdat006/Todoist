@@ -33,8 +33,12 @@ import {
   listNotifications,
   readNotifications,
   renameBoard,
+  addLink,
   addMember,
   boardAccess,
+  deleteLink,
+  listLinks,
+  updateLink,
   createProject,
   deleteProject,
   getProject,
@@ -572,6 +576,43 @@ app.delete(
   requireUser,
   route(async (req, res) => {
     res.json({ members: await removeMember(req.user!.id, requireUuid(req.params.id), requireUuid(req.params.userId)) });
+  }),
+);
+
+/* ---------- liên kết tài liệu / báo cáo của dự án ---------- */
+
+app.get(
+  '/api/projects/:id/links',
+  requireUser,
+  route(async (req, res) => {
+    res.json({ links: await listLinks(req.user!.id, requireUuid(req.params.id)) });
+  }),
+);
+
+app.post(
+  '/api/projects/:id/links',
+  requireUser,
+  route(async (req, res) => {
+    const b = (req.body ?? {}) as { kind?: unknown; url?: unknown; title?: unknown };
+    res.status(201).json({ link: await addLink(req.user!.id, requireUuid(req.params.id), b.kind, b.url, b.title) });
+  }),
+);
+
+app.patch(
+  '/api/projects/:id/links/:linkId',
+  requireUser,
+  route(async (req, res) => {
+    const b = (req.body ?? {}) as { url?: unknown; title?: unknown };
+    res.json({ link: await updateLink(req.user!.id, requireUuid(req.params.id), requireUuid(req.params.linkId), b.url, b.title) });
+  }),
+);
+
+app.delete(
+  '/api/projects/:id/links/:linkId',
+  requireUser,
+  route(async (req, res) => {
+    await deleteLink(req.user!.id, requireUuid(req.params.id), requireUuid(req.params.linkId));
+    res.json({ ok: true });
   }),
 );
 

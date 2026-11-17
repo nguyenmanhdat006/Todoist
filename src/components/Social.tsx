@@ -374,6 +374,19 @@ function Sidebar({ onClose: closeNow }: { onClose: () => void }) {
 
         <nav className="side-section" aria-label={t('nav.label')}>
           <div className="side-label">{t('side.views')}</div>
+          <button
+            type="button"
+            className={`side-item${view === 'home' ? ' on' : ''}`}
+            onClick={() => {
+              setView('home');
+              onClose();
+            }}
+          >
+            <svg viewBox="0 0 20 20" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 9.5L10 3.5l7 6M5 8.5V16h10V8.5M8.5 16v-4.5h3V16" />
+            </svg>
+            {t('nav.home')}
+          </button>
           {views.map(({ v, key, icon }) =>
             v === 'kanban' ? (
               <div key={v} className="side-dropdown">

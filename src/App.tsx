@@ -13,7 +13,6 @@ import { SettingsMenu, type ToastData } from './components/Extras';
 import { showToast as showToastMsg } from './toast';
 import { askConfirm } from './confirm';
 import { GlobalSearch } from './components/GlobalSearch';
-import { Motto } from './components/Motto';
 import { BoardSkeleton } from './components/Skeleton';
 import { findSampleTaskIds } from './data/legacySample';
 import { HelpButton, LangSwitch, ProgressRing, StyleSwitch, ThemeSwitch } from './components/TopbarWidgets';
@@ -23,6 +22,12 @@ import { FriendsButton, SidebarToggle } from './components/Social';
 import { boardInfo, projectOfBoard, refreshPeople, usePeople } from './sync/people';
 import { TitleClock } from './components/Clock';
 import { HeroAside } from './components/HeroAside';
+import './space.css';
+import { HomeModules } from './home/HomeModules';
+import { SpaceHeader } from './space/SpaceHeader';
+import { Summary } from './space/Summary';
+import { Timeline } from './space/Timeline';
+import { LinksView } from './space/Links';
 import { switchBoard, useSession } from './sync/session';
 import { loadOverview, useOverview, useScopedEntries } from './sync/overview';
 import { ScopeSelect } from './components/Social';
@@ -93,7 +98,8 @@ export default function App() {
   }, [board, switching, allTasks]);
   // Danh sách và Lịch hiển thị việc của mọi bảng; Bảng chỉ hiện bảng đang mở
   const scope = useOverview((s) => s.scope);
-  const aggregate = view !== 'kanban';
+  const aggregate = view === 'home' || view === 'list' || view === 'calendar' || view === 'summary' || view === 'timeline';
+  const setView = useBoard((s) => s.setView);
   // Tiêu đề trang: "Dự án · Bảng" khi đang ở bảng dự án
   const projects = usePeople((s) => s.projects);
   // Chưa chọn bảng = bảng cá nhân mặc định (id = id người dùng), nằm trong dự án cá nhân
@@ -104,13 +110,19 @@ export default function App() {
   const boardTitle = curProject ? (curBoard ? `${curProject.name} · ${curBoard.name}` : curProject.name) : undefined;
   const scopeProject = scope.startsWith('p:') ? projects.find((p) => p.id === scope.slice(2)) : undefined;
   const scopeBoard = scope.startsWith('b:') ? projects.flatMap((p) => p.boards.map((b) => ({ p, b }))).find((x) => x.b.id === scope.slice(2)) : undefined;
-  const projectName = aggregate
+  const projectName = view === 'docs' || view === 'reports'
+    ? curProject?.name
+    : aggregate
     ? scopeBoard
       ? `${scopeBoard.p.name} · ${scopeBoard.b.name}`
       : scopeProject
         ? scopeProject.name
         : t('scope.allTitle')
     : boardTitle;
+
+  const spaceKey = view === 'docs' || view === 'reports' || !aggregate ? curProject?.key : (scopeBoard?.p.key ?? scopeProject?.key);
+  // Các trang có thanh tìm kiếm / bộ lọc; Tóm tắt chỉ cần chọn phạm vi
+  const filterable = view === 'list' || view === 'kanban' || view === 'calendar' || view === 'timeline';
 
   // Theme
   useEffect(() => {
@@ -299,6 +311,7 @@ export default function App() {
       </header>
 
       <div className="toolbar">
+        {view === 'home' ? (
         <div className="toolbar-top hero">
           <TitleClock locale={t.locale} title={projectName ?? t('page.title')} clockLabel={t('clock.label')} />
           <div className="stat-tiles" aria-label={t('stats.label')}>
@@ -322,7 +335,10 @@ export default function App() {
               disabled={stats.overdue === 0}
               onClick={() => {
                 const f = filters.find((x) => x.due === 'overdue');
-                if (f) setFilter(f.id);
+                if (f) {
+                  setFilter(f.id);
+                  setView('list');
+                }
               }}
             >
               <span className="stat-label">{t('stats.overdue')}</span>
@@ -331,8 +347,12 @@ export default function App() {
           </div>
           <HeroAside onOpenTask={(id) => setModal({ taskId: id, columnId: '' })} />
         </div>
-
+        ) : (
+          <SpaceHeader title={projectName ?? t('page.title')} projectKey={spaceKey} view={view} onView={setView} crumb={t('space.crumb')} />
+        )}
+        {(filterable || view === 'summary') && (
         <div className="filterbar">
+          {filterable && (
           <div className="search">
             <svg className="search-icon" viewBox="0 0 16 16" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
               <circle cx="7" cy="7" r="4.5" />
@@ -349,7 +369,9 @@ export default function App() {
             />
             <kbd className="search-kbd">/</kbd>
           </div>
+          )}
           {aggregate && <ScopeSelect />}
+          {filterable && (
           <div className="seg-filter" role="group" aria-label={t('filter.label')}>
             <button
               type="button"
@@ -389,7 +411,8 @@ export default function App() {
               </svg>
             </button>
           </div>
-          {activeFilter && (
+          )}
+          {filterable && activeFilter && (
             <button type="button" className="filter-edit" onClick={() => setEditing(activeFilter)}>
               <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round">
                 <path d="M10.5 2.5l3 3L6 13H3v-3z" />
@@ -397,7 +420,7 @@ export default function App() {
               {t('filter.edit')}
             </button>
           )}
-          {(query || filter !== 'all') && (
+          {filterable && (query || filter !== 'all') && (
             <button
               type="button"
               className="clear-filter"
@@ -417,12 +440,15 @@ export default function App() {
             <kbd className="btn-kbd">N</kbd>
           </button>
         </div>
+        )}
       </div>
 
       <main className="main">
         <div className="view-fade" key={`${view}:${switching ? 'loading' : board ?? 'me'}`}>
         {switching ? (
           <BoardSkeleton />
+        ) : view === 'home' ? (
+          <HomeModules open={stats.open} overdue={stats.overdue} />
         ) : view === 'kanban' ? (
           <Board
             matches={matches}
@@ -437,12 +463,19 @@ export default function App() {
           />
         ) : view === 'list' ? (
           <ListView matches={matches} filtering={!!query.trim() || filter !== 'all'} onOpenTask={(id, boardId) => void openTaskIn(id, boardId)} />
+        ) : view === 'summary' ? (
+          <Summary onOpenTask={(id, boardId) => void openTaskIn(id, boardId)} />
+        ) : view === 'timeline' ? (
+          <Timeline matches={matches} onOpenTask={(id, boardId) => void openTaskIn(id, boardId)} />
+        ) : view === 'docs' ? (
+          <LinksView kind="doc" />
+        ) : view === 'reports' ? (
+          <LinksView kind="report" />
         ) : null}
         </div>
       </main>
 
       <footer className="app-footer">
-        <Motto variant="footer" />
         <span className="app-footer-name">{t('app.name')}</span>
         <span className="app-footer-copy">
           © {new Date().getFullYear()} {t('app.name')} · {t('footer.rights')}
