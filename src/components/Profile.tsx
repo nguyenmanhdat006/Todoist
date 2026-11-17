@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useT, type TKey } from '../i18n';
 import { api, ApiError, type AdminUser, type Role } from '../sync/api';
 import { applyUser, useSession } from '../sync/session';
 import { toast } from '../toast';
 import { askConfirm } from '../confirm';
 import { Avatar } from './Avatar';
+import { ACCEPTED_IMAGES, AvatarEditor, AvatarLightbox, AvatarMenu } from './AvatarEditor';
+import { refreshPeople } from '../sync/people';
 import { Dialog } from './Social';
 import '../profile.css';
 
@@ -17,6 +19,8 @@ const PROFILE_ERRORS = [
   'forbidden',
   'self_change',
   'not_found',
+  'bad_image',
+  'image_too_large',
 ] as const;
 
 function errKey(e: unknown): TKey {
@@ -46,7 +50,44 @@ export function ProfileDialog({ onClose }: { onClose: () => void }) {
   const [pwBusy, setPwBusy] = useState(false);
   const [pwError, setPwError] = useState<string | null>(null);
 
+  const [picked, setPicked] = useState<File | null>(null);
+  const [viewing, setViewing] = useState(false);
+  const [avatarBusy, setAvatarBusy] = useState(false);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
+
   if (!user) return null;
+
+  const saveAvatar = async (image: string) => {
+    setAvatarBusy(true);
+    setAvatarError(null);
+    try {
+      const { user: updated } = await api.setAvatar(image);
+      applyUser({ ...user, ...updated });
+      setPicked(null);
+      toast.success('profile.avatarSaved');
+      void refreshPeople();
+    } catch (err) {
+      setAvatarError(t(errKey(err)));
+    } finally {
+      setAvatarBusy(false);
+    }
+  };
+
+  const removeAvatar = async () => {
+    setAvatarBusy(true);
+    setAvatarError(null);
+    try {
+      const { user: updated } = await api.removeAvatar();
+      applyUser({ ...user, ...updated });
+      toast.success('profile.avatarRemoved');
+      void refreshPeople();
+    } catch (err) {
+      setAvatarError(t(errKey(err)));
+    } finally {
+      setAvatarBusy(false);
+    }
+  };
   const nameDirty = name.trim() !== user.name && name.trim().length > 0;
 
   const saveName = async (e: FormEvent) => {
@@ -89,15 +130,40 @@ export function ProfileDialog({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <Dialog title={t('profile.title')} onClose={onClose}>
+    <Dialog title={t('profile.title')} onClose={() => (viewing ? setViewing(false) : onClose())}>
+      <input
+        ref={fileInput}
+        type="file"
+        accept={ACCEPTED_IMAGES.join(',')}
+        hidden
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          e.target.value = '';
+          if (!f) return;
+          if (!ACCEPTED_IMAGES.includes(f.type)) setAvatarError(t('profile.err.bad_image'));
+          else {
+            setAvatarError(null);
+            setPicked(f);
+          }
+        }}
+      />
       <div className="profile-hero">
-        <Avatar user={user} size={56} title="" />
+        <AvatarMenu user={user} size={64} disabled={avatarBusy || !!picked} onView={() => setViewing(true)} onChoose={() => fileInput.current?.click()} onRemove={() => void removeAvatar()} />
         <span className="profile-hero-id">
           <strong>{user.name || user.email.split('@')[0]}</strong>
           <span>{user.email}</span>
         </span>
         <RoleBadge role={user.role} />
       </div>
+
+      {(picked || avatarError) && (
+        <div className="field dlg-section profile-avatar">
+          <span>{t('profile.avatar')}</span>
+          {picked && <AvatarEditor file={picked} busy={avatarBusy} onCancel={() => setPicked(null)} onSave={(img) => void saveAvatar(img)} />}
+          {avatarError && <small className="error">{avatarError}</small>}
+        </div>
+      )}
+      {viewing && user.avatarV && <AvatarLightbox user={user} onClose={() => setViewing(false)} />}
 
       <form className="project-form" onSubmit={saveName}>
         <div className="field dlg-section">

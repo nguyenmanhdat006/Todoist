@@ -32,7 +32,7 @@ export async function readOverview(me: string) {
       order by (p.kind = 'personal') desc, p.created_at, pb.position, pb.created_at`,
     [me],
   );
-  if (boards.length === 0) return { boards: [] as OverviewBoard[], users: [] as { id: string; name: string; email: string }[] };
+  if (boards.length === 0) return { boards: [] as OverviewBoard[], users: [] as { id: string; name: string; email: string; avatarV: number | null }[] };
 
   const ids = boards.map((b) => b.id);
   const [cols, tasks] = await Promise.all([
@@ -54,7 +54,7 @@ export async function readOverview(me: string) {
     ...new Set(tasks.rows.flatMap((t) => [...((t.assignees ?? []) as string[]), t.assignee_id, t.creator_id].filter((x): x is string => !!x))),
   ];
   const { rows: users } = assigneeIds.length
-    ? await db().query<{ id: string; name: string; email: string }>('select id, name, email from users where id = any($1::uuid[])', [assigneeIds])
+    ? await db().query<{ id: string; name: string; email: string; avatarV: number | null }>('select id, name, email, avatar_v as "avatarV" from users where id = any($1::uuid[])', [assigneeIds])
     : { rows: [] };
 
   return { boards: [...byBoard.values()], users };

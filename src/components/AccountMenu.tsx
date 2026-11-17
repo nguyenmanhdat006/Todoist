@@ -4,6 +4,7 @@ import { askConfirm } from '../confirm';
 import { logout, useSession } from '../sync/session';
 import { LangSwitch, ThemeSwitch } from './TopbarWidgets';
 import { AdminDialog, ProfileDialog, RoleBadge } from './Profile';
+import { Avatar } from './Avatar';
 import '../auth.css';
 
 /** Nút tài khoản trên thanh trên cùng: trạng thái lưu, đồng bộ, đăng xuất */
@@ -44,15 +45,19 @@ export function AccountMenu() {
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
       >
-        <span className="account-initial">{initial}</span>
+        {user.avatarV ? <Avatar user={user} size={28} title="" /> : <span className="account-initial">{initial}</span>}
         <span className="sync-dot" aria-hidden="true" />
       </button>
       {open && (
         <div className="popover account-menu">
           <div className="account-head">
-            <span className="account-avatar" aria-hidden="true">
-              {initial}
-            </span>
+            {user.avatarV ? (
+              <Avatar user={user} size={40} title="" />
+            ) : (
+              <span className="account-avatar" aria-hidden="true">
+                {initial}
+              </span>
+            )}
             <span className="account-id">
               <strong>{user.name || user.email.split('@')[0]}</strong>
               <span className="account-mail" title={user.email}>

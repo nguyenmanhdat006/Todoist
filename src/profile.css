@@ -37,3 +37,42 @@
   .admin-row { flex-wrap: wrap; }
   .admin-id { flex-basis: calc(100% - 50px); }
 }
+
+/* ảnh đại diện trong hồ sơ */
+.profile-avatar-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.profile-avatar-row .hint { flex-basis: 100%; margin: 0; }
+.avatar-editor { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
+.avatar-crop { position: relative; flex: none; border-radius: 50%; overflow: hidden; background: var(--surface-2); box-shadow: 0 0 0 1px var(--line-strong); touch-action: none; }
+.avatar-crop canvas { display: block; cursor: grab; border-radius: 50%; }
+.avatar-crop canvas:active { cursor: grabbing; }
+.avatar-edit-side { flex: 1; min-width: 190px; display: flex; flex-direction: column; gap: 12px; }
+.avatar-edit-side .hint { margin: 0; }
+.avatar-zoom { display: flex; align-items: center; gap: 10px; font-size: 12.5px; color: var(--fg-2); }
+.avatar-zoom input { flex: 1; min-width: 0; accent-color: var(--blue); }
+.avatar-edit-actions { display: flex; gap: 8px; }
+.avatar-edit-error { margin: 0; font-size: 13px; color: var(--danger); }
+
+/* bấm vào ảnh đại diện: menu Xem / Chọn / Gỡ */
+.avatar-menu-wrap { position: relative; flex: none; }
+.avatar-trigger { position: relative; display: block; padding: 0; border: 0; background: none; border-radius: 50%; cursor: pointer; }
+.avatar-trigger:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
+.avatar-trigger:disabled { cursor: default; opacity: 0.7; }
+.avatar-trigger .avatar { transition: filter 0.15s; }
+.avatar-trigger:hover:not(:disabled) .avatar { filter: brightness(0.85); }
+.avatar-cam { position: absolute; right: -2px; bottom: -2px; width: 24px; height: 24px; display: grid; place-items: center; border-radius: 50%; background: var(--surface-2); color: var(--fg); box-shadow: 0 0 0 2px var(--surface); }
+.avatar-menu {
+  position: absolute; z-index: 30; left: 0; top: calc(100% + 8px); min-width: 250px; padding: 6px; display: flex; flex-direction: column;
+  background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-md, 8px); box-shadow: var(--shadow-lg);
+  animation: pop-in 0.14s ease-out;
+}
+.avatar-menu button { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 0; border-radius: var(--r-sm, 6px); background: none; color: var(--fg); font-size: 14.5px; font-weight: 500; text-align: left; cursor: pointer; }
+.avatar-menu button:hover { background: var(--surface-2); }
+.avatar-menu button svg { flex: none; color: var(--fg-2); }
+.avatar-menu button.danger, .avatar-menu button.danger svg { color: var(--danger, #dc2626); }
+
+.lightbox { position: fixed; inset: 0; z-index: 300; display: grid; place-items: center; padding: 24px; background: rgba(4, 5, 8, 0.82); backdrop-filter: blur(4px); animation: fade 0.18s ease-out; }
+.lightbox figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.lightbox img { width: min(360px, 80vw); height: min(360px, 80vw); object-fit: cover; border-radius: 50%; box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6); animation: modal-in 0.25s cubic-bezier(0.2, 0.9, 0.3, 1.1); }
+.lightbox figcaption { color: #fff; font-size: 16px; font-weight: 600; }
+.lightbox-x { position: absolute; top: 18px; right: 18px; background: rgba(255, 255, 255, 0.12); border-color: transparent; color: #fff; }
+.lightbox-x:hover { background: rgba(255, 255, 255, 0.22); color: #fff; }

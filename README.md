@@ -139,6 +139,7 @@ Các migration nằm trong `db/migrations/` và chạy theo thứ tự tên file
 | `008_tickets` | mã dự án, mã việc `KEY-số`, người tạo |
 | `009_password_resets` | liên kết đặt lại mật khẩu |
 | `010_task_activity` | lịch sử thay đổi và bình luận của việc |
+| `011_avatars` | ảnh đại diện của người dùng |
 
 Admin đầu tiên được đặt ngay trong migration `007`; sau đó admin đổi vai trò người khác trong trang quản lý.
 
@@ -155,6 +156,8 @@ Admin đầu tiên được đặt ngay trong migration `007`; sau đó admin đ
 | POST | `/api/auth/reset/check` | `{ token }` → kiểm tra liên kết còn dùng được, trả `email` |
 | POST | `/api/auth/reset` | `{ token, password }` → đặt mật khẩu mới (liên kết dùng một lần, hết hạn sau 1 giờ), đăng xuất mọi thiết bị |
 | PATCH | `/api/me` | `{ name }` → sửa tên hiển thị |
+| PUT / DELETE | `/api/me/avatar` | `{ image }` (data URL PNG / JPEG / WebP, tối đa 200 KB) → đặt ảnh đại diện; DELETE gỡ ảnh |
+| GET | `/api/avatars/:id?v=` | ảnh đại diện của một người (cần đăng nhập; cache lâu theo `v`) |
 | POST | `/api/me/password` | `{ current, password }` → đổi mật khẩu, đăng xuất các thiết bị khác |
 | GET | `/api/admin/users` | danh sách tài khoản (chỉ admin) |
 | PATCH | `/api/admin/users/:id` | `{ role?: 'admin' \| 'user', disabled?: boolean }` (chỉ admin, không đổi được chính mình) |
@@ -207,7 +210,7 @@ request ghi dữ liệu phải là JSON và cùng nguồn; khoá tạm sau 8 l�
 - Ảnh nền nằm trong `public/focus/`. Hãy dùng ảnh bạn có quyền sử dụng; muốn đổi nền thì thay file cùng tên.
 
 **Tài khoản và dữ liệu**
-- Tài khoản riêng, quên mật khẩu qua email, hồ sơ (đổi tên, đổi mật khẩu), vai trò admin / user và khoá tài khoản.
+- Tài khoản riêng, quên mật khẩu qua email, hồ sơ (đổi tên, đổi mật khẩu, **tải ảnh đại diện**: chọn ảnh, kéo và phóng để cắt vuông, ảnh được thu nhỏ 256 px rồi lưu trong database), vai trò admin / user và khoá tài khoản.
 - Dữ liệu lưu trên máy chủ, đồng bộ giữa các thiết bị, vẫn dùng được khi mất mạng; xung đột sửa đồng thời được báo để chọn giữ bản trên máy.
 - Xuất/nhập file JSON để sao lưu hoặc chuyển dữ liệu. Khi nhập, app kiểm tra file và hiện tóm tắt trước khi thay dữ liệu. Định dạng file và gợi ý bảng PostgreSQL: [docs/export-format.md](docs/export-format.md).
 

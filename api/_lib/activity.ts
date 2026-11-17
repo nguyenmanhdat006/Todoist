@@ -104,6 +104,7 @@ interface PublicUser {
   id: string;
   email: string;
   name: string;
+  avatarV: number | null;
 }
 
 export async function listActivity(boardId: string, taskId: string) {
@@ -128,7 +129,7 @@ export async function listActivity(boardId: string, taskId: string) {
   for (const c of comments.rows) if (c.authorId) ids.add(c.authorId);
   let users: PublicUser[] = [];
   if (ids.size) {
-    users = (await q.query<PublicUser>('select id, email, name from users where id = any($1::uuid[])', [[...ids]])).rows;
+    users = (await q.query<PublicUser>('select id, email, name, avatar_v as "avatarV" from users where id = any($1::uuid[])', [[...ids]])).rows;
   }
   return { events: events.rows, comments: comments.rows, users };
 }

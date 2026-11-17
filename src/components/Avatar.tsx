@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import { useState, type CSSProperties } from 'react';
 import type { ApiUser } from '../sync/api';
 
 const COLORS = ['#2563eb', '#7c3aed', '#db2777', '#ea580c', '#0d9488', '#16a34a', '#ca8a04', '#475569'];
@@ -18,14 +18,17 @@ export function initials(u: Pick<ApiUser, 'name' | 'email'>) {
 }
 
 /** Ảnh đại diện vuông với chữ cái đầu, màu cố định theo người dùng */
-export function Avatar({ user, size = 24, title }: { user: Pick<ApiUser, 'id' | 'name' | 'email'>; size?: number; title?: string }) {
+export function Avatar({ user, size = 24, title }: { user: Pick<ApiUser, 'id' | 'name' | 'email' | 'avatarV'>; size?: number; title?: string }) {
+  // Có ảnh thì hiện ảnh; ảnh lỗi thì quay về chữ cái đầu
+  const [bad, setBad] = useState<number | null>(null);
+  const photo = user.avatarV && bad !== user.avatarV ? `/api/avatars/${user.id}?v=${user.avatarV}` : null;
   return (
     <span
       className="avatar"
       title={title ?? (user.name ? `${user.name} · ${user.email}` : user.email)}
       style={{ '--av': colorOf(user.id), width: size, height: size, fontSize: Math.round(size * 0.42) } as CSSProperties}
     >
-      {initials(user)}
+      {photo ? <img src={photo} alt="" draggable={false} onError={() => setBad(user.avatarV ?? null)} /> : initials(user)}
     </span>
   );
 }
@@ -37,7 +40,7 @@ export function AvatarStack({
   size = 24,
   leadId,
 }: {
-  users: Pick<ApiUser, 'id' | 'name' | 'email'>[];
+  users: Pick<ApiUser, 'id' | 'name' | 'email' | 'avatarV'>[];
   max?: number;
   size?: number;
   /** Người phụ trách: đứng đầu và có viền nổi bật */

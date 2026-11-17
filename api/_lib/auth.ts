@@ -13,6 +13,8 @@ export interface User {
   email: string;
   name: string;
   role: Role;
+  /** Số phiên bản ảnh đại diện; null = chưa có ảnh */
+  avatarV?: number | null;
 }
 
 declare module 'express-serve-static-core' {
@@ -88,7 +90,7 @@ export async function sessionUser(req: Request): Promise<User | null> {
   const token = readCookie(req, SESSION_COOKIE);
   if (!token || token.length > 100) return null;
   const { rows } = await db().query<User>(
-    `select u.id, u.email, u.name, u.role
+    `select u.id, u.email, u.name, u.role, u.avatar_v as "avatarV"
        from sessions s join users u on u.id = s.user_id
       where s.token_hash = $1 and s.expires_at > now() and not u.disabled`,
     [sha256(token)],

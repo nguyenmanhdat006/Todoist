@@ -88,7 +88,7 @@ app.use((req, _res, next) => {
   next();
 });
 
-const publicUser = (u: User) => ({ id: u.id, email: u.email, name: u.name, role: u.role });
+const publicUser = (u: User) => ({ id: u.id, email: u.email, name: u.name, role: u.role, avatarV: u.avatarV ?? null });
 
 /* ---------- health ---------- */
 
@@ -112,7 +112,7 @@ app.post(
     const { rows } = await db().query<User>(
       `insert into users (email, name, password_hash) values ($1, $2, $3)
        on conflict (email) do nothing
-       returning id, email, name, role`,
+       returning id, email, name, role, avatar_v as "avatarV"`,
       [email, name, hash],
     );
     if (!rows[0]) {
@@ -132,7 +132,7 @@ app.post(
     const ip = clientIp(req);
     await checkRateLimit(email, ip);
     const { rows } = await db().query<User & { password_hash: string; disabled: boolean }>(
-      'select id, email, name, role, disabled, password_hash from users where email = $1',
+      'select id, email, name, role, avatar_v as "avatarV", disabled, password_hash from users where email = $1',
       [email],
     );
     const user = rows[0];
@@ -229,8 +229,65 @@ app.patch(
     const b = (req.body ?? {}) as Record<string, unknown>;
     const name = typeof b.name === 'string' ? b.name.trim() : '';
     if (!name || name.length > 80) throw new HttpError(400, 'invalid_name');
-    const { rows } = await db().query<User>('update users set name = $2 where id = $1 returning id, email, name, role', [req.user!.id, name]);
+    const { rows } = await db().query<User>('update users set name = $2 where id = $1 returning id, email, name, role, avatar_v as "avatarV"', [req.user!.id, name]);
     res.json({ user: publicUser(rows[0]) });
+  }),
+);
+
+const AVATAR_MAX = 200 * 1024;
+
+/** Nhận ảnh đã thu nhỏ ở trình duyệt (data URL PNG / JPEG / WebP) */
+app.put(
+  '/api/me/avatar',
+  requireUser,
+  route(async (req, res) => {
+    const image = (req.body as { image?: unknown } | undefined)?.image;
+    const m = typeof image === 'string' ? /^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/]+={0,2})$/.exec(image) : null;
+    if (!m) throw new HttpError(400, 'bad_image');
+    const bytes = Buffer.from(m[2], 'base64');
+    if (bytes.length > AVATAR_MAX) throw new HttpError(413, 'image_too_large');
+    // Kiểm tra đầu file khớp loại ảnh khai báo
+    const head = bytes.subarray(0, 12);
+    const ok =
+      (m[1] === 'image/png' && head.subarray(0, 4).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47]))) ||
+      (m[1] === 'image/jpeg' && head[0] === 0xff && head[1] === 0xd8) ||
+      (m[1] === 'image/webp' && head.subarray(0, 4).toString('latin1') === 'RIFF' && head.subarray(8, 12).toString('latin1') === 'WEBP');
+    if (!ok) throw new HttpError(400, 'bad_image');
+    const { rows } = await db().query<User>(
+      `update users set avatar = $2, avatar_type = $3, avatar_v = coalesce(avatar_v, 0) + 1 where id = $1
+       returning id, email, name, role, avatar_v as "avatarV"`,
+      [req.user!.id, bytes, m[1]],
+    );
+    res.json({ user: publicUser(rows[0]) });
+  }),
+);
+
+app.delete(
+  '/api/me/avatar',
+  requireUser,
+  route(async (req, res) => {
+    const { rows } = await db().query<User>(
+      `update users set avatar = null, avatar_type = null, avatar_v = null where id = $1
+       returning id, email, name, role, avatar_v as "avatarV"`,
+      [req.user!.id],
+    );
+    res.json({ user: publicUser(rows[0]) });
+  }),
+);
+
+// Ảnh đại diện của một người (chỉ người đã đăng nhập xem được); địa chỉ có ?v= nên cache được lâu
+app.get(
+  '/api/avatars/:id',
+  requireUser,
+  route(async (req, res) => {
+    const id = requireUuid(req.params.id);
+    const { rows } = await db().query<{ avatar: Buffer | null; avatar_type: string | null }>('select avatar, avatar_type from users where id = $1', [id]);
+    const r = rows[0];
+    if (!r?.avatar || !r.avatar_type) throw new HttpError(404, 'no_avatar');
+    res.setHeader('Content-Type', r.avatar_type);
+    res.setHeader('Cache-Control', 'private, max-age=31536000, immutable');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.end(r.avatar);
   }),
 );
 

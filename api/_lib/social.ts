@@ -11,6 +11,7 @@ export interface PublicUser {
   id: string;
   email: string;
   name: string;
+  avatarV?: number | null;
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -23,14 +24,14 @@ export function requireUuid(v: unknown, code = 'bad_id'): string {
 
 export async function listFriends(me: string) {
   const { rows } = await db().query<PublicUser & { status: string; requester: string; at: string }>(
-    `select u.id, u.email, u.name, f.status, f.requester, coalesce(f.accepted_at, f.created_at) as at
+    `select u.id, u.email, u.name, u.avatar_v as "avatarV", f.status, f.requester, coalesce(f.accepted_at, f.created_at) as at
        from friendships f
        join users u on u.id = case when f.requester = $1 then f.addressee else f.requester end
       where f.requester = $1 or f.addressee = $1
       order by u.name, u.email`,
     [me],
   );
-  const pick = (r: PublicUser) => ({ id: r.id, email: r.email, name: r.name });
+  const pick = (r: PublicUser) => ({ id: r.id, email: r.email, name: r.name, avatarV: r.avatarV ?? null });
   return {
     friends: rows.filter((r) => r.status === 'accepted').map(pick),
     incoming: rows.filter((r) => r.status === 'pending' && r.requester !== me).map(pick),
@@ -59,7 +60,7 @@ async function areFriends(a: string, b: string) {
 export async function requestFriend(me: string, rawEmail: unknown) {
   const email = typeof rawEmail === 'string' ? rawEmail.trim().toLowerCase() : '';
   if (!email || email.length > 254) throw new HttpError(400, 'invalid_email');
-  const { rows: found } = await db().query<PublicUser>('select id, email, name from users where email = $1', [email]);
+  const { rows: found } = await db().query<PublicUser>('select id, email, name, avatar_v as "avatarV" from users where email = $1', [email]);
   const other = found[0];
   if (!other) throw new HttpError(404, 'user_not_found');
   if (other.id === me) throw new HttpError(400, 'self_friend');
@@ -209,7 +210,7 @@ async function requireHost(me: string, projectId: string) {
 
 export async function projectMembers(projectId: string) {
   const { rows } = await db().query<PublicUser & { role: string }>(
-    `select u.id, u.email, u.name, pm.role
+    `select u.id, u.email, u.name, u.avatar_v as "avatarV", pm.role
        from project_members pm join users u on u.id = pm.user_id
       where pm.project_id = $1
       order by (pm.role = 'host') desc, u.name, u.email`,

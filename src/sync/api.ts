@@ -8,6 +8,8 @@ export interface ApiUser {
   id: string;
   email: string;
   name: string;
+  /** Số phiên bản ảnh đại diện; thiếu hoặc null = chưa có ảnh */
+  avatarV?: number | null;
 }
 
 /** Người đang đăng nhập; role (admin / user) thiếu khi dùng bản offline */
@@ -148,6 +150,8 @@ export const api = {
   resetCheck: (token: string) => call<{ ok: true; email: string }>('POST', '/api/auth/reset/check', { token }),
   resetPassword: (token: string, password: string) => call<{ ok: true }>('POST', '/api/auth/reset', { token, password }),
   updateProfile: (name: string) => call<{ user: AccountUser }>('PATCH', '/api/me', { name }),
+  setAvatar: (image: string) => call<{ user: AccountUser }>('PUT', '/api/me/avatar', { image }),
+  removeAvatar: () => call<{ user: AccountUser }>('DELETE', '/api/me/avatar'),
   changePassword: (current: string, password: string) => call<{ ok: true }>('POST', '/api/me/password', { current, password }),
   adminUsers: () => call<{ users: AdminUser[] }>('GET', '/api/admin/users'),
   adminUpdateUser: (id: string, patch: { role?: Role; disabled?: boolean }) =>
