@@ -62,8 +62,8 @@ export interface OverviewBoard {
 
 export interface ServerNotice {
   id: string;
-  type: 'project_added' | 'friend_request' | 'friend_accepted' | 'friend_declined' | string;
-  data: { projectId?: string; projectName?: string; by?: string; userId?: string; name?: string; email?: string };
+  type: 'project_added' | 'team_added' | 'friend_request' | 'friend_accepted' | 'friend_declined' | string;
+  data: { projectId?: string; projectName?: string; teamId?: string; teamName?: string; by?: string; userId?: string; name?: string; email?: string };
   createdAt: string;
   read: boolean;
 }
@@ -117,6 +117,23 @@ export interface Member extends ApiUser {
   role: 'host' | 'member';
 }
 
+/** Nhóm: nhiều người, gắn vào dự án thay vì thêm từng người */
+export interface TeamInfo {
+  id: string;
+  name: string;
+  ownerId: string;
+  role: 'owner' | 'member';
+  members: (ApiUser & { role: 'owner' | 'member' })[];
+  /** Các dự án (mà bạn nhìn thấy) đang dùng nhóm */
+  projects: { id: string; name: string }[];
+}
+
+export interface ProjectTeam {
+  id: string;
+  name: string;
+  memberCount: number;
+}
+
 export class ApiError extends Error {
   constructor(
     /** 0 = không kết nối được máy chủ */
@@ -146,6 +163,8 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     res = await fetch(path, {
       method,
       credentials: 'same-origin',
+      // Không dùng bản lưu tạm của trình duyệt: số revision cũ sẽ làm mọi lần lưu bị báo xung đột
+      cache: 'no-store',
       headers: body !== undefined ? { 'Content-Type': 'application/json' } : undefined,
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
@@ -208,11 +227,21 @@ export const api = {
   overview: () => call<{ boards: OverviewBoard[]; users: ApiUser[] }>('GET', '/api/overview'),
   notifications: () => call<{ items: ServerNotice[] }>('GET', '/api/notifications'),
   readNotifications: (ids?: string[]) => call<{ items: ServerNotice[] }>('POST', '/api/notifications/read', ids ? { ids } : {}),
-  project: (id: string) => call<{ project: ProjectInfo; members: Member[] }>('GET', `/api/projects/${id}`),
+  project: (id: string) => call<{ project: ProjectInfo; members: Member[]; teams: ProjectTeam[] }>('GET', `/api/projects/${id}`),
   renameProject: (id: string, name: string, key?: string) =>
     call<{ project: { id: string; name: string; key: string } }>('PATCH', `/api/projects/${id}`, key ? { name, key } : { name }),
   deleteProject: (id: string) => call<{ ok: true }>('DELETE', `/api/projects/${id}`),
-  addMember: (id: string, userId: string) => call<{ members: Member[] }>('POST', `/api/projects/${id}/members`, { userId }),
+  teams: () => call<{ teams: TeamInfo[] }>('GET', '/api/teams'),
+  createTeam: (name: string) => call<{ id: string; teams: TeamInfo[] }>('POST', '/api/teams', { name }),
+  renameTeam: (id: string, name: string) => call<{ teams: TeamInfo[] }>('PATCH', `/api/teams/${id}`, { name }),
+  deleteTeam: (id: string) => call<{ teams: TeamInfo[] }>('DELETE', `/api/teams/${id}`),
+  addTeamMember: (id: string, userId: string) => call<{ teams: TeamInfo[] }>('POST', `/api/teams/${id}/members`, { userId }),
+  removeTeamMember: (id: string, userId: string) => call<{ teams: TeamInfo[] }>('DELETE', `/api/teams/${id}/members/${userId}`),
+  attachTeam: (projectId: string, teamId: string) =>
+    call<{ project: ProjectInfo; members: Member[]; teams: ProjectTeam[] }>('POST', `/api/projects/${projectId}/teams`, { teamId }),
+  detachTeam: (projectId: string, teamId: string) =>
+    call<{ project: ProjectInfo; members: Member[]; teams: ProjectTeam[] }>('DELETE', `/api/projects/${projectId}/teams/${teamId}`),
+  leaveProject: (id: string) => call<{ ok: true }>('POST', `/api/projects/${id}/leave`),
   projectLinks: (id: string) => call<{ links: ProjectLink[] }>('GET', `/api/projects/${id}/links`),
   addLink: (id: string, kind: 'doc' | 'report', url: string, title: string) =>
     call<{ link: ProjectLink }>('POST', `/api/projects/${id}/links`, { kind, url, title }),
@@ -224,5 +253,4 @@ export const api = {
     call<{ status: 'unchanged' | 'saved' | 'flagged' | 'empty' }>('POST', '/api/backup', { ...(board ? { board } : {}), reason, ...(force ? { force: true } : {}) }),
   backupFile: (board: string | null) => call<unknown>('GET', `/api/backup/file${board ? `?board=${encodeURIComponent(board)}` : ''}`),
   backupDownloadUrl: (board: string | null) => `/api/backup/file?${board ? `board=${encodeURIComponent(board)}&` : ''}download=1`,
-  removeMember: (id: string, userId: string) => call<{ members: Member[] }>('DELETE', `/api/projects/${id}/members/${userId}`),
 };

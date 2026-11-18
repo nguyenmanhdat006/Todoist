@@ -18,7 +18,7 @@ import { findSampleTaskIds } from './data/legacySample';
 import { HelpButton, LangSwitch, ProgressRing, StyleSwitch, ThemeSwitch } from './components/TopbarWidgets';
 import { NotificationBell } from './components/NotificationBell';
 import { AccountMenu } from './components/AccountMenu';
-import { FriendsButton, SidebarToggle } from './components/Social';
+import { AppSidebar, FriendsButton, SidebarToggle } from './components/Social';
 import { boardInfo, projectOfBoard, refreshPeople, usePeople } from './sync/people';
 import { TitleClock } from './components/Clock';
 import { HeroAside } from './components/HeroAside';
@@ -29,6 +29,8 @@ import { Summary } from './space/Summary';
 import { Timeline } from './space/Timeline';
 import { LinksView } from './space/Links';
 import { BackupView } from './space/Backup';
+import { PeoplePage } from './people/PeoplePage';
+import { TeamsPage } from './people/TeamsPage';
 import { SaveStatus } from './components/SaveStatus';
 import { switchBoard, useSession } from './sync/session';
 import { loadOverview, useOverview, useScopedEntries } from './sync/overview';
@@ -312,6 +314,9 @@ export default function App() {
         </div>
       </header>
 
+      <div className="app-body">
+      <AppSidebar />
+      <div className="app-col">
       <div className="toolbar">
         {view === 'home' ? (
         <div className="toolbar-top hero">
@@ -349,7 +354,7 @@ export default function App() {
           </div>
           <HeroAside onOpenTask={(id) => setModal({ taskId: id, columnId: '' })} />
         </div>
-        ) : (
+        ) : view === 'teams' || view === 'people' ? null : (
           <SpaceHeader title={projectName ?? t('page.title')} projectKey={spaceKey} view={view} onView={(v) => {
             // Đang ở một dự án mà mở tab tổng hợp từ tab khác thì xem đúng dự án đó (không nhảy sang "Tất cả")
             if (!aggregate && curProject && (v === 'summary' || v === 'list' || v === 'calendar' || v === 'timeline')) useOverview.getState().setScope(`p:${curProject.id}`);
@@ -479,6 +484,10 @@ export default function App() {
           <LinksView kind="report" />
         ) : view === 'backup' ? (
           <BackupView />
+        ) : view === 'teams' ? (
+          <TeamsPage />
+        ) : view === 'people' ? (
+          <PeoplePage />
         ) : null}
         </div>
       </main>
@@ -489,6 +498,8 @@ export default function App() {
           © {new Date().getFullYear()} {t('app.name')} · {t('footer.rights')}
         </span>
       </footer>
+      </div>
+      </div>
 
       {view === 'focus' && <FocusPage />}
 

@@ -48,7 +48,7 @@ Bản chạy thật: <https://todoist-website-omega.vercel.app>
 ## Dùng để làm gì
 
 - **Sinh viên, người đi làm**: gom việc học, bài tập, việc cơ quan vào một chỗ; thấy ngay việc nào quá hạn, việc nào trong ngày, việc nào còn thời gian.
-- **Nhóm nhỏ**: mỗi dự án có nhiều bảng, thêm bạn bè làm thành viên, giao việc cho từng người và nhận thông báo khi có thay đổi.
+- **Nhóm nhỏ**: tạo nhóm (team) từ bạn bè, gắn cả nhóm vào dự án thay vì thêm từng người; mỗi dự án có nhiều bảng, giao việc cho từng thành viên và nhận thông báo khi có thay đổi.
 - **Người cần tập trung**: chọn một việc, bật Pomodoro, và mỗi phút tập trung được tính vào đúng việc đó.
 
 ## Điểm nổi bật
@@ -69,7 +69,9 @@ Bản chạy thật: <https://todoist-website-omega.vercel.app>
 
 ### Làm việc nhóm
 - **Kết bạn qua email**: người nhận thấy lời mời trong chuông thông báo và chấp nhận hoặc từ chối ngay tại đó; người gửi được báo kết quả.
-- **Dự án** có host và thành viên, **mỗi dự án nhiều bảng**; dự án cá nhân chỉ có mình bạn.
+- **Dự án** có host; thành viên đến từ các **nhóm (team)** được gắn vào dự án. **Mỗi dự án nhiều bảng**; dự án cá nhân chỉ có mình bạn.
+- **Nhóm (team)**: chủ nhóm thêm bạn bè vào nhóm, host dự án gắn nhóm vào dự án. Thêm hay bớt người trong nhóm thì quyền vào mọi dự án dùng nhóm đó đổi theo. Việc đơn lẻ vẫn giao được cho từng thành viên của dự án.
+- **Thanh bên cố định** bên trái: Trang chủ, Danh sách, Lịch, các dự án cùng bảng, và mục **Nhóm** xổ ra **Đội ngũ** (nhóm mình tạo và nhóm mình tham gia) và **Mọi người** (bạn bè và thành viên các nhóm, tìm và lọc theo nhóm, thêm người bằng email); thu gọn bằng nút trên thanh trên cùng (màn hình hẹp thì mở dạng ngăn kéo).
 - **Ticket** có mã dạng `KEY-12`, người tạo và người phụ trách; avatar tròn ở góc thẻ cho biết ai đang làm.
 - Người được thêm vào dự án nhận thông báo và có chấm đỏ ở thanh bên.
 
@@ -181,6 +183,7 @@ Các migration nằm trong `db/migrations/` và chạy theo thứ tự tên file
 | `011_avatars` | ảnh đại diện của người dùng |
 | `012_project_links` | liên kết tài liệu / báo cáo của dự án (tab Tài liệu, Báo cáo) |
 | `013_board_backups` | một file sao lưu cho mỗi bảng, ghi đè khi dữ liệu đổi (tab Sao lưu) |
+| `014_teams` | nhóm (team), thành viên nhóm, gắn nhóm vào dự án; dự án nhóm đang có thành viên lẻ được tự tạo nhóm "<tên dự án> team" |
 
 Admin đầu tiên được đặt ngay trong migration `007`; sau đó admin đổi vai trò người khác trong trang quản lý.
 
@@ -211,7 +214,12 @@ Admin đầu tiên được đặt ngay trong migration `007`; sau đó admin đ
 | PUT | `/api/board` | `{ baseRevision, file, board? }` → lưu toàn bộ; 409 nếu thiết bị khác đã lưu trước |
 | GET | `/api/overview` | việc, cột và người liên quan của mọi bảng bạn truy cập được (cho Danh sách và Lịch) |
 | GET/POST/DELETE | `/api/friends…` | danh sách bạn bè, gửi lời mời qua email, đồng ý, từ chối / huỷ kết bạn |
-| GET/POST/PATCH/DELETE | `/api/projects…` | dự án: tạo (người tạo là host), đổi tên và mã dự án (`KEY`, 2–6 ký tự, duy nhất; chỉ host), xoá, thêm/bớt thành viên |
+| GET/POST/PATCH/DELETE | `/api/projects…` | dự án: tạo (người tạo là host), đổi tên và mã dự án (`KEY`, 2–6 ký tự, duy nhất; chỉ host), xoá |
+| GET / POST | `/api/teams` | nhóm của tôi (kèm thành viên và dự án đang dùng) / tạo nhóm |
+| PATCH / DELETE | `/api/teams/:id` | đổi tên / xoá nhóm (chủ nhóm) |
+| POST / DELETE | `/api/teams/:id/members`, `/api/teams/:id/members/:userId` | chủ nhóm thêm (phải là bạn) / bớt thành viên; thành viên tự rời nhóm |
+| POST / DELETE | `/api/projects/:id/teams`, `/api/projects/:id/teams/:teamId` | host gắn / gỡ nhóm khỏi dự án (chỉ gắn nhóm mình thuộc về) |
+| POST | `/api/projects/:id/leave` | thành viên rời dự án (rời các nhóm gắn vào dự án) |
 | POST / PATCH / DELETE | `/api/projects/:id/boards`, `/api/boards/:id` | tạo bảng trong dự án (thành viên), đổi tên / xoá (host) |
 | GET | `/api/tasks/:taskId/activity?board=` | lịch sử thay đổi và bình luận của một việc (cần quyền truy cập bảng) |
 | POST | `/api/tasks/:taskId/comments?board=` | `{ body }` → thêm bình luận (tối đa 5000 ký tự) |
@@ -244,7 +252,7 @@ request ghi dữ liệu phải là JSON và cùng nguồn; khoá tạm sau 8 l�
 - Tìm kiếm không cần gõ dấu, `Ctrl K` tìm toàn bộ (việc, mã ticket, dự án), lọc nhanh việc gấp và quá hạn, bộ lọc lưu sẵn.
 
 **Cộng tác**
-- Kết bạn qua email, dự án dùng chung có host và thành viên, mỗi dự án nhiều bảng, dự án cá nhân.
+- Kết bạn qua email, nhóm (team) gắn vào dự án, dự án dùng chung có host và thành viên, mỗi dự án nhiều bảng, dự án cá nhân.
 - Thanh bên (nút góc trái): kiểu xem, bảng, dự án và các bảng trong dự án; chấm đỏ khi vừa được thêm vào dự án.
 - Chuông thông báo: nhắc việc trước 1 giờ, được thêm vào dự án, lời mời kết bạn (chấp nhận / từ chối ngay trong chuông), kết quả lời mời; đánh dấu đã đọc.
 

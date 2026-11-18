@@ -306,6 +306,10 @@ async function handlePushError(e: unknown) {
   }
 }
 
+/** Các lần gộp gần đây (để nhận ra vòng lặp xung đột liên tục và dừng gộp) */
+let recentMerges: number[] = [];
+let lastMergedToast = 0;
+
 /** Thiết bị khác đã lưu trước: lấy bản trên máy chủ, giữ bản trên máy này để người dùng chọn lại */
 async function resolveConflict() {
   const local: Snapshot = useBoard.getState().snapshot();
@@ -317,18 +321,29 @@ async function resolveConflict() {
 
     // Gộp: giữ thay đổi của người dùng trên máy này, thêm thay đổi mới từ nơi khác (việc vừa kéo không bị nhảy lại)
     const parsed = file ? parseImport(file) : null;
-    if (parsed?.ok && loadedFor === board) {
+    const now = Date.now();
+    recentMerges = recentMerges.filter((x) => now - x < 60_000);
+    // Gộp liên tục nhiều lần trong một phút nghĩa là có nơi khác đang lưu dồn dập: dừng gộp, lấy bản máy chủ cho yên
+    const looping = recentMerges.length >= 4;
+    if (looping) recentMerges = [];
+    if (parsed?.ok && loadedFor === board && !looping) {
       const server: BoardSnap = { columns: parsed.data.columns, tasks: parsed.data.tasks, filters: parsed.data.filters ?? local.filters ?? [], reminders: parsed.data.reminders ?? local.reminders ?? [] };
       const merged = mergeBoards(base, snapOf(), server);
       if (merged) {
         withoutPush(() => useBoard.getState().applyImport(merged, true));
+        // Chỉ báo khi bản máy chủ thật sự có thay đổi so với lần đồng bộ trước (không báo khi chỉ số revision nhảy), và không quá dày
+        const hasIncoming = !base || JSON.stringify(server) !== JSON.stringify(base);
+        recentMerges.push(now);
         base = server;
         own(board);
         saveMeta({ revision, dirty: true });
         localVersion++;
         set({ sync: 'pending' });
         schedule(0);
-        toast.info('sync.merged');
+        if (hasIncoming && now - lastMergedToast > 20_000) {
+          lastMergedToast = now;
+          toast.info('sync.merged');
+        }
         return;
       }
     }

@@ -224,7 +224,9 @@ export function NotificationBell({ onOpenTask, onToast }: Props) {
                       ? t('notif.friendAccepted', { name: who })
                       : n.type === 'friend_declined'
                         ? t('notif.friendDeclined', { name: who })
-                        : t('notif.projectAdded', { by: n.data.by ?? '', name: n.data.projectName ?? '' });
+                        : n.type === 'team_added'
+                          ? t('notif.teamAdded', { by: n.data.by ?? '', name: n.data.teamName ?? '' })
+                          : t('notif.projectAdded', { by: n.data.by ?? '', name: n.data.projectName ?? '' });
                 return (
                   <li key={n.id} className="notif-row">
                     <div

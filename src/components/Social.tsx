@@ -7,22 +7,29 @@
 import { askConfirm } from '../confirm';
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import { create } from 'zustand';
 import { useT, type TKey } from '../i18n';
-import { api, ApiError, type ApiUser, type Member, type ProjectInfo } from '../sync/api';
+import { api, ApiError, type ApiUser, type Member, type ProjectInfo, type ProjectTeam, type TeamInfo } from '../sync/api';
 import {
   acceptFriend,
-  addMember,
+  addTeamMember,
+  attachTeam,
   createBoard,
   createProject,
+  createTeam,
   deleteBoard,
   deleteProject,
+  deleteTeam,
+  detachTeam,
+  leaveProject,
   projectOfBoard,
   readNotices,
   refreshPeople,
   removeFriend,
-  removeMember,
+  removeTeamMember,
   renameBoard,
   renameProject,
+  renameTeam,
   requestFriend,
   usePeople,
 } from '../sync/people';
@@ -42,6 +49,9 @@ const ERRORS = [
   'not_friend',
   'host_only',
   'host_cannot_leave',
+  'owner_only',
+  'owner_cannot_leave',
+  'team_not_found',
   'project_not_found',
   'personal_project',
   'board_not_found',
@@ -81,7 +91,7 @@ function TrashIcon() {
   );
 }
 
-function PersonRow({ user, children, badge }: { user: ApiUser; children?: ReactNode; badge?: ReactNode }) {
+export function PersonRow({ user, children, badge }: { user: ApiUser; children?: ReactNode; badge?: ReactNode }) {
   return (
     <li className="person">
       <Avatar user={user} size={30} />
@@ -249,9 +259,48 @@ export function FriendsButton() {
  * danh sách dự án và các bảng trong từng dự án, tạo dự án / tạo bảng / quản lý dự án.
  * Dự án vừa được thêm vào có chấm đỏ cho tới khi mở.
  */
+/** Thanh bên cố định bên trái (máy tính): nhớ đóng / mở; màn hình hẹp thì mở dạng ngăn kéo */
+const DOCK_KEY = 'tm-dock';
+const readDock = () => {
+  try {
+    const v = localStorage.getItem(DOCK_KEY);
+    if (v === '0' || v === '1') return v === '1';
+  } catch {
+    /* bỏ qua */
+  }
+  return true;
+};
+export const useDock = create<{ open: boolean; toggle: () => void }>((set, get) => ({
+  open: readDock(),
+  toggle: () => {
+    const open = !get().open;
+    try {
+      localStorage.setItem(DOCK_KEY, open ? '1' : '0');
+    } catch {
+      /* bỏ qua */
+    }
+    set({ open });
+  },
+}));
+
+const NARROW = '(max-width: 899px)';
+export function useNarrow() {
+  const [narrow, setNarrow] = useState(() => typeof window !== 'undefined' && window.matchMedia(NARROW).matches);
+  useEffect(() => {
+    const m = window.matchMedia(NARROW);
+    const on = () => setNarrow(m.matches);
+    m.addEventListener('change', on);
+    return () => m.removeEventListener('change', on);
+  }, []);
+  return narrow;
+}
+
 export function SidebarToggle() {
   const t = useT();
   const [open, setOpen] = useState(false);
+  const narrow = useNarrow();
+  const dockOpen = useDock((s) => s.open);
+  const toggleDock = useDock((s) => s.toggle);
   const notices = usePeople((s) => s.notices);
   const unread = notices.filter((n) => n.type === 'project_added' && !n.read).length;
   return (
@@ -261,8 +310,8 @@ export function SidebarToggle() {
         className="icon-btn sidebar-toggle"
         aria-label={t('side.open')}
         title={t('side.open')}
-        aria-expanded={open}
-        onClick={() => setOpen(true)}
+        aria-expanded={narrow ? open : dockOpen}
+        onClick={() => (narrow ? setOpen(true) : toggleDock())}
       >
         <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.6">
           <rect x="2.5" y="3.5" width="15" height="13" />
@@ -271,8 +320,20 @@ export function SidebarToggle() {
         </svg>
         {unread > 0 && <span className="notif-badge">{unread}</span>}
       </button>
-      {open && <Sidebar onClose={() => setOpen(false)} />}
+      {narrow && open && <Sidebar onClose={() => setOpen(false)} />}
     </>
+  );
+}
+
+/** Thanh bên cố định kiểu Jira, đặt bên trái nội dung (ẩn trên màn hình hẹp, nơi dùng ngăn kéo) */
+export function AppSidebar() {
+  const narrow = useNarrow();
+  const open = useDock((s) => s.open);
+  if (narrow || !open) return null;
+  return (
+    <div className="dock">
+      <Sidebar docked onClose={() => {}} />
+    </div>
   );
 }
 
@@ -280,19 +341,21 @@ type DialogState =
   | { kind: 'createProject'; projectKind: 'personal' | 'team' }
   | { kind: 'createBoard'; projectId: string }
   | { kind: 'manage'; projectId: string }
+  | { kind: 'createTeam' }
+  | { kind: 'manageTeam'; teamId: string }
   | null;
 
-function Sidebar({ onClose: closeNow }: { onClose: () => void }) {
+function Sidebar({ onClose: closeNow, docked = false }: { onClose: () => void; docked?: boolean }) {
   const t = useT();
-  // Thu về có hiệu ứng trượt ra rồi mới gỡ khỏi trang
+  // Ngăn kéo thu về có hiệu ứng trượt ra rồi mới gỡ khỏi trang; thanh cố định thì không đóng
   const [closing, setClosing] = useState(false);
   const closingRef = useRef(false);
   const onClose = useCallback(() => {
-    if (closingRef.current) return;
+    if (docked || closingRef.current) return;
     closingRef.current = true;
     setClosing(true);
     setTimeout(closeNow, 240);
-  }, [closeNow]);
+  }, [closeNow, docked]);
   const board = useSession((s) => s.board);
   const me = useSession((s) => s.user);
   const view = useBoard((s) => s.view);
@@ -300,10 +363,9 @@ function Sidebar({ onClose: closeNow }: { onClose: () => void }) {
   const { projects, notices } = usePeople();
   const current = projectOfBoard(board ?? me?.id ?? null, projects);
   const [dialog, setDialog] = useState<DialogState>(null);
-  // Danh sách bảng xổ xuống dưới nút Board
-  const [boardMenu, setBoardMenu] = useState(false);
+  // Mục Nhóm gập sẵn; chỉ mở khi bấm vào, hoặc khi đang ở trang Đội ngũ / Mọi người
+  const [teamsOpen, setTeamsOpen] = useState(view === 'teams' || view === 'people');
   const activeBoardId = board ?? me?.id ?? '';
-  const activeBoardName = projects.flatMap((p) => p.boards).find((b) => b.id === activeBoardId)?.name;
   const unreadByProject = new Map<string, string[]>();
   for (const n of notices)
     if (n.type === 'project_added' && !n.read && n.data.projectId)
@@ -311,15 +373,16 @@ function Sidebar({ onClose: closeNow }: { onClose: () => void }) {
   const unreadProjects = unreadByProject.size;
 
   useEffect(() => {
+    if (docked) return;
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && !dialog && onClose();
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [onClose, dialog]);
+  }, [onClose, dialog, docked]);
 
   const open = async (id: string | null, v?: 'kanban' | 'list' | 'calendar') => {
     if (v) setView(v);
     const ok = await switchBoard(id, () => askConfirm({ message: t('sync.logoutConfirm'), danger: true }));
-    // Tải xong bảng mới thì thu thanh bên (có hiệu ứng trượt ra); xem Danh sách / Lịch hay mở hộp thoại thì thanh giữ nguyên
+    // Tải xong bảng mới thì thu ngăn kéo; xem Danh sách / Lịch hay mở hộp thoại thì giữ nguyên
     if (ok) {
       await refreshPeople();
       onClose();
@@ -328,6 +391,10 @@ function Sidebar({ onClose: closeNow }: { onClose: () => void }) {
 
   // Bấm tên dự án: xổ / thu danh sách bảng của dự án, và đánh dấu đã xem thông báo "được thêm vào dự án"
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(current ? [current.id] : []));
+  // Dự án chứa bảng đang mở luôn xổ sẵn (đổi bảng từ nơi khác thì thanh bên theo kịp)
+  useEffect(() => {
+    if (current) setExpanded((prev) => (prev.has(current.id) ? prev : new Set(prev).add(current.id)));
+  }, [current?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const toggleProject = (p: ProjectInfo) => {
     setExpanded((prev) => {
       const next = new Set(prev);
@@ -339,23 +406,15 @@ function Sidebar({ onClose: closeNow }: { onClose: () => void }) {
     if (ids) void readNotices(ids);
   };
 
-  const views: { v: 'kanban' | 'list' | 'calendar'; key: TKey; icon: ReactNode }[] = [
-    {
-      v: 'kanban',
-      key: 'nav.board',
-      icon: <path d="M3 3.5h4v13H3zM8 3.5h4v8H8zM13 3.5h4v10h-4z" />,
-    },
+  const nav: { v: 'home' | 'list' | 'calendar'; key: TKey; icon: ReactNode }[] = [
+    { v: 'home', key: 'nav.home', icon: <path d="M3 9.5L10 3.5l7 6M5 8.5V16h10V8.5M8.5 16v-4.5h3V16" strokeLinecap="round" strokeLinejoin="round" /> },
     { v: 'list', key: 'nav.list', icon: <path d="M3 5h14M3 10h14M3 15h14" strokeLinecap="round" /> },
-    {
-      v: 'calendar',
-      key: 'nav.calendar',
-      icon: <path d="M3 5h14v12H3zM3 8.5h14M7 3v3.5M13 3v3.5" strokeLinecap="round" />,
-    },
+    { v: 'calendar', key: 'nav.calendar', icon: <path d="M3 5h14v12H3zM3 8.5h14M7 3v3.5M13 3v3.5" strokeLinecap="round" /> },
   ];
 
-  return createPortal(
-    <div className={`side-backdrop${closing ? ' is-closing' : ''}`} onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <aside className={`sidebar${closing ? ' is-closing' : ''}`} role="dialog" aria-modal="true" aria-label={t('side.title')}>
+  const body = (
+    <aside className={`sidebar${docked ? ' is-docked' : ''}${closing ? ' is-closing' : ''}`} role={docked ? 'navigation' : 'dialog'} aria-modal={docked ? undefined : true} aria-label={t('side.title')}>
+      {!docked && (
         <header className="side-head">
           <span className="side-brand">
             <span className="brand-mark" aria-hidden="true">
@@ -371,229 +430,218 @@ function Sidebar({ onClose: closeNow }: { onClose: () => void }) {
             ✕
           </button>
         </header>
+      )}
 
-        <nav className="side-section" aria-label={t('nav.label')}>
-          <div className="side-label">{t('side.views')}</div>
+      <nav className="side-section" aria-label={t('nav.label')}>
+        {nav.map(({ v, key, icon }) => (
           <button
+            key={v}
             type="button"
-            className={`side-item${view === 'home' ? ' on' : ''}`}
+            className={`side-item${view === v ? ' on' : ''}`}
             onClick={() => {
-              setView('home');
+              setView(v);
               onClose();
             }}
           >
-            <svg viewBox="0 0 20 20" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M3 9.5L10 3.5l7 6M5 8.5V16h10V8.5M8.5 16v-4.5h3V16" />
+            <svg viewBox="0 0 20 20" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5">
+              {icon}
             </svg>
-            {t('nav.home')}
+            {t(key)}
           </button>
-          {views.map(({ v, key, icon }) =>
-            v === 'kanban' ? (
-              <div key={v} className="side-dropdown">
-                <button
-                  type="button"
-                  className={`side-item${view === v ? ' on' : ''}`}
-                  aria-expanded={boardMenu}
-                  aria-haspopup="listbox"
-                  onClick={() => {
-                    setView('kanban');
-                    setBoardMenu((o) => !o);
-                  }}
-                >
-                  <svg viewBox="0 0 20 20" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5">
-                    {icon}
-                  </svg>
-                  <span className="side-item-text">{t(key)}</span>
-                  {activeBoardName && <span className="side-current">{activeBoardName}</span>}
-                  <svg className="side-caret" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
-                    <path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </button>
-                {boardMenu && (
-                  <div className="side-board-menu" role="listbox" aria-label={t('side.pickBoard')}>
-                    {projects.every((p) => p.boards.length === 0) && <p className="side-empty">{t('side.noBoardsAny')}</p>}
-                    {(['personal', 'team'] as const).map((kind) =>
-                      projects
-                        .filter((p) => (p.kind ?? 'team') === kind && p.boards.length > 0)
-                        .map((p) => (
-                          <div key={p.id} className="side-board-group">
-                            <div className="side-board-group-name">
-                              <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                                {kind === 'personal' ? (
-                                  <>
-                                    <circle cx="8" cy="5.5" r="2.4" />
-                                    <path d="M3.2 13c.6-2 2.3-3.2 4.8-3.2s4.2 1.2 4.8 3.2" />
-                                  </>
-                                ) : (
-                                  <>
-                                    <circle cx="5.8" cy="6" r="2.1" />
-                                    <circle cx="11" cy="6.6" r="1.7" />
-                                    <path d="M1.8 13c.5-1.8 2-2.8 4-2.8s3.5 1 4 2.8M10.4 10.4c1.6 0 2.9.8 3.4 2.4" />
-                                  </>
-                                )}
-                              </svg>
-                              <span className="side-board-group-text">{p.name}</span>
-                            </div>
-                            {p.boards.map((b) => (
-                              <button
-                                key={b.id}
-                                type="button"
-                                role="option"
-                                aria-selected={b.id === activeBoardId}
-                                className={`side-item side-board${b.id === activeBoardId ? ' on' : ''}`}
-                                onClick={() => void open(b.id, 'kanban')}
-                              >
-                                <span className="side-board-name">{b.name}</span>
-                                {b.id === activeBoardId && (
-                                  <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
-                                    <path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                                  </svg>
-                                )}
-                              </button>
-                            ))}
-                          </div>
-                        )),
-                    )}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <button key={v} type="button" className={`side-item${view === v ? ' on' : ''}`} onClick={() => setView(v)}>
-                <svg viewBox="0 0 20 20" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  {icon}
-                </svg>
-                {t(key)}
-              </button>
-            ),
-          )}
-        </nav>
+        ))}
+      </nav>
 
-        {(['personal', 'team'] as const).map((kind) => {
-          const list = projects.filter((p) => (p.kind ?? 'team') === kind);
-          const unread = kind === 'team' ? unreadProjects : 0;
-          return (
-            <div key={kind} className={`side-section side-projects is-${kind}`}>
-              <div className="side-label side-label-row">
-                <span>
-                  {t(kind === 'personal' ? 'side.personalProjects' : 'side.teamProjects')}
-                  {unread > 0 && <span className="side-dot-count">{unread}</span>}
-                </span>
-                <button
-                  type="button"
-                  className="side-add"
-                  title={t(kind === 'personal' ? 'side.newPersonal' : 'social.newProject')}
-                  aria-label={t(kind === 'personal' ? 'side.newPersonal' : 'social.newProject')}
-                  onClick={() => setDialog({ kind: 'createProject', projectKind: kind })}
-                >
-                  +
-                </button>
-              </div>
-              {list.length === 0 && <p className="side-empty">{t(kind === 'personal' ? 'side.noPersonal' : 'side.noProjects')}</p>}
-              {list.map((p) => {
-                const isNew = unreadByProject.has(p.id);
-                const isOpen = expanded.has(p.id);
-                return (
-                  <div key={p.id} className="side-project">
-                    <div className={`side-prow${p.id === current?.id ? ' is-current' : ''}`}>
-                      <button type="button" className="side-prow-main" aria-expanded={isOpen} onClick={() => toggleProject(p)} title={p.name}>
-                        <svg className="side-chevron" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
-                          <path d="M6 4l4 4-4 4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                        <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5">
-                          <path d="M2.5 5.5h5l1.6 1.8h8.4v8.2h-15z" />
-                        </svg>
-                        <span className="side-project-name">{p.name}</span>
-                        {isNew && <span className="side-new" aria-label={t('side.newProjectBadge')} title={t('side.newProjectBadge')} />}
-                        {kind === 'team' && (
-                          <span className={`role-badge${p.role === 'host' ? ' is-host' : ''}`}>{p.role === 'host' ? t('social.host') : t('social.member')}</span>
-                        )}
-                      </button>
-                      <button
-                        type="button"
-                        className="side-icon"
-                        title={kind === 'team' ? t('social.manageProject') : t('side.manageProject')}
-                        aria-label={`${kind === 'team' ? t('social.manageProject') : t('side.manageProject')}: ${p.name}`}
-                        onClick={() => setDialog({ kind: 'manage', projectId: p.id })}
-                      >
-                        <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round">
-                          <circle cx="8" cy="8" r="2.2" />
-                          <path d="M8 1.8v1.7M8 12.5v1.7M1.8 8h1.7M12.5 8h1.7M3.6 3.6l1.2 1.2M11.2 11.2l1.2 1.2M12.4 3.6l-1.2 1.2M4.8 11.2l-1.2 1.2" />
-                        </svg>
+      <div className="side-section side-projects is-teams">
+        <div className="side-prow">
+          <button type="button" className="side-prow-main side-teams-head" aria-expanded={teamsOpen} onClick={() => setTeamsOpen((v) => !v)}>
+            <svg className="side-chevron" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
+              <path d="M6 4l4 4-4 4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            <TeamIcon size={16} />
+            <span className="side-project-name">{t('side.teams')}</span>
+          </button>
+          <button type="button" className="side-add" title={t('side.newTeam')} aria-label={t('side.newTeam')} onClick={() => setDialog({ kind: 'createTeam' })}>
+            +
+          </button>
+        </div>
+        {teamsOpen && (
+          <div className="side-sub">
+            <button
+              type="button"
+              className={`side-item${view === 'teams' ? ' on' : ''}`}
+              onClick={() => {
+                setView('teams');
+                onClose();
+              }}
+            >
+              <TeamIcon size={16} />
+              {t('teams.title')}
+            </button>
+            <button
+              type="button"
+              className={`side-item${view === 'people' ? ' on' : ''}`}
+              onClick={() => {
+                setView('people');
+                onClose();
+              }}
+            >
+              <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                <circle cx="8" cy="5.5" r="2.4" />
+                <path d="M3.2 13c.6-2 2.3-3.2 4.8-3.2s4.2 1.2 4.8 3.2" />
+              </svg>
+              {t('people.title')}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {(['personal', 'team'] as const).map((kind) => {
+        const list = projects.filter((p) => (p.kind ?? 'team') === kind);
+        const unread = kind === 'team' ? unreadProjects : 0;
+        return (
+          <div key={kind} className={`side-section side-projects is-${kind}`}>
+            <div className="side-label side-label-row">
+              <span>
+                {t(kind === 'personal' ? 'side.personalProjects' : 'side.teamProjects')}
+                {unread > 0 && <span className="side-dot-count">{unread}</span>}
+              </span>
+              <button
+                type="button"
+                className="side-add"
+                title={t(kind === 'personal' ? 'side.newPersonal' : 'social.newProject')}
+                aria-label={t(kind === 'personal' ? 'side.newPersonal' : 'social.newProject')}
+                onClick={() => setDialog({ kind: 'createProject', projectKind: kind })}
+              >
+                +
+              </button>
+            </div>
+            {list.length === 0 && <p className="side-empty">{t(kind === 'personal' ? 'side.noPersonal' : 'side.noProjects')}</p>}
+            {list.map((p) => {
+              const isNew = unreadByProject.has(p.id);
+              const isOpen = expanded.has(p.id);
+              return (
+                <div key={p.id} className="side-project">
+                  <div className={`side-prow${p.id === current?.id ? ' is-current' : ''}`}>
+                    <button type="button" className="side-prow-main" aria-expanded={isOpen} onClick={() => toggleProject(p)} title={p.name}>
+                      <svg className="side-chevron" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
+                        <path d="M6 4l4 4-4 4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                      <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5">
+                        <path d="M2.5 5.5h5l1.6 1.8h8.4v8.2h-15z" />
+                      </svg>
+                      <span className="side-project-name">{p.name}</span>
+                      {isNew && <span className="side-new" aria-label={t('side.newProjectBadge')} title={t('side.newProjectBadge')} />}
+                      {kind === 'team' && (
+                        <span className={`role-badge${p.role === 'host' ? ' is-host' : ''}`}>{p.role === 'host' ? t('social.host') : t('social.member')}</span>
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      className="side-icon"
+                      title={kind === 'team' ? t('social.manageProject') : t('side.manageProject')}
+                      aria-label={`${kind === 'team' ? t('social.manageProject') : t('side.manageProject')}: ${p.name}`}
+                      onClick={() => setDialog({ kind: 'manage', projectId: p.id })}
+                    >
+                      <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round">
+                        <circle cx="8" cy="8" r="2.2" />
+                        <path d="M8 1.8v1.7M8 12.5v1.7M1.8 8h1.7M12.5 8h1.7M3.6 3.6l1.2 1.2M11.2 11.2l1.2 1.2M12.4 3.6l-1.2 1.2M4.8 11.2l-1.2 1.2" />
+                      </svg>
+                    </button>
+                  </div>
+                  {isOpen && (
+                    <div className="side-board-menu side-project-boards" role="listbox" aria-label={p.name}>
+                      {p.boards.length === 0 && <p className="side-empty">{t('side.noBoards')}</p>}
+                      {p.boards.map((b) => (
+                        <button
+                          key={b.id}
+                          type="button"
+                          role="option"
+                          aria-selected={b.id === activeBoardId}
+                          className={`side-item side-board${b.id === activeBoardId && view !== 'home' ? ' on' : ''}`}
+                          onClick={() => void open(b.id, 'kanban')}
+                        >
+                          <span className="side-board-name">{b.name}</span>
+                          {b.id === activeBoardId && (
+                            <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+                              <path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          )}
+                        </button>
+                      ))}
+                      <button type="button" className="side-item side-board side-newboard" onClick={() => setDialog({ kind: 'createBoard', projectId: p.id })}>
+                        <span className="side-board-name">＋ {t('side.newBoard')}</span>
                       </button>
                     </div>
-                    {isOpen && (
-                      <div className="side-board-menu side-project-boards" role="listbox" aria-label={p.name}>
-                        {p.boards.length === 0 && <p className="side-empty">{t('side.noBoards')}</p>}
-                        {p.boards.map((b) => (
-                          <button
-                            key={b.id}
-                            type="button"
-                            role="option"
-                            aria-selected={b.id === activeBoardId}
-                            className={`side-item side-board${b.id === activeBoardId ? ' on' : ''}`}
-                            onClick={() => void open(b.id, 'kanban')}
-                          >
-                            <span className="side-board-name">{b.name}</span>
-                            {b.id === activeBoardId && (
-                              <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
-                                <path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                              </svg>
-                            )}
-                          </button>
-                        ))}
-                        <button type="button" className="side-item side-board side-newboard" onClick={() => setDialog({ kind: 'createBoard', projectId: p.id })}>
-                          <span className="side-board-name">＋ {t('side.newBoard')}</span>
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          );
-        })}
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        );
+      })}
 
-        {dialog?.kind === 'createProject' && (
-          <NameDialog
-            title={t(dialog.projectKind === 'personal' ? 'side.newPersonal' : 'social.newProject')}
-            label={t('social.projectName')}
-            placeholder={t(dialog.projectKind === 'personal' ? 'side.personalNamePh' : 'social.projectNamePh')}
-            hint={t(dialog.projectKind === 'personal' ? 'side.newPersonalHint' : 'social.newProjectHint')}
-            submitLabel={t('social.create')}
-            onClose={() => setDialog(null)}
-            onSubmit={async (name) => {
-              const p = await createProject(name, dialog.projectKind);
-              setExpanded((prev) => new Set(prev).add(p.id));
-              setDialog({ kind: 'createBoard', projectId: p.id });
-            }}
-          />
-        )}
-        {dialog?.kind === 'createBoard' && (
-          <NameDialog
-            title={t('side.newBoard')}
-            label={t('side.boardName')}
-            placeholder={t('side.boardNamePh')}
-            submitLabel={t('side.createBoard')}
-            onClose={() => setDialog(null)}
-            onSubmit={async (name) => {
-              const b = await createBoard(dialog.projectId, name);
-              setDialog(null);
-              await open(b.id);
-            }}
-          />
-        )}
-        {dialog?.kind === 'manage' && (
-          <ManageProjectDialog
-            projectId={dialog.projectId}
-            onClose={() => setDialog(null)}
-            onLeft={async () => {
-              setDialog(null);
-              if (current?.id === dialog.projectId || !board) await open(null);
-              else await refreshPeople();
-            }}
-          />
-        )}
-      </aside>
+      {dialog?.kind === 'createProject' && (
+        <NameDialog
+          title={t(dialog.projectKind === 'personal' ? 'side.newPersonal' : 'social.newProject')}
+          label={t('social.projectName')}
+          placeholder={t(dialog.projectKind === 'personal' ? 'side.personalNamePh' : 'social.projectNamePh')}
+          hint={t(dialog.projectKind === 'personal' ? 'side.newPersonalHint' : 'social.newProjectHint')}
+          submitLabel={t('social.create')}
+          onClose={() => setDialog(null)}
+          onSubmit={async (name) => {
+            const p = await createProject(name, dialog.projectKind);
+            setExpanded((prev) => new Set(prev).add(p.id));
+            setDialog({ kind: 'createBoard', projectId: p.id });
+          }}
+        />
+      )}
+      {dialog?.kind === 'createBoard' && (
+        <NameDialog
+          title={t('side.newBoard')}
+          label={t('side.boardName')}
+          placeholder={t('side.boardNamePh')}
+          submitLabel={t('side.createBoard')}
+          onClose={() => setDialog(null)}
+          onSubmit={async (name) => {
+            const b = await createBoard(dialog.projectId, name);
+            setDialog(null);
+            await open(b.id);
+          }}
+        />
+      )}
+      {dialog?.kind === 'createTeam' && (
+        <NameDialog
+          title={t('side.newTeam')}
+          label={t('team.name')}
+          placeholder={t('team.namePh')}
+          hint={t('team.newHint')}
+          submitLabel={t('social.create')}
+          onClose={() => setDialog(null)}
+          onSubmit={async (name) => {
+            const id = await createTeam(name);
+            setDialog({ kind: 'manageTeam', teamId: id });
+          }}
+        />
+      )}
+      {dialog?.kind === 'manageTeam' && <ManageTeamDialog teamId={dialog.teamId} onClose={() => setDialog(null)} />}
+      {dialog?.kind === 'manage' && (
+        <ManageProjectDialog
+          projectId={dialog.projectId}
+          onClose={() => setDialog(null)}
+          onLeft={async () => {
+            setDialog(null);
+            if (current?.id === dialog.projectId || !board) await open(null);
+            else await refreshPeople();
+          }}
+        />
+      )}
+    </aside>
+  );
+
+  if (docked) return body;
+  return createPortal(
+    <div className={`side-backdrop${closing ? ' is-closing' : ''}`} onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      {body}
     </div>,
     document.body,
   );
@@ -628,7 +676,7 @@ export function Dialog({ title, onClose, children }: { title: string; onClose: (
 }
 
 /** Hộp thoại nhập một cái tên (tạo dự án, tạo bảng) */
-function NameDialog({
+export function NameDialog({
   title,
   label,
   placeholder,
@@ -686,7 +734,7 @@ function NameDialog({
 function ManageProjectDialog({ projectId, onClose, onLeft }: { projectId: string; onClose: () => void; onLeft: () => void }) {
   const t = useT();
   const me = useSession((s) => s.user);
-  const { friends, projects } = usePeople();
+  const { projects, teams: myTeams } = usePeople();
   const project = projects.find((p) => p.id === projectId);
   const isHost = project?.role === 'host';
   const isPersonal = project?.kind === 'personal';
@@ -695,6 +743,7 @@ function ManageProjectDialog({ projectId, onClose, onLeft }: { projectId: string
   const [pick, setPick] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
+  const [teams, setTeams] = useState<ProjectTeam[]>([]);
   // Đang đổi tên bảng ngay trên dòng (thay cho hộp nhập của trình duyệt)
   const [editing, setEditing] = useState<{ id: string; name: string } | null>(null);
 
@@ -702,7 +751,10 @@ function ManageProjectDialog({ projectId, onClose, onLeft }: { projectId: string
   useEffect(() => {
     api
       .project(projectId)
-      .then((r) => setMembers(r.members))
+      .then((r) => {
+        setMembers(r.members);
+        setTeams(r.teams);
+      })
       .catch((err) => setError(t(errKey(err))));
   }, [projectId, t]);
 
@@ -714,7 +766,7 @@ function ManageProjectDialog({ projectId, onClose, onLeft }: { projectId: string
       setError(t(errKey(err)));
     }
   };
-  const candidates = friends.filter((f) => !members.some((m) => m.id === f.id));
+  const attachable = myTeams.filter((tm) => !teams.some((x) => x.id === tm.id));
 
   return (
     <Dialog title={t(isPersonal ? 'side.manageProject' : 'social.manageProject')} onClose={onClose}>
@@ -753,32 +805,95 @@ function ManageProjectDialog({ projectId, onClose, onLeft }: { projectId: string
         </label>
 
         {!isPersonal && (
-        <div className="field dlg-section">
-          <span>
-            {t('social.members')} · {members.length}
-          </span>
-          <ul className="people">
-            {members.map((m) => (
-              <PersonRow
-                key={m.id}
-                user={m}
-                badge={<span className={`role-badge${m.role === 'host' ? ' is-host' : ''}`}>{m.role === 'host' ? t('social.host') : t('social.member')}</span>}
-              >
-                {isHost && m.role !== 'host' && (
-                  <button
-                    type="button"
-                    className="person-x"
-                    title={t('social.removeMember')}
-                    aria-label={`${t('social.removeMember')}: ${m.email}`}
-                    onClick={() => void run(async () => setMembers(await removeMember(projectId, m.id)))}
-                  >
-                    <TrashIcon />
-                  </button>
+          <div className="field dlg-section">
+            <span>
+              {t('proj.teams')} · {teams.length}
+            </span>
+            <p className="hint">{t('proj.teamsHint')}</p>
+            {teams.length === 0 && <p className="hint">{t('proj.noTeams')}</p>}
+            <ul className="people">
+              {teams.map((tm) => (
+                <li key={tm.id} className="person board-row">
+                  <span className="board-ico" aria-hidden="true">
+                    <TeamIcon size={16} />
+                  </span>
+                  <span className="person-id">
+                    <strong>{tm.name}</strong>
+                    <small>{t('team.people', { n: tm.memberCount })}</small>
+                  </span>
+                  {isHost && (
+                    <span className="person-actions">
+                      <button
+                        type="button"
+                        className="person-x"
+                        title={t('proj.detach')}
+                        aria-label={`${t('proj.detach')}: ${tm.name}`}
+                        onClick={() =>
+                          void run(async () => {
+                            const r = await detachTeam(projectId, tm.id);
+                            setMembers(r.members);
+                            setTeams(r.teams);
+                          })
+                        }
+                      >
+                        <TrashIcon />
+                      </button>
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+            {isHost && (
+              <>
+                {attachable.length === 0 ? (
+                  <p className="hint">{t('proj.noTeamsToAttach')}</p>
+                ) : (
+                  <div className="social-add-row">
+                    <select id="project-attach-team" value={pick} onChange={(e) => setPick(e.target.value)} aria-label={t('proj.attachTeam')}>
+                      <option value="">{t('proj.pickTeam')}</option>
+                      {attachable.map((tm) => (
+                        <option key={tm.id} value={tm.id}>
+                          {tm.name} · {t('team.people', { n: tm.members.length })}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      className="btn primary sm"
+                      disabled={!pick}
+                      onClick={() =>
+                        void run(async () => {
+                          const r = await attachTeam(projectId, pick);
+                          setMembers(r.members);
+                          setTeams(r.teams);
+                          setPick('');
+                        })
+                      }
+                    >
+                      {t('proj.attach')}
+                    </button>
+                  </div>
                 )}
-              </PersonRow>
-            ))}
-          </ul>
-        </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {!isPersonal && (
+          <div className="field dlg-section">
+            <span>
+              {t('proj.members')} · {members.length}
+            </span>
+            <ul className="people">
+              {members.map((m) => (
+                <PersonRow
+                  key={m.id}
+                  user={m}
+                  badge={<span className={`role-badge${m.role === 'host' ? ' is-host' : ''}`}>{m.role === 'host' ? t('social.host') : t('social.member')}</span>}
+                />
+              ))}
+            </ul>
+          </div>
         )}
 
         {project && (
@@ -859,39 +974,6 @@ function ManageProjectDialog({ projectId, onClose, onLeft }: { projectId: string
           </div>
         )}
 
-        {isHost && !isPersonal && (
-          <div className="field dlg-section">
-            <span>{t('social.addMember')}</span>
-            {candidates.length === 0 ? (
-              <p className="hint">{t('social.noCandidates')}</p>
-            ) : (
-              <div className="social-add-row">
-                <select id="project-add-member" value={pick} onChange={(e) => setPick(e.target.value)}>
-                  <option value="">{t('social.pickFriend')}</option>
-                  {candidates.map((f) => (
-                    <option key={f.id} value={f.id}>
-                      {f.name ? `${f.name} · ${f.email}` : f.email}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  className="btn primary sm"
-                  disabled={!pick}
-                  onClick={() =>
-                    void run(async () => {
-                      setMembers(await addMember(projectId, pick));
-                      setPick('');
-                    })
-                  }
-                >
-                  {t('social.add')}
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-
         {error && <small className="error">{error}</small>}
 
         <footer className="modal-foot">
@@ -917,13 +999,174 @@ function ManageProjectDialog({ projectId, onClose, onLeft }: { projectId: string
               onClick={() =>
                 void run(async () => {
                   if (!me || !(await askConfirm({ message: t('social.leaveConfirm', { name: project?.name ?? '' }), confirmLabel: t('social.leave'), danger: true }))) return;
-                  await removeMember(projectId, me.id);
+                  await leaveProject(projectId);
                   onClose();
                   onLeft();
                 })
               }
             >
               {t('social.leave')}
+            </button>
+          )}
+          <span className="spacer" />
+          <button type="button" className="btn ghost" onClick={onClose}>
+            {t('data.close')}
+          </button>
+        </footer>
+      </div>
+    </Dialog>
+  );
+}
+
+export function TeamIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg viewBox="0 0 16 16" width={size} height={size} aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+      <circle cx="5.8" cy="6" r="2.1" />
+      <circle cx="11" cy="6.6" r="1.7" />
+      <path d="M1.8 13c.5-1.8 2-2.8 4-2.8s3.5 1 4 2.8M10.4 10.4c1.6 0 2.9.8 3.4 2.4" />
+    </svg>
+  );
+}
+
+/** Quản lý một nhóm: đổi tên, thêm / bớt thành viên (chủ nhóm), xem dự án đang dùng nhóm, rời / xoá nhóm */
+export function ManageTeamDialog({ teamId, onClose }: { teamId: string; onClose: () => void }) {
+  const t = useT();
+  const me = useSession((s) => s.user);
+  const { friends, teams } = usePeople();
+  const team: TeamInfo | undefined = teams.find((x) => x.id === teamId);
+  const isOwner = team?.role === 'owner';
+  const [name, setName] = useState(team?.name ?? '');
+  const [pick, setPick] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  // Nhóm bị xoá (hoặc mình bị bỏ khỏi nhóm) thì đóng hộp thoại
+  useEffect(() => {
+    if (!team) onClose();
+  }, [team, onClose]);
+  if (!team) return null;
+
+  const run = async (fn: () => Promise<unknown>) => {
+    setError(null);
+    try {
+      await fn();
+    } catch (err) {
+      setError(t(errKey(err)));
+    }
+  };
+  const candidates = friends.filter((f) => !team.members.some((m) => m.id === f.id));
+
+  return (
+    <Dialog title={t('team.manage')} onClose={onClose}>
+      <div className="project-form">
+        <label className="field">
+          <span>{t('team.name')}</span>
+          <div className="social-add-row">
+            <input id="team-rename" value={name} disabled={!isOwner} maxLength={80} onChange={(e) => setName(e.target.value)} />
+            {isOwner && (
+              <button type="button" className="btn primary sm" disabled={!name.trim() || name.trim() === team.name} onClick={() => void run(() => renameTeam(team.id, name))}>
+                {t('modal.save')}
+              </button>
+            )}
+          </div>
+        </label>
+
+        <div className="field dlg-section">
+          <span>
+            {t('team.members')} · {team.members.length}
+          </span>
+          <ul className="people">
+            {team.members.map((m) => (
+              <PersonRow key={m.id} user={m} badge={<span className={`role-badge${m.role === 'owner' ? ' is-host' : ''}`}>{m.role === 'owner' ? t('team.owner') : t('team.member')}</span>}>
+                {isOwner && m.role !== 'owner' && (
+                  <button
+                    type="button"
+                    className="person-x"
+                    title={t('team.removeMember')}
+                    aria-label={`${t('team.removeMember')}: ${m.email}`}
+                    onClick={() => void run(() => removeTeamMember(team.id, m.id))}
+                  >
+                    <TrashIcon />
+                  </button>
+                )}
+              </PersonRow>
+            ))}
+          </ul>
+        </div>
+
+        {isOwner && (
+          <div className="field dlg-section">
+            <span>{t('team.addMember')}</span>
+            {candidates.length === 0 ? (
+              <p className="hint">{t('social.noCandidates')}</p>
+            ) : (
+              <div className="social-add-row">
+                <select id="team-add-member" value={pick} onChange={(e) => setPick(e.target.value)}>
+                  <option value="">{t('social.pickFriend')}</option>
+                  {candidates.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.name ? `${f.name} · ${f.email}` : f.email}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  className="btn primary sm"
+                  disabled={!pick}
+                  onClick={() =>
+                    void run(async () => {
+                      await addTeamMember(team.id, pick);
+                      setPick('');
+                    })
+                  }
+                >
+                  {t('social.add')}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="field dlg-section">
+          <span>{t('team.usedIn')}</span>
+          {team.projects.length === 0 ? (
+            <p className="hint">{t('team.noProjects')}</p>
+          ) : (
+            <ul className="team-projects">
+              {team.projects.map((p) => (
+                <li key={p.id}>{p.name}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {error && <small className="error">{error}</small>}
+
+        <footer className="modal-foot">
+          {isOwner ? (
+            <button
+              type="button"
+              className="btn danger-ghost"
+              onClick={() =>
+                void run(async () => {
+                  if (!(await askConfirm({ message: t('team.deleteConfirm', { name: team.name }), confirmLabel: t('team.delete'), danger: true }))) return;
+                  await deleteTeam(team.id);
+                })
+              }
+            >
+              {t('team.delete')}
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="btn danger-ghost"
+              onClick={() =>
+                void run(async () => {
+                  if (!me || !(await askConfirm({ message: t('team.leaveConfirm', { name: team.name }), confirmLabel: t('team.leave'), danger: true }))) return;
+                  await removeTeamMember(team.id, me.id);
+                })
+              }
+            >
+              {t('team.leave')}
             </button>
           )}
           <span className="spacer" />

@@ -35,7 +35,6 @@ import {
   readNotifications,
   renameBoard,
   addLink,
-  addMember,
   boardAccess,
   deleteLink,
   listLinks,
@@ -47,11 +46,11 @@ import {
   listFriends,
   listProjects,
   removeFriend,
-  removeMember,
   renameProject,
   requestFriend,
   requireUuid,
 } from './_lib/social.js';
+import { addTeamMember, attachTeam, createTeam, deleteTeam, detachTeam, leaveProject, listTeams, removeTeamMember, renameTeam } from './_lib/teams.js';
 import { HttpError, clientIp, route } from './_lib/http.js';
 import { mailConfigured, resetEmail, sendMail } from './_lib/mail.js';
 
@@ -563,21 +562,90 @@ app.post(
   }),
 );
 
-app.post(
-  '/api/projects/:id/members',
+/* ---------- nhóm (team) ---------- */
+
+app.get(
+  '/api/teams',
   requireUser,
   route(async (req, res) => {
-    const memberId = requireUuid((req.body as { userId?: unknown })?.userId);
-    res.json({ members: await addMember(req.user!.id, requireUuid(req.params.id), memberId) });
+    res.json({ teams: await listTeams(req.user!.id) });
   }),
 );
 
-// Host bỏ thành viên, hoặc thành viên tự rời (userId = chính mình)
-app.delete(
-  '/api/projects/:id/members/:userId',
+app.post(
+  '/api/teams',
   requireUser,
   route(async (req, res) => {
-    res.json({ members: await removeMember(req.user!.id, requireUuid(req.params.id), requireUuid(req.params.userId)) });
+    const id = await createTeam(req.user!.id, (req.body as { name?: unknown })?.name);
+    res.status(201).json({ id, teams: await listTeams(req.user!.id) });
+  }),
+);
+
+app.patch(
+  '/api/teams/:id',
+  requireUser,
+  route(async (req, res) => {
+    await renameTeam(req.user!.id, requireUuid(req.params.id), (req.body as { name?: unknown })?.name);
+    res.json({ teams: await listTeams(req.user!.id) });
+  }),
+);
+
+app.delete(
+  '/api/teams/:id',
+  requireUser,
+  route(async (req, res) => {
+    await deleteTeam(req.user!.id, requireUuid(req.params.id));
+    res.json({ teams: await listTeams(req.user!.id) });
+  }),
+);
+
+app.post(
+  '/api/teams/:id/members',
+  requireUser,
+  route(async (req, res) => {
+    await addTeamMember(req.user!.id, requireUuid(req.params.id), requireUuid((req.body as { userId?: unknown })?.userId));
+    res.json({ teams: await listTeams(req.user!.id) });
+  }),
+);
+
+// Chủ nhóm bỏ thành viên, hoặc thành viên tự rời nhóm (userId = chính mình)
+app.delete(
+  '/api/teams/:id/members/:userId',
+  requireUser,
+  route(async (req, res) => {
+    await removeTeamMember(req.user!.id, requireUuid(req.params.id), requireUuid(req.params.userId));
+    res.json({ teams: await listTeams(req.user!.id) });
+  }),
+);
+
+// Host gắn / gỡ nhóm khỏi dự án
+app.post(
+  '/api/projects/:id/teams',
+  requireUser,
+  route(async (req, res) => {
+    const projectId = requireUuid(req.params.id);
+    await attachTeam(req.user!.id, projectId, requireUuid((req.body as { teamId?: unknown })?.teamId));
+    res.json(await getProject(req.user!.id, projectId));
+  }),
+);
+
+app.delete(
+  '/api/projects/:id/teams/:teamId',
+  requireUser,
+  route(async (req, res) => {
+    const projectId = requireUuid(req.params.id);
+    await detachTeam(req.user!.id, projectId, requireUuid(req.params.teamId));
+    res.json(await getProject(req.user!.id, projectId));
+  }),
+);
+
+// Thành viên rời dự án (rời các nhóm gắn vào dự án)
+app.post(
+  '/api/projects/:id/leave',
+  requireUser,
+  route(async (req, res) => {
+    await leaveProject(req.user!.id, requireUuid(req.params.id));
+    res.json({ ok: true });
   }),
 );
 

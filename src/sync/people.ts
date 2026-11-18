@@ -1,12 +1,14 @@
 /** Bạn bè, dự án và thành viên dự án đang mở (lấy từ API, không lưu offline) */
 import { create } from 'zustand';
-import { api, type ApiUser, type BoardInfo, type FriendLists, type Member, type ProjectInfo, type ServerNotice } from './api';
+import { api, type ApiUser, type BoardInfo, type FriendLists, type Member, type ProjectInfo, type ServerNotice, type TeamInfo } from './api';
 import { useSession } from './session';
 import { toast } from '../toast';
 import { quietly } from './activity';
 
 interface PeopleState extends FriendLists {
   projects: ProjectInfo[];
+  /** Các nhóm mình thuộc về */
+  teams: TeamInfo[];
   /** Thành viên của dự án đang mở */
   members: Member[];
   /** Thông báo từ máy chủ (ví dụ: được thêm vào dự án) */
@@ -19,6 +21,7 @@ export const usePeople = create<PeopleState>(() => ({
   incoming: [],
   outgoing: [],
   projects: [],
+  teams: [],
   members: [],
   notices: [],
   loaded: false,
@@ -33,6 +36,11 @@ export async function loadFriends() {
 export async function loadProjects() {
   const { projects } = await api.projects();
   set({ projects });
+}
+
+export async function loadTeams() {
+  const { teams } = await api.teams();
+  set({ teams });
 }
 
 export async function loadMembers(projectId: string | null) {
@@ -82,7 +90,7 @@ export async function readNotices(ids?: string[]) {
 export async function refreshPeople() {
   try {
     await quietly(async () => {
-      await Promise.all([loadFriends(), loadProjects(), loadNotices()]);
+      await Promise.all([loadFriends(), loadProjects(), loadTeams(), loadNotices()]);
       const board = useSession.getState().board;
       await loadMembers(projectOfBoard(board, usePeople.getState().projects)?.id ?? null);
     });
@@ -127,18 +135,55 @@ export async function deleteProject(id: string) {
   toast.success('toast.projectDeleted');
 }
 
-export async function addMember(projectId: string, userId: string) {
-  const { members } = await api.addMember(projectId, userId);
-  await refreshPeople();
-  toast.success('toast.memberAdded');
-  return members;
+export async function createTeam(name: string) {
+  const { id, teams } = await api.createTeam(name);
+  set({ teams });
+  toast.success('toast.teamCreated', { name: name.trim() });
+  return id;
 }
 
-export async function removeMember(projectId: string, userId: string) {
-  const { members } = await api.removeMember(projectId, userId);
+export async function renameTeam(id: string, name: string) {
+  set(await api.renameTeam(id, name));
+  toast.success('toast.teamRenamed', { name: name.trim() });
+}
+
+export async function deleteTeam(id: string) {
+  set(await api.deleteTeam(id));
+  await loadProjects();
+  toast.success('toast.teamDeleted');
+}
+
+export async function addTeamMember(teamId: string, userId: string) {
+  set(await api.addTeamMember(teamId, userId));
+  await loadMembers(projectOfBoard(useSession.getState().board, usePeople.getState().projects)?.id ?? null);
+  toast.success('toast.memberAdded');
+}
+
+export async function removeTeamMember(teamId: string, userId: string) {
+  set(await api.removeTeamMember(teamId, userId));
   await refreshPeople();
   toast.success('toast.memberRemoved');
-  return members;
+}
+
+/** Gắn nhóm vào dự án: thành viên của nhóm tự thành thành viên dự án */
+export async function attachTeam(projectId: string, teamId: string) {
+  const r = await api.attachTeam(projectId, teamId);
+  await refreshPeople();
+  toast.success('toast.teamAttached');
+  return r;
+}
+
+export async function detachTeam(projectId: string, teamId: string) {
+  const r = await api.detachTeam(projectId, teamId);
+  await refreshPeople();
+  toast.success('toast.teamDetached');
+  return r;
+}
+
+export async function leaveProject(projectId: string) {
+  await api.leaveProject(projectId);
+  await refreshPeople();
+  toast.success('toast.memberRemoved');
 }
 
 export async function createBoard(projectId: string, name: string) {

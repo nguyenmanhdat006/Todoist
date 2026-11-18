@@ -1,8 +1,8 @@
 /**
  * Bạn bè và dự án dùng chung.
  *  - Kết bạn bằng email: gửi lời mời → người kia chấp nhận. Nếu hai bên cùng mời nhau thì tự thành bạn.
- *  - Dự án: người tạo là host; host thêm/bớt thành viên (phải là bạn của host), đổi tên, xoá dự án.
- *    Thành viên xem và sửa bảng của dự án, có thể tự rời dự án.
+ *  - Dự án: người tạo là host; host gắn nhóm (team) vào dự án, đổi tên, xoá dự án.
+ *    Thành viên của các nhóm gắn vào dự án xem và sửa bảng của dự án (xem teams.ts).
  */
 import { db, tx } from './db.js';
 import { HttpError } from './http.js';
@@ -48,7 +48,7 @@ export async function friendIds(me: string): Promise<string[]> {
   return rows.map((r) => r.id);
 }
 
-async function areFriends(a: string, b: string) {
+export async function areFriends(a: string, b: string) {
   const { rows } = await db().query(
     `select 1 from friendships where status = 'accepted'
        and ((requester = $1 and addressee = $2) or (requester = $2 and addressee = $1))`,
@@ -155,7 +155,7 @@ async function freeKey(c: { query: (sql: string, args?: unknown[]) => Promise<{ 
   throw new HttpError(500, 'server_error');
 }
 
-function readName(v: unknown) {
+export function readName(v: unknown) {
   const name = typeof v === 'string' ? v.trim().replace(/\s+/g, ' ') : '';
   if (!name || name.length > 80) throw new HttpError(400, 'invalid_name');
   return name;
@@ -204,7 +204,7 @@ export async function projectRole(me: string, projectId: string): Promise<'host'
   return rows[0].role;
 }
 
-async function requireHost(me: string, projectId: string) {
+export async function requireHost(me: string, projectId: string) {
   if ((await projectRole(me, projectId)) !== 'host') throw new HttpError(403, 'host_only');
 }
 
@@ -225,7 +225,13 @@ export async function getProject(me: string, projectId: string) {
     projectId,
   ]);
   const boards = (await boardsOf([projectId])).get(projectId) ?? [];
-  return { project: { ...rows[0], role, boards }, members: await projectMembers(projectId) };
+  const { rows: teams } = await db().query(
+    `select t.id, t.name, (select count(*)::int from team_members x where x.team_id = t.id) as "memberCount"
+       from project_teams pt join teams t on t.id = pt.team_id
+      where pt.project_id = $1 order by t.name`,
+    [projectId],
+  );
+  return { project: { ...rows[0], role, boards }, members: await projectMembers(projectId), teams };
 }
 
 export type ProjectKind = 'personal' | 'team';
@@ -334,41 +340,6 @@ export async function deleteBoard(me: string, boardId: string) {
     for (const table of BOARD_TABLES) await c.query(`delete from ${table} where board_id = $1`, [boardId]);
     await c.query('delete from project_boards where id = $1', [boardId]);
   });
-}
-
-/* ---------- thành viên ---------- */
-
-export async function addMember(me: string, projectId: string, memberId: string) {
-  await requireHost(me, projectId);
-  const { rows: kindRows } = await db().query<{ kind: ProjectKind }>('select kind from projects where id = $1', [projectId]);
-  if (kindRows[0]?.kind === 'personal') throw new HttpError(400, 'personal_project');
-  if (!(await areFriends(me, memberId))) throw new HttpError(400, 'not_friend');
-  const { rowCount } = await db().query(
-    `insert into project_members (project_id, user_id, role) values ($1, $2, 'member') on conflict do nothing`,
-    [projectId, memberId],
-  );
-  if (rowCount) {
-    // Báo cho người vừa được thêm
-    const { rows } = await db().query<{ project: string; host: string }>(
-      `select p.name as project, coalesce(nullif(u.name, ''), u.email) as host
-         from projects p, users u where p.id = $1 and u.id = $2`,
-      [projectId, me],
-    );
-    await notify(memberId, 'project_added', { projectId, projectName: rows[0]?.project, by: rows[0]?.host });
-  }
-  return projectMembers(projectId);
-}
-
-/** Host bỏ một thành viên, hoặc thành viên tự rời dự án (host không rời được, chỉ xoá dự án) */
-export async function removeMember(me: string, projectId: string, memberId: string) {
-  const role = await projectRole(me, projectId);
-  if (memberId === me) {
-    if (role === 'host') throw new HttpError(400, 'host_cannot_leave');
-  } else if (role !== 'host') {
-    throw new HttpError(403, 'host_only');
-  }
-  await db().query(`delete from project_members where project_id = $1 and user_id = $2 and role <> 'host'`, [projectId, memberId]);
-  return memberId === me ? [] : projectMembers(projectId);
 }
 
 /* ---------- thông báo ---------- */
